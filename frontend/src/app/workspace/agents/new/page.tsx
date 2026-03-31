@@ -53,8 +53,8 @@ export default function NewAgentPage() {
       mode: "flash",
       is_bootstrap: true,
     },
-    onToolEnd({ name }) {
-      if (name !== "setup_agent" || !agentName) return;
+    onFinish() {
+      if (!agentName) return;
       getAgent(agentName)
         .then((fetched) => setAgent(fetched))
         .catch(() => {

@@ -70,3 +70,18 @@ def test_delete_conversation_returns_204_and_removes_record(tmp_path, monkeypatc
     assert response.status_code == 204
     assert list_response.status_code == 200
     assert list_response.json() == []
+
+
+def test_patch_conversation_updates_title_for_owner(tmp_path, monkeypatch):
+    monkeypatch.setenv("DEER_FLOW_AUTH_DB_PATH", str(tmp_path / "auth.db"))
+    create_owned_thread(user_id="user_a", biz_thread_id="conv_a", title="Alpha")
+
+    app = _build_app("user_a")
+    with TestClient(app) as client:
+        response = client.patch("/api/conversations/conv_a", json={"title": "Renamed"})
+        get_response = client.get("/api/conversations/conv_a")
+
+    assert response.status_code == 200
+    assert response.json()["title"] == "Renamed"
+    assert get_response.status_code == 200
+    assert get_response.json()["title"] == "Renamed"

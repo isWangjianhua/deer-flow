@@ -1,27 +1,51 @@
-import type { AIMessage, Message } from "@langchain/langgraph-sdk";
+import type { Message } from "@langchain/langgraph-sdk";
 import type { ThreadsClient } from "@langchain/langgraph-sdk/client";
-import { useStream } from "@langchain/langgraph-sdk/react";
+import { useChat } from "@ai-sdk/react";
+import { DefaultChatTransport, type UIMessage } from "ai";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
 
-import { getAPIClient } from "../api";
 import { getBackendBaseURL } from "../config";
 import { useI18n } from "../i18n/hooks";
 import type { FileInMessage } from "../messages/utils";
 import type { LocalSettings } from "../settings";
-import { useUpdateSubtask } from "../tasks/context";
+import {
+  createConversation,
+  listConversations,
+  updateConversation,
+} from "../chat/api";
+import type { ConversationSummary } from "../chat/types";
 import type { UploadedFileInfo } from "../uploads";
 import { uploadFiles } from "../uploads";
 
-import type { AgentThread, AgentThreadState } from "./types";
+import type { AgentThread, AgentThreadState, ThreadStreamLike } from "./types";
 
 export type ToolEndEvent = {
   name: string;
   data: unknown;
 };
+
+function conversationToAgentThread(
+  conversation: ConversationSummary,
+): AgentThread {
+  return {
+    thread_id: conversation.conversation_id,
+    created_at: conversation.created_at,
+    updated_at: conversation.updated_at,
+    status: "idle",
+    metadata: {},
+    interrupts: {},
+    values: {
+      title: conversation.title,
+      messages: [],
+      artifacts: [],
+      todos: [],
+    },
+  } as AgentThread;
+}
 
 export type ThreadStreamOptions = {
   threadId?: string | null | undefined;
@@ -55,21 +79,116 @@ function getStreamErrorMessage(error: unknown): string {
   return "Request failed.";
 }
 
+type ThreadStateResponse = {
+  values?: Partial<AgentThreadState>;
+};
+
+function bytesToDisplaySize(bytes: number): string {
+  const kb = bytes / 1024;
+  return kb < 1024 ? `${kb.toFixed(1)} KB` : `${(kb / 1024).toFixed(1)} MB`;
+}
+
+function buildUploadedFilesBlock(files: UploadedFileInfo[]): string {
+  const lines = ["<uploaded_files>", "The following files were uploaded in this message:", ""];
+  if (files.length === 0) {
+    lines.push("(empty)");
+  } else {
+    for (const file of files) {
+      lines.push(`- ${file.filename} (${bytesToDisplaySize(file.size)})`);
+      lines.push(`  Path: ${file.virtual_path}`);
+      lines.push("");
+    }
+  }
+  lines.push("You can read these files using the `read_file` tool with the paths shown above.");
+  lines.push("</uploaded_files>");
+  return lines.join("\n");
+}
+
+function extractTextFromUIMessage(message: UIMessage): string {
+  return message.parts
+    .map((part) => {
+      if (part.type === "text") {
+        return part.text;
+      }
+      return "";
+    })
+    .join("\n")
+    .trim();
+}
+
+function legacyMessageToUIMessage(message: Message): UIMessage {
+  const role =
+    message.type === "human"
+      ? "user"
+      : message.type === "ai"
+        ? "assistant"
+        : "assistant";
+  const text =
+    typeof message.content === "string"
+      ? message.content
+      : Array.isArray(message.content)
+        ? message.content
+            .map((part) => ("text" in part ? part.text : ""))
+            .join("\n")
+            .trim()
+        : "";
+  return {
+    id: String(message.id ?? crypto.randomUUID()),
+    role,
+    parts: text ? [{ type: "text", text }] : [],
+  } as UIMessage;
+}
+
+function uiMessageToLegacyMessage(message: UIMessage): Message {
+  const text = extractTextFromUIMessage(message);
+  return {
+    id: message.id,
+    type: message.role === "user" ? "human" : "ai",
+    content: text,
+    additional_kwargs: {},
+  } as Message;
+}
+
+async function fetchThreadState(threadId: string): Promise<AgentThreadState> {
+  const response = await fetch(
+    `${getBackendBaseURL()}/api/threads/${encodeURIComponent(threadId)}/state`,
+  );
+  if (!response.ok) {
+    throw new Error("Failed to load conversation state.");
+  }
+  const payload = (await response.json()) as ThreadStateResponse;
+  return {
+    title: payload.values?.title ?? "",
+    messages: (payload.values?.messages as Message[] | undefined) ?? [],
+    artifacts: payload.values?.artifacts ?? [],
+    todos: payload.values?.todos ?? [],
+  };
+}
+
 export function useThreadStream({
   threadId,
   context,
-  isMock,
+  isMock: _isMock,
   onStart,
   onFinish,
   onToolEnd,
 }: ThreadStreamOptions) {
   const { t } = useI18n();
-  // Track the thread ID that is currently streaming to handle thread changes during streaming
-  const [onStreamThreadId, setOnStreamThreadId] = useState(() => threadId);
-  // Ref to track current thread ID across async callbacks without causing re-renders,
-  // and to allow access to the current thread id in onUpdateEvent
+  const [currentConversationId, setCurrentConversationId] = useState<string | null>(
+    () => threadId ?? null,
+  );
+  const [threadValues, setThreadValues] = useState<AgentThreadState>({
+    title: "",
+    messages: [],
+    artifacts: [],
+    todos: [],
+  });
+  const [isThreadLoading, setIsThreadLoading] = useState(Boolean(threadId));
+  const [stateError, setStateError] = useState<Error | undefined>(undefined);
   const threadIdRef = useRef<string | null>(threadId ?? null);
   const startedRef = useRef(false);
+  const streamContextRef = useRef<Record<string, unknown>>({});
+  const statusRef = useRef<string>("ready");
 
   const listeners = useRef({
     onStart,
@@ -85,11 +204,19 @@ export function useThreadStream({
   useEffect(() => {
     const normalizedThreadId = threadId ?? null;
     if (!normalizedThreadId) {
-      // Just reset for new thread creation when threadId becomes null/undefined
       startedRef.current = false;
-      setOnStreamThreadId(normalizedThreadId);
+      setCurrentConversationId(null);
+      setThreadValues({
+        title: "",
+        messages: [],
+        artifacts: [],
+        todos: [],
+      });
+      setStateError(undefined);
+      setIsThreadLoading(false);
     }
     threadIdRef.current = normalizedThreadId;
+    setCurrentConversationId(normalizedThreadId);
   }, [threadId]);
 
   const _handleOnStart = useCallback((id: string) => {
@@ -99,109 +226,138 @@ export function useThreadStream({
     }
   }, []);
 
-  const handleStreamStart = useCallback(
-    (_threadId: string) => {
-      threadIdRef.current = _threadId;
-      _handleOnStart(_threadId);
+  const queryClient = useQueryClient();
+
+  const refreshThreadState = useCallback(
+    async (conversationId: string) => {
+      setIsThreadLoading(true);
+      try {
+        const state = await fetchThreadState(conversationId);
+        setThreadValues(state);
+        setStateError(undefined);
+        return state;
+      } catch (error) {
+        const normalized =
+          error instanceof Error
+            ? error
+            : new Error("Failed to load conversation state.");
+        setStateError(normalized);
+        throw normalized;
+      } finally {
+        setIsThreadLoading(false);
+      }
     },
-    [_handleOnStart],
+    [],
   );
 
-  const queryClient = useQueryClient();
-  const updateSubtask = useUpdateSubtask();
-
-  const thread = useStream<AgentThreadState>({
-    client: getAPIClient(isMock),
-    assistantId: "lead_agent",
-    threadId: onStreamThreadId,
-    reconnectOnMount: true,
-    fetchStateHistory: { limit: 1 },
-    onCreated(meta) {
-      handleStreamStart(meta.thread_id);
-      setOnStreamThreadId(meta.thread_id);
-    },
-    onLangChainEvent(event) {
-      if (event.event === "on_tool_end") {
-        listeners.current.onToolEnd?.({
-          name: event.name,
-          data: event.data,
-        });
+  const {
+    messages: uiMessages,
+    sendMessage: sendChatMessage,
+    status,
+    stop,
+    setMessages,
+    error,
+  } = useChat({
+    id: currentConversationId ?? "pending-conversation",
+    messages: [],
+    transport: new DefaultChatTransport({
+      api: `${getBackendBaseURL()}/api/chat`,
+      prepareSendMessagesRequest: ({ id, messages }) => ({
+        body: {
+          id,
+          messages,
+          body: {
+            conversation_id: threadIdRef.current ?? undefined,
+            ...streamContextRef.current,
+          },
+        },
+      }),
+    }),
+    onData: (dataPart) => {
+      if (dataPart.type !== "data-conversation") {
+        return;
       }
-    },
-    onUpdateEvent(data) {
-      const updates: Array<Partial<AgentThreadState> | null> = Object.values(
-        data || {},
-      );
-      for (const update of updates) {
-        if (update && "title" in update && update.title) {
-          void queryClient.setQueriesData(
-            {
-              queryKey: ["threads", "search"],
-              exact: false,
-            },
-            (oldData: Array<AgentThread> | undefined) => {
-              return oldData?.map((t) => {
-                if (t.thread_id === threadIdRef.current) {
-                  return {
-                    ...t,
-                    values: {
-                      ...t.values,
-                      title: update.title,
-                    },
-                  };
-                }
-                return t;
-              });
-            },
-          );
-        }
+      const conversationId = dataPart.data?.conversationId;
+      if (typeof conversationId === "string" && conversationId) {
+        threadIdRef.current = conversationId;
+        setCurrentConversationId(conversationId);
+        _handleOnStart(conversationId);
       }
-    },
-    onCustomEvent(event: unknown) {
-      if (
-        typeof event === "object" &&
-        event !== null &&
-        "type" in event &&
-        event.type === "task_running"
-      ) {
-        const e = event as {
-          type: "task_running";
-          task_id: string;
-          message: AIMessage;
-        };
-        updateSubtask({ id: e.task_id, latestMessage: e.message });
-      }
-    },
-    onError(error) {
-      setOptimisticMessages([]);
-      toast.error(getStreamErrorMessage(error));
-    },
-    onFinish(state) {
-      listeners.current.onFinish?.(state.values);
-      void queryClient.invalidateQueries({ queryKey: ["threads", "search"] });
     },
   });
+
+  useEffect(() => {
+    if (!threadId) {
+      void setMessages([]);
+      return;
+    }
+    let cancelled = false;
+    void refreshThreadState(threadId)
+      .then((state) => {
+        if (cancelled) {
+          return;
+        }
+        void setMessages(state.messages.map(legacyMessageToUIMessage));
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setThreadValues({
+            title: "",
+            messages: [],
+            artifacts: [],
+            todos: [],
+          });
+          setStateError(undefined);
+          void setMessages([]);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [refreshThreadState, setMessages, threadId]);
+
+  useEffect(() => {
+    const previousStatus = statusRef.current;
+    statusRef.current = status;
+    if (
+      previousStatus !== status &&
+      previousStatus !== "ready" &&
+      status === "ready" &&
+      threadIdRef.current
+    ) {
+      void refreshThreadState(threadIdRef.current)
+        .then((state) => {
+          listeners.current.onFinish?.(state);
+          void queryClient.invalidateQueries({ queryKey: ["threads", "search"] });
+        })
+        .catch(() => {
+          void queryClient.invalidateQueries({ queryKey: ["threads", "search"] });
+        });
+    }
+  }, [queryClient, refreshThreadState, status]);
 
   // Optimistic messages shown before the server stream responds
   const [optimisticMessages, setOptimisticMessages] = useState<Message[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const sendInFlightRef = useRef(false);
-  // Track message count before sending so we know when server has responded
-  const prevMsgCountRef = useRef(thread.messages.length);
+  const legacyMessages = useMemo(
+    () => uiMessages.map(uiMessageToLegacyMessage),
+    [uiMessages],
+  );
+  const prevMsgCountRef = useRef(legacyMessages.length);
 
-  // Clear optimistic when server messages arrive (count increases)
   useEffect(() => {
     if (
       optimisticMessages.length > 0 &&
-      thread.messages.length > prevMsgCountRef.current
+      legacyMessages.length > prevMsgCountRef.current
     ) {
       setOptimisticMessages([]);
     }
-  }, [thread.messages.length, optimisticMessages.length]);
+  }, [legacyMessages.length, optimisticMessages.length]);
 
   const sendMessage = useCallback(
     async (
-      threadId: string,
+      _threadId: string,
       message: PromptInputMessage,
       extraContext?: Record<string, unknown>,
     ) => {
@@ -212,10 +368,8 @@ export function useThreadStream({
 
       const text = message.text.trim();
 
-      // Capture current count before showing optimistic messages
-      prevMsgCountRef.current = thread.messages.length;
+      prevMsgCountRef.current = legacyMessages.length;
 
-      // Build optimistic files list with uploading status
       const optimisticFiles: FileInMessage[] = (message.files ?? []).map(
         (f) => ({
           filename: f.filename ?? "",
@@ -224,7 +378,6 @@ export function useThreadStream({
         }),
       );
 
-      // Create optimistic human message (shown immediately)
       const optimisticHumanMsg: Message = {
         type: "human",
         id: `opt-human-${Date.now()}`,
@@ -245,24 +398,26 @@ export function useThreadStream({
       }
       setOptimisticMessages(newOptimistic);
 
-      _handleOnStart(threadId);
-
       let uploadedFileInfo: UploadedFileInfo[] = [];
 
       try {
-        // Upload files first if any
+        let resolvedConversationId = threadIdRef.current;
+        if (!resolvedConversationId) {
+          const conversation = await createConversation();
+          resolvedConversationId = conversation.conversation_id;
+          threadIdRef.current = resolvedConversationId;
+          setCurrentConversationId(resolvedConversationId);
+          _handleOnStart(resolvedConversationId);
+        }
+
         if (message.files && message.files.length > 0) {
           setIsUploading(true);
           try {
-            // Convert FileUIPart to File objects by fetching blob URLs
             const filePromises = message.files.map(async (fileUIPart) => {
               if (fileUIPart.url && fileUIPart.filename) {
                 try {
-                  // Fetch the blob URL to get the file data
                   const response = await fetch(fileUIPart.url);
                   const blob = await response.blob();
-
-                  // Create a File object from the blob
                   return new File([blob], fileUIPart.filename, {
                     type: fileUIPart.mediaType || blob.type,
                   });
@@ -289,15 +444,14 @@ export function useThreadStream({
               );
             }
 
-            if (!threadId) {
+            if (!resolvedConversationId) {
               throw new Error("Thread is not ready for file upload.");
             }
 
             if (files.length > 0) {
-              const uploadResponse = await uploadFiles(threadId, files);
+              const uploadResponse = await uploadFiles(resolvedConversationId, files);
               uploadedFileInfo = uploadResponse.files;
 
-              // Update optimistic human message with uploaded status + paths
               const uploadedFiles: FileInMessage[] = uploadedFileInfo.map(
                 (info) => ({
                   filename: info.filename,
@@ -334,58 +488,31 @@ export function useThreadStream({
           }
         }
 
-        // Build files metadata for submission (included in additional_kwargs)
-        const filesForSubmit: FileInMessage[] = uploadedFileInfo.map(
-          (info) => ({
-            filename: info.filename,
-            size: info.size,
-            path: info.virtual_path,
-            status: "uploaded" as const,
-          }),
-        );
+        streamContextRef.current = {
+          ...extraContext,
+          ...context,
+          thinking_enabled: context.mode !== "flash",
+          is_plan_mode: context.mode === "pro" || context.mode === "ultra",
+          subagent_enabled: context.mode === "ultra",
+          reasoning_effort:
+            context.reasoning_effort ??
+            (context.mode === "ultra"
+              ? "high"
+              : context.mode === "pro"
+                ? "medium"
+                : context.mode === "thinking"
+                  ? "low"
+                  : undefined),
+          thread_id: resolvedConversationId,
+        };
 
-        await thread.submit(
-          {
-            messages: [
-              {
-                type: "human",
-                content: [
-                  {
-                    type: "text",
-                    text,
-                  },
-                ],
-                additional_kwargs:
-                  filesForSubmit.length > 0 ? { files: filesForSubmit } : {},
-              },
-            ],
-          },
-          {
-            threadId: threadId,
-            streamSubgraphs: true,
-            streamResumable: true,
-            config: {
-              recursion_limit: 1000,
-            },
-            context: {
-              ...extraContext,
-              ...context,
-              thinking_enabled: context.mode !== "flash",
-              is_plan_mode: context.mode === "pro" || context.mode === "ultra",
-              subagent_enabled: context.mode === "ultra",
-              reasoning_effort:
-                context.reasoning_effort ??
-                (context.mode === "ultra"
-                  ? "high"
-                  : context.mode === "pro"
-                    ? "medium"
-                    : context.mode === "thinking"
-                      ? "low"
-                      : undefined),
-              thread_id: threadId,
-            },
-          },
-        );
+        const uploadedFilesPrefix =
+          uploadedFileInfo.length > 0
+            ? `${buildUploadedFilesBlock(uploadedFileInfo)}\n\n`
+            : "";
+
+        setOptimisticMessages([]);
+        await sendChatMessage({ text: `${uploadedFilesPrefix}${text}` });
         void queryClient.invalidateQueries({ queryKey: ["threads", "search"] });
       } catch (error) {
         setOptimisticMessages([]);
@@ -395,83 +522,47 @@ export function useThreadStream({
         sendInFlightRef.current = false;
       }
     },
-    [thread, _handleOnStart, t.uploads.uploadingFiles, context, queryClient],
+    [legacyMessages.length, _handleOnStart, t.uploads.uploadingFiles, context, queryClient, sendChatMessage],
   );
 
-  // Merge thread with optimistic messages for display
-  const mergedThread =
+  const mergedMessages =
     optimisticMessages.length > 0
-      ? ({
-          ...thread,
-          messages: [...thread.messages, ...optimisticMessages],
-        } as typeof thread)
-      : thread;
+      ? [...legacyMessages, ...optimisticMessages]
+      : legacyMessages;
+
+  const mergedThread: ThreadStreamLike = {
+    messages: mergedMessages,
+    values: {
+      ...threadValues,
+      messages: legacyMessages,
+    },
+    error:
+      error instanceof Error
+        ? error
+        : stateError,
+    isLoading: status === "submitted" || status === "streaming",
+    isThreadLoading,
+    stop: async () => {
+      stop();
+    },
+  };
 
   return [mergedThread, sendMessage, isUploading] as const;
 }
 
 export function useThreads(
-  params: Parameters<ThreadsClient["search"]>[0] = {
+  _params: Parameters<ThreadsClient["search"]>[0] = {
     limit: 50,
     sortBy: "updated_at",
     sortOrder: "desc",
     select: ["thread_id", "updated_at", "values"],
   },
 ) {
-  const apiClient = getAPIClient();
   return useQuery<AgentThread[]>({
-    queryKey: ["threads", "search", params],
+    queryKey: ["threads", "search", _params],
     queryFn: async () => {
-      const maxResults = params.limit;
-      const initialOffset = params.offset ?? 0;
-      const DEFAULT_PAGE_SIZE = 50;
-
-      // Preserve prior semantics: if a non-positive limit is explicitly provided,
-      // delegate to a single search call with the original parameters.
-      if (maxResults !== undefined && maxResults <= 0) {
-        const response =
-          await apiClient.threads.search<AgentThreadState>(params);
-        return response as AgentThread[];
-      }
-
-      const pageSize =
-        typeof maxResults === "number" && maxResults > 0
-          ? Math.min(DEFAULT_PAGE_SIZE, maxResults)
-          : DEFAULT_PAGE_SIZE;
-
-      const threads: AgentThread[] = [];
-      let offset = initialOffset;
-
-      while (true) {
-        if (typeof maxResults === "number" && threads.length >= maxResults) {
-          break;
-        }
-
-        const currentLimit =
-          typeof maxResults === "number"
-            ? Math.min(pageSize, maxResults - threads.length)
-            : pageSize;
-
-        if (typeof maxResults === "number" && currentLimit <= 0) {
-          break;
-        }
-
-        const response = (await apiClient.threads.search<AgentThreadState>({
-          ...params,
-          limit: currentLimit,
-          offset,
-        })) as AgentThread[];
-
-        threads.push(...response);
-
-        if (response.length < currentLimit) {
-          break;
-        }
-
-        offset += response.length;
-      }
-
-      return threads;
+      const conversations = await listConversations();
+      return conversations.map(conversationToAgentThread);
     },
     refetchOnWindowFocus: false,
   });
@@ -479,11 +570,8 @@ export function useThreads(
 
 export function useDeleteThread() {
   const queryClient = useQueryClient();
-  const apiClient = getAPIClient();
   return useMutation({
     mutationFn: async ({ threadId }: { threadId: string }) => {
-      await apiClient.threads.delete(threadId);
-
       const response = await fetch(
         `${getBackendBaseURL()}/api/threads/${encodeURIComponent(threadId)}`,
         {
@@ -494,8 +582,8 @@ export function useDeleteThread() {
       if (!response.ok) {
         const error = await response
           .json()
-          .catch(() => ({ detail: "Failed to delete local thread data." }));
-        throw new Error(error.detail ?? "Failed to delete local thread data.");
+          .catch(() => ({ detail: "Failed to delete thread data." }));
+        throw new Error(error.detail ?? "Failed to delete thread data.");
       }
     },
     onSuccess(_, { threadId }) {
@@ -520,7 +608,6 @@ export function useDeleteThread() {
 
 export function useRenameThread() {
   const queryClient = useQueryClient();
-  const apiClient = getAPIClient();
   return useMutation({
     mutationFn: async ({
       threadId,
@@ -529,9 +616,7 @@ export function useRenameThread() {
       threadId: string;
       title: string;
     }) => {
-      await apiClient.threads.updateState(threadId, {
-        values: { title },
-      });
+      await updateConversation(threadId, title);
     },
     onSuccess(_, { threadId, title }) {
       queryClient.setQueriesData(
