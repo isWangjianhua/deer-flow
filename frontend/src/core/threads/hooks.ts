@@ -1,6 +1,5 @@
 import { useChat } from "@ai-sdk/react";
 import type { Message } from "@langchain/langgraph-sdk";
-import type { ThreadsClient } from "@langchain/langgraph-sdk/client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -64,6 +63,14 @@ export type ThreadStreamOptions = {
   onStart?: (threadId: string) => void;
   onFinish?: (state: AgentThreadState) => void;
   onToolEnd?: (event: ToolEndEvent) => void;
+};
+
+type ThreadSearchParams = {
+  limit?: number;
+  sortBy?: "updated_at" | "created_at";
+  sortOrder?: "asc" | "desc";
+  select?: string[];
+  offset?: number;
 };
 
 type ThreadStateResponse = {
@@ -538,7 +545,7 @@ export function useThreadStream({
 }
 
 export function useThreads(
-  _params: Parameters<ThreadsClient["search"]>[0] = {
+  _params: ThreadSearchParams = {
     limit: 50,
     sortBy: "updated_at",
     sortOrder: "desc",
