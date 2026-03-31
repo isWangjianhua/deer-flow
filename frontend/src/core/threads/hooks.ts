@@ -1,23 +1,23 @@
+import { useChat } from "@ai-sdk/react";
 import type { Message } from "@langchain/langgraph-sdk";
 import type { ThreadsClient } from "@langchain/langgraph-sdk/client";
-import { useChat } from "@ai-sdk/react";
-import { DefaultChatTransport, type UIMessage } from "ai";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { DefaultChatTransport, type UIMessage } from "ai";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
 
-import { getBackendBaseURL } from "../config";
-import { useI18n } from "../i18n/hooks";
-import type { FileInMessage } from "../messages/utils";
-import type { LocalSettings } from "../settings";
 import {
   createConversation,
   listConversations,
   updateConversation,
 } from "../chat/api";
 import type { ConversationSummary } from "../chat/types";
+import { getBackendBaseURL } from "../config";
+import { useI18n } from "../i18n/hooks";
+import type { FileInMessage } from "../messages/utils";
+import type { LocalSettings } from "../settings";
 import type { UploadedFileInfo } from "../uploads";
 import { uploadFiles } from "../uploads";
 
@@ -47,6 +47,16 @@ function conversationToAgentThread(
   } as AgentThread;
 }
 
+function isConversationDataPart(
+  dataPart: { type: `data-${string}`; id?: string; data: unknown },
+): dataPart is {
+  type: "data-conversation";
+  id?: string;
+  data: { conversationId?: string };
+} {
+  return dataPart.type === "data-conversation";
+}
+
 export type ThreadStreamOptions = {
   threadId?: string | null | undefined;
   context: LocalSettings["context"];
@@ -55,29 +65,6 @@ export type ThreadStreamOptions = {
   onFinish?: (state: AgentThreadState) => void;
   onToolEnd?: (event: ToolEndEvent) => void;
 };
-
-function getStreamErrorMessage(error: unknown): string {
-  if (typeof error === "string" && error.trim()) {
-    return error;
-  }
-  if (error instanceof Error && error.message.trim()) {
-    return error.message;
-  }
-  if (typeof error === "object" && error !== null) {
-    const message = Reflect.get(error, "message");
-    if (typeof message === "string" && message.trim()) {
-      return message;
-    }
-    const nestedError = Reflect.get(error, "error");
-    if (nestedError instanceof Error && nestedError.message.trim()) {
-      return nestedError.message;
-    }
-    if (typeof nestedError === "string" && nestedError.trim()) {
-      return nestedError;
-    }
-  }
-  return "Request failed.";
-}
 
 type ThreadStateResponse = {
   values?: Partial<AgentThreadState>;
@@ -159,7 +146,7 @@ async function fetchThreadState(threadId: string): Promise<AgentThreadState> {
   const payload = (await response.json()) as ThreadStateResponse;
   return {
     title: payload.values?.title ?? "",
-    messages: (payload.values?.messages as Message[] | undefined) ?? [],
+    messages: payload.values?.messages ?? [],
     artifacts: payload.values?.artifacts ?? [],
     todos: payload.values?.todos ?? [],
   };
@@ -274,7 +261,7 @@ export function useThreadStream({
       }),
     }),
     onData: (dataPart) => {
-      if (dataPart.type !== "data-conversation") {
+      if (!isConversationDataPart(dataPart)) {
         return;
       }
       const conversationId = dataPart.data?.conversationId;
@@ -543,7 +530,7 @@ export function useThreadStream({
     isLoading: status === "submitted" || status === "streaming",
     isThreadLoading,
     stop: async () => {
-      stop();
+      await Promise.resolve(stop());
     },
   };
 
