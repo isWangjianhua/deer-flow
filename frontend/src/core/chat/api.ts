@@ -49,3 +49,25 @@ export async function deleteConversation(conversationId: string): Promise<void> 
     );
   }
 }
+
+export async function updateConversation(
+  conversationId: string,
+  title: string,
+): Promise<ConversationSummary> {
+  const response = await fetch(
+    `${getBackendBaseURL()}/api/conversations/${encodeURIComponent(
+      conversationId,
+    )}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title }),
+    },
+  );
+  if (!response.ok) {
+    throw new Error(
+      await readErrorDetail(response, "Failed to update conversation"),
+    );
+  }
+  return response.json();
+}

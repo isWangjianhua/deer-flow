@@ -13,6 +13,11 @@ import { useI18n } from "../i18n/hooks";
 import type { FileInMessage } from "../messages/utils";
 import type { LocalSettings } from "../settings";
 import { useUpdateSubtask } from "../tasks/context";
+import {
+  listConversations,
+  updateConversation,
+} from "../chat/api";
+import type { ConversationSummary } from "../chat/types";
 import type { UploadedFileInfo } from "../uploads";
 import { uploadFiles } from "../uploads";
 
@@ -22,6 +27,25 @@ export type ToolEndEvent = {
   name: string;
   data: unknown;
 };
+
+function conversationToAgentThread(
+  conversation: ConversationSummary,
+): AgentThread {
+  return {
+    thread_id: conversation.conversation_id,
+    created_at: conversation.created_at,
+    updated_at: conversation.updated_at,
+    status: "idle",
+    metadata: {},
+    interrupts: {},
+    values: {
+      title: conversation.title,
+      messages: [],
+      artifacts: [],
+      todos: [],
+    },
+  } as AgentThread;
+}
 
 export type ThreadStreamOptions = {
   threadId?: string | null | undefined;
@@ -411,67 +435,18 @@ export function useThreadStream({
 }
 
 export function useThreads(
-  params: Parameters<ThreadsClient["search"]>[0] = {
+  _params: Parameters<ThreadsClient["search"]>[0] = {
     limit: 50,
     sortBy: "updated_at",
     sortOrder: "desc",
     select: ["thread_id", "updated_at", "values"],
   },
 ) {
-  const apiClient = getAPIClient();
   return useQuery<AgentThread[]>({
-    queryKey: ["threads", "search", params],
+    queryKey: ["threads", "search", _params],
     queryFn: async () => {
-      const maxResults = params.limit;
-      const initialOffset = params.offset ?? 0;
-      const DEFAULT_PAGE_SIZE = 50;
-
-      // Preserve prior semantics: if a non-positive limit is explicitly provided,
-      // delegate to a single search call with the original parameters.
-      if (maxResults !== undefined && maxResults <= 0) {
-        const response =
-          await apiClient.threads.search<AgentThreadState>(params);
-        return response as AgentThread[];
-      }
-
-      const pageSize =
-        typeof maxResults === "number" && maxResults > 0
-          ? Math.min(DEFAULT_PAGE_SIZE, maxResults)
-          : DEFAULT_PAGE_SIZE;
-
-      const threads: AgentThread[] = [];
-      let offset = initialOffset;
-
-      while (true) {
-        if (typeof maxResults === "number" && threads.length >= maxResults) {
-          break;
-        }
-
-        const currentLimit =
-          typeof maxResults === "number"
-            ? Math.min(pageSize, maxResults - threads.length)
-            : pageSize;
-
-        if (typeof maxResults === "number" && currentLimit <= 0) {
-          break;
-        }
-
-        const response = (await apiClient.threads.search<AgentThreadState>({
-          ...params,
-          limit: currentLimit,
-          offset,
-        })) as AgentThread[];
-
-        threads.push(...response);
-
-        if (response.length < currentLimit) {
-          break;
-        }
-
-        offset += response.length;
-      }
-
-      return threads;
+      const conversations = await listConversations();
+      return conversations.map(conversationToAgentThread);
     },
     refetchOnWindowFocus: false,
   });
@@ -479,11 +454,8 @@ export function useThreads(
 
 export function useDeleteThread() {
   const queryClient = useQueryClient();
-  const apiClient = getAPIClient();
   return useMutation({
     mutationFn: async ({ threadId }: { threadId: string }) => {
-      await apiClient.threads.delete(threadId);
-
       const response = await fetch(
         `${getBackendBaseURL()}/api/threads/${encodeURIComponent(threadId)}`,
         {
@@ -494,8 +466,8 @@ export function useDeleteThread() {
       if (!response.ok) {
         const error = await response
           .json()
-          .catch(() => ({ detail: "Failed to delete local thread data." }));
-        throw new Error(error.detail ?? "Failed to delete local thread data.");
+          .catch(() => ({ detail: "Failed to delete thread data." }));
+        throw new Error(error.detail ?? "Failed to delete thread data.");
       }
     },
     onSuccess(_, { threadId }) {
@@ -520,7 +492,6 @@ export function useDeleteThread() {
 
 export function useRenameThread() {
   const queryClient = useQueryClient();
-  const apiClient = getAPIClient();
   return useMutation({
     mutationFn: async ({
       threadId,
@@ -529,9 +500,7 @@ export function useRenameThread() {
       threadId: string;
       title: string;
     }) => {
-      await apiClient.threads.updateState(threadId, {
-        values: { title },
-      });
+      await updateConversation(threadId, title);
     },
     onSuccess(_, { threadId, title }) {
       queryClient.setQueriesData(

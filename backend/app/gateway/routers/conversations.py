@@ -9,6 +9,7 @@ from app.gateway.thread_ownership import (
     delete_owned_thread,
     ensure_thread_belongs_to_user,
     list_owned_threads,
+    update_owned_thread_title,
 )
 
 router = APIRouter(prefix="/api/conversations", tags=["conversations"])
@@ -22,6 +23,10 @@ class ConversationResponse(BaseModel):
 
 
 class ConversationCreateRequest(BaseModel):
+    title: str = Field(default="")
+
+
+class ConversationUpdateRequest(BaseModel):
     title: str = Field(default="")
 
 
@@ -73,3 +78,28 @@ async def delete_conversation(conversation_id: str, user=Depends(get_current_use
 
     delete_owned_thread(biz_thread_id=conversation_id, user_id=user.id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.patch("/{conversation_id}", response_model=ConversationResponse)
+async def update_conversation(
+    conversation_id: str,
+    body: ConversationUpdateRequest,
+    user=Depends(get_current_user),
+) -> ConversationResponse:
+    try:
+        ensure_thread_belongs_to_user(biz_thread_id=conversation_id, user_id=user.id)
+    except PermissionError as exc:
+        raise HTTPException(status_code=404, detail="Conversation not found") from exc
+
+    update_owned_thread_title(
+        biz_thread_id=conversation_id,
+        user_id=user.id,
+        title=body.title,
+    )
+    record = ensure_thread_belongs_to_user(biz_thread_id=conversation_id, user_id=user.id)
+    return ConversationResponse(
+        conversation_id=record.id,
+        title=record.title,
+        created_at=record.created_at,
+        updated_at=record.updated_at,
+    )
