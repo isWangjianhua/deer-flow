@@ -6,6 +6,7 @@ from app.gateway.chat_proxy import (
     build_usechat_headers,
     encode_usechat_text_delta,
     resolve_or_create_conversation,
+    usechat_stream_from_langgraph,
 )
 from app.gateway.thread_ownership import create_owned_thread
 
@@ -39,7 +40,28 @@ def test_build_usechat_headers_sets_required_stream_header():
 
 
 def test_encode_usechat_text_delta_includes_text_payload():
-    frame = encode_usechat_text_delta("Hello")
+    frame = encode_usechat_text_delta("text_1", "Hello")
 
     assert frame.startswith("data: ")
     assert "Hello" in frame
+
+
+@pytest.mark.anyio
+async def test_usechat_stream_from_langgraph_includes_conversation_data_and_done():
+    async def upstream():
+        yield 'event: messages/partial\ndata: {"text":"Hello"}\n\n'
+
+    frames = []
+    async for frame in usechat_stream_from_langgraph(upstream(), conversation_id="conv_1"):
+        frames.append(frame)
+
+    joined = "".join(frames)
+    assert '"type": "data-conversation"' in joined
+    assert '"conversationId": "conv_1"' in joined
+    assert '"type": "start"' in joined
+    assert '"type": "text-start"' in joined
+    assert '"type": "text-delta"' in joined
+    assert '"delta": "Hello"' in joined
+    assert '"type": "text-end"' in joined
+    assert '"type": "finish"' in joined
+    assert "data: [DONE]" in joined

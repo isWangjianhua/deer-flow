@@ -59,7 +59,7 @@ async def chat(body: UseChatRequest, request: Request, user=Depends(get_current_
     upstream = sse_consumer(bridge, run_record, request, run_mgr)
 
     return StreamingResponse(
-        usechat_stream_from_langgraph(upstream),
+        usechat_stream_from_langgraph(upstream, conversation_id=record.id),
         media_type="text/event-stream",
         headers=build_usechat_headers(),
     )

@@ -47,7 +47,10 @@ def test_chat_endpoint_creates_conversation_when_missing_id(tmp_path, monkeypatc
 
     assert response.status_code == 200
     assert response.headers["x-vercel-ai-ui-message-stream"] == "v1"
-    assert "textDelta" in response.text
+    assert '"type": "data-conversation"' in response.text
+    assert '"conversationId": "' in response.text
+    assert '"type": "text-delta"' in response.text
+    assert "data: [DONE]" in response.text
 
 
 def test_chat_endpoint_rejects_foreign_conversation(tmp_path, monkeypatch):
