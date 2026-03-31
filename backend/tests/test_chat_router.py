@@ -19,9 +19,8 @@ def _build_app(chat_module, user_id: str) -> FastAPI:
     return app
 
 
-def test_chat_stream_creates_conversation_when_missing_id(tmp_path, monkeypatch):
+def test_chat_endpoint_creates_conversation_when_missing_id(tmp_path, monkeypatch):
     monkeypatch.setenv("DEER_FLOW_AUTH_DB_PATH", str(tmp_path / "auth.db"))
-
     from app.gateway.routers import chat
 
     async def fake_start_run(body, thread_id, request):
@@ -29,7 +28,6 @@ def test_chat_stream_creates_conversation_when_missing_id(tmp_path, monkeypatch)
 
     async def fake_sse_consumer(bridge, record, request, run_mgr):
         yield 'event: messages/partial\ndata: {"text":"Hello"}\n\n'
-        yield 'event: messages/complete\ndata: {"text":"Hello"}\n\n'
 
     monkeypatch.setattr(chat, "start_run", fake_start_run)
     monkeypatch.setattr(chat, "sse_consumer", fake_sse_consumer)
@@ -37,21 +35,24 @@ def test_chat_stream_creates_conversation_when_missing_id(tmp_path, monkeypatch)
     monkeypatch.setattr(chat, "get_run_manager", lambda request: object())
 
     app = _build_app(chat, "user_a")
-
     with TestClient(app) as client:
-        response = client.post("/api/chat/stream", json={"message": "Hello"})
+        response = client.post(
+            "/api/chat",
+            json={
+                "id": "req_1",
+                "messages": [{"role": "user", "content": "Hello"}],
+                "body": {},
+            },
+        )
 
     assert response.status_code == 200
-    assert "event: conversation.created" in response.text
-    assert "event: message.delta" in response.text
-    assert "event: message.completed" in response.text
-    assert "event: run.completed" in response.text
+    assert response.headers["x-vercel-ai-ui-message-stream"] == "v1"
+    assert "textDelta" in response.text
 
 
-def test_chat_stream_rejects_foreign_conversation(tmp_path, monkeypatch):
+def test_chat_endpoint_rejects_foreign_conversation(tmp_path, monkeypatch):
     monkeypatch.setenv("DEER_FLOW_AUTH_DB_PATH", str(tmp_path / "auth.db"))
     create_owned_thread(user_id="user_a", biz_thread_id="conv_a")
-
     from app.gateway.routers import chat
 
     async def fake_start_run(body, thread_id, request):
@@ -66,11 +67,14 @@ def test_chat_stream_rejects_foreign_conversation(tmp_path, monkeypatch):
     monkeypatch.setattr(chat, "get_run_manager", lambda request: object())
 
     app = _build_app(chat, "user_b")
-
     with TestClient(app) as client:
         response = client.post(
-            "/api/chat/stream",
-            json={"conversation_id": "conv_a", "message": "Hello"},
+            "/api/chat",
+            json={
+                "id": "req_1",
+                "messages": [{"role": "user", "content": "Hello"}],
+                "body": {"conversation_id": "conv_a"},
+            },
         )
 
     assert response.status_code == 404
