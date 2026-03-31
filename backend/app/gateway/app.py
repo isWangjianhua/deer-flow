@@ -12,6 +12,7 @@ from app.gateway.routers import (
     assistants_compat,
     auth,
     channels,
+    conversations,
     mcp,
     memory,
     models,
@@ -114,6 +115,10 @@ This gateway provides custom endpoints for models, MCP configuration, skills, an
                 "description": "Minimal user registration, login, logout, and current-user endpoints",
             },
             {
+                "name": "conversations",
+                "description": "Business-facing conversation CRUD endpoints for the thin chat BFF layer",
+            },
+            {
                 "name": "models",
                 "description": "Operations for querying available AI models and their configurations",
             },
@@ -173,6 +178,9 @@ This gateway provides custom endpoints for models, MCP configuration, skills, an
     # Include routers
     # Auth API is mounted at /api/auth
     app.include_router(auth.router)
+
+    # Business-facing conversation API is mounted at /api/conversations
+    app.include_router(conversations.router)
 
     # Models API is mounted at /api/models
     app.include_router(models.router)
