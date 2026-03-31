@@ -12,7 +12,7 @@ In scope:
 - Replace direct LangGraph SDK client usage in the frontend
 - Move thread list and chat send flows onto:
   - `GET /api/conversations`
-  - `POST /api/chat/stream`
+  - `POST /api/chat`
   - `DELETE /api/conversations/{id}`
 - Keep thread-based uploads temporarily
 
@@ -32,7 +32,7 @@ Out of scope:
 - Page structure is already acceptable and should be preserved.
 - Backend BFF endpoints now exist in `feat/python-user-isolation`:
   - `/api/conversations`
-  - `/api/chat/stream`
+  - `/api/chat`
 - Uploads still rely on `/api/threads/{thread_id}/uploads`
 
 ## Options Considered
@@ -109,7 +109,7 @@ New responsibilities:
 
 - fetch conversations
 - create/delete conversations
-- open a streaming chat request
+- send `useChat`-style chat requests
 
 Existing thread-based upload helpers stay in place temporarily because the backend upload API has not yet been productized.
 
@@ -125,7 +125,7 @@ But their internals change:
 
 - `useThreads()` -> `GET /api/conversations`
 - `useDeleteThread()` -> `DELETE /api/conversations/{id}`
-- `useThreadStream()` -> business chat streaming against `/api/chat/stream`
+- `useThreadStream()` -> `useChat`-style backend integration against `/api/chat`
 
 The hook API should remain as stable as possible so component changes stay small.
 
@@ -135,10 +135,11 @@ Do not keep `useStream`.
 
 Instead:
 
-- use `useChat` from the `ai` package where it fits
-- or use the same message/state shape expected by the page, backed by a small custom transport wrapper
+- use `useChat` from the `ai` package
+- target the backend's AI SDK-compatible `/api/chat` contract
+- adapt `useChat` state into the existing thread/message view model where needed
 
-The first phase should prefer minimal component churn over purity. It is acceptable to adapt `useChat` output into the current thread/message view model.
+The first phase should prefer minimal component churn over purity, but the transport itself should be standard `useChat` rather than a bespoke SSE reader.
 
 ### Upload Strategy
 
@@ -223,7 +224,7 @@ Mitigation:
 ## Acceptance Criteria
 
 - The chats list page loads from `/api/conversations`
-- The chat page sends messages to `/api/chat/stream`
+- The chat page sends messages to `/api/chat`
 - The browser no longer depends on LangGraph SDK runtime requests for list/send/delete flows
 - Existing page structure and major UI behavior remain intact
 - Upload flow still works for existing conversations

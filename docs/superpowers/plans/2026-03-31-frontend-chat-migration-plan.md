@@ -2,11 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Migrate the frontend from direct LangGraph SDK runtime integration to the new Gateway BFF conversation/chat endpoints while keeping the existing page structure.
+**Goal:** Migrate the frontend from direct LangGraph SDK runtime integration to the new Gateway BFF conversation/chat endpoints while keeping the existing page structure and targeting AI SDK `useChat`.
 
-**Architecture:** Keep the current chat pages and components, but replace the API client and thread hooks with a fetch-based BFF layer. In Phase 1, frontend `threadId` continues to map to backend `conversation_id`, and uploads remain thread-based.
+**Architecture:** Keep the current chat pages and components, but replace the API client and thread hooks with a BFF layer built around `/api/conversations` and the backend's AI SDK-compatible `POST /api/chat` endpoint. In Phase 1, frontend `threadId` continues to map to backend `conversation_id`, and uploads remain thread-based.
 
-**Tech Stack:** Next.js, React 19, TanStack Query, `ai` package, fetch/SSE, existing chat UI components
+**Tech Stack:** Next.js, React 19, TanStack Query, `ai` package, fetch, existing chat UI components
 
 ---
 
@@ -15,24 +15,22 @@
 ### Existing files to modify
 
 - `frontend/src/core/api/api-client.ts`
-  Remove direct `LangGraphClient` construction and replace it with a BFF-oriented client/helper layer.
+  Remove direct `LangGraphClient` runtime usage.
 - `frontend/src/core/threads/hooks.ts`
-  Replace `useStream` internals with BFF conversation/chat hooks.
+  Replace `useStream` internals with `useChat`-based hooks.
 - `frontend/src/core/threads/types.ts`
-  Relax types so frontend runtime no longer depends on LangGraph thread objects.
+  Relax types so frontend runtime no longer depends on LangGraph SDK thread/message types.
 - `frontend/src/core/config/index.ts`
-  Make `NEXT_PUBLIC_BACKEND_BASE_URL` the primary dependency.
+  Make `NEXT_PUBLIC_BACKEND_BASE_URL` the primary runtime dependency.
 - `frontend/src/core/uploads/api.ts`
-  Keep thread-based uploads, but ensure it still works with the migrated flow.
+  Keep thread-based uploads working with the migrated flow.
 
 ### New files to create
 
-- `frontend/src/core/chat/api.ts`
-  Fetch helpers for `/api/conversations` and `/api/chat/stream`.
-- `frontend/src/core/chat/transport.ts`
-  Small wrapper that translates business SSE into the shape consumed by the frontend hook layer.
 - `frontend/src/core/chat/types.ts`
-  Conversation/chat-specific response and stream event types.
+  Conversation summary and lightweight BFF-facing request types.
+- `frontend/src/core/chat/api.ts`
+  Fetch helpers for `/api/conversations`.
 
 ## Task 1: Build Frontend BFF API Layer
 
@@ -40,7 +38,6 @@
 - Create: `frontend/src/core/chat/types.ts`
 - Create: `frontend/src/core/chat/api.ts`
 - Modify: `frontend/src/core/config/index.ts`
-- Test manually via browser/network panel in dev
 
 - [ ] **Step 1: Write the new BFF-facing types**
 
@@ -52,31 +49,16 @@ export interface ConversationSummary {
   updated_at: string;
 }
 
-export interface ChatStreamRequest {
+export interface UseChatBody {
   conversation_id?: string;
-  message: string;
-  context?: Record<string, unknown>;
-}
-
-export interface ChatStreamEvent {
-  event:
-    | "conversation.created"
-    | "message.delta"
-    | "message.completed"
-    | "run.completed"
-    | "error";
-  data: Record<string, unknown>;
 }
 ```
 
-- [ ] **Step 2: Add fetch helpers for conversations and chat stream**
+- [ ] **Step 2: Add fetch helpers for conversations**
 
 ```ts
 import { getBackendBaseURL } from "../config";
-import type {
-  ChatStreamRequest,
-  ConversationSummary,
-} from "./types";
+import type { ConversationSummary } from "./types";
 
 export async function listConversations(): Promise<ConversationSummary[]> {
   const response = await fetch(`${getBackendBaseURL()}/api/conversations`);
@@ -107,18 +89,6 @@ export async function deleteConversation(conversationId: string): Promise<void> 
     throw new Error("Failed to delete conversation");
   }
 }
-
-export async function openChatStream(body: ChatStreamRequest): Promise<Response> {
-  const response = await fetch(`${getBackendBaseURL()}/api/chat/stream`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!response.ok) {
-    throw new Error("Failed to open chat stream");
-  }
-  return response;
-}
 ```
 
 - [ ] **Step 3: Make backend URL the primary config dependency**
@@ -140,49 +110,23 @@ export function getBackendBaseURL() {
 git add frontend/src/core/chat/types.ts \
   frontend/src/core/chat/api.ts \
   frontend/src/core/config/index.ts
-git commit -m "feat: add frontend chat bff api layer"
+git commit -m "feat: add frontend conversation bff api layer"
 ```
 
-## Task 2: Replace Thread Hooks with BFF-Backed Hooks
+## Task 2: Replace Thread Hooks with `useChat`-Backed Hooks
 
 **Files:**
-- Create: `frontend/src/core/chat/transport.ts`
 - Modify: `frontend/src/core/threads/hooks.ts`
 - Modify: `frontend/src/core/threads/types.ts`
 
-- [ ] **Step 1: Add a minimal SSE reader**
+- [ ] **Step 1: Define frontend-safe thread state types**
 
 ```ts
-import type { ChatStreamEvent } from "./types";
-
-export async function* readChatEvents(response: Response): AsyncGenerator<ChatStreamEvent> {
-  const reader = response.body?.getReader();
-  if (!reader) {
-    throw new Error("Streaming body is missing");
-  }
-
-  const decoder = new TextDecoder();
-  let buffer = "";
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-
-    buffer += decoder.decode(value, { stream: true });
-    const frames = buffer.split("\n\n");
-    buffer = frames.pop() ?? "";
-
-    for (const frame of frames) {
-      const eventLine = frame.split("\n").find((line) => line.startsWith("event: "));
-      const dataLine = frame.split("\n").find((line) => line.startsWith("data: "));
-      if (!eventLine || !dataLine) continue;
-
-      yield {
-        event: eventLine.replace("event: ", "") as ChatStreamEvent["event"],
-        data: JSON.parse(dataLine.replace("data: ", "")),
-      };
-    }
-  }
+export interface AgentThreadState extends Record<string, unknown> {
+  title: string;
+  messages: Array<Record<string, unknown>>;
+  artifacts: string[];
+  todos?: Todo[];
 }
 ```
 
@@ -228,41 +172,28 @@ export function useDeleteThread() {
 }
 ```
 
-- [ ] **Step 4: Rework `useThreadStream()` to call `/api/chat/stream`**
+- [ ] **Step 4: Rework `useThreadStream()` to use `useChat`**
 
 ```ts
-const response = await openChatStream({
-  conversation_id: threadId,
-  message: text,
-  context: {
-    ...extraContext,
-    ...context,
+const chat = useChat({
+  api: `${getBackendBaseURL()}/api/chat`,
+  body: {
+    conversation_id: onStreamThreadId ?? undefined,
   },
 });
-
-for await (const event of readChatEvents(response)) {
-  if (event.event === "conversation.created") {
-    const createdId = String(event.data.conversation_id);
-    threadIdRef.current = createdId;
-    setOnStreamThreadId(createdId);
-    handleStreamStart(createdId);
-  }
-}
 ```
 
-- [ ] **Step 5: Keep the external hook surface stable**
+- [ ] **Step 5: Adapt `useChat` state back into the existing hook surface**
 
 ```ts
-return [mergedThreadLikeObject, sendMessage, isUploading] as const;
+return [threadLikeObjectAdaptedFromUseChat, sendMessage, isUploading] as const;
 ```
 
 - [ ] **Step 6: Commit Task 2**
 
 ```bash
-git add frontend/src/core/chat/transport.ts \
-  frontend/src/core/threads/hooks.ts \
-  frontend/src/core/threads/types.ts
-git commit -m "feat: migrate frontend thread hooks to bff chat api"
+git add frontend/src/core/threads/hooks.ts frontend/src/core/threads/types.ts
+git commit -m "feat: migrate frontend thread hooks to usechat api"
 ```
 
 ## Task 3: Reconnect Existing Pages and Preserve Upload Flow
@@ -314,7 +245,7 @@ Verify:
 
 - chats list loads through `/api/conversations`
 - deleting a chat calls `/api/conversations/{id}`
-- sending a message calls `/api/chat/stream`
+- sending a message calls `/api/chat`
 - creating a new conversation via first message updates the URL
 - uploads still work after a conversation exists
 
@@ -325,7 +256,7 @@ git add frontend/src/core/api/api-client.ts \
   frontend/src/core/uploads/api.ts \
   frontend/src/core/threads/hooks.ts \
   frontend/src/core/config/index.ts
-git commit -m "feat: switch frontend to gateway chat bff"
+git commit -m "feat: switch frontend to gateway usechat bff"
 ```
 
 ## Self-Review Notes
@@ -333,7 +264,7 @@ git commit -m "feat: switch frontend to gateway chat bff"
 - Spec coverage:
   - preserve UI structure: covered by Task 2 and Task 3
   - remove runtime LangGraph dependency: covered by Task 1, Task 2, Task 3
-  - use `/api/conversations` and `/api/chat/stream`: covered by Task 1 and Task 2
+  - use `/api/conversations` and `/api/chat`: covered by Task 1 and Task 2
   - keep uploads thread-based: covered by Task 3
 - Placeholder scan:
   - no `TODO`/`TBD` placeholders remain in plan steps
