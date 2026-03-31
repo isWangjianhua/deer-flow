@@ -5,7 +5,15 @@ from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
 from app.gateway.routers import threads
+from app.gateway.thread_ownership import create_owned_thread
 from deerflow.config.paths import Paths
+
+
+def _override_current_user():
+    class User:
+        id = "user_a"
+
+    return User()
 
 
 def test_delete_thread_data_removes_thread_directory(tmp_path):
@@ -48,14 +56,17 @@ def test_delete_thread_data_rejects_invalid_thread_id(tmp_path):
     assert "Invalid thread_id" in exc_info.value.detail
 
 
-def test_delete_thread_route_cleans_thread_directory(tmp_path):
+def test_delete_thread_route_cleans_thread_directory(tmp_path, monkeypatch):
+    monkeypatch.setenv("DEER_FLOW_AUTH_DB_PATH", str(tmp_path / "auth.db"))
     paths = Paths(tmp_path)
     thread_dir = paths.thread_dir("thread-route")
     paths.sandbox_work_dir("thread-route").mkdir(parents=True, exist_ok=True)
     (paths.sandbox_work_dir("thread-route") / "notes.txt").write_text("hello", encoding="utf-8")
+    create_owned_thread(user_id="user_a", biz_thread_id="thread-route")
 
     app = FastAPI()
     app.include_router(threads.router)
+    app.dependency_overrides[threads.get_current_user] = _override_current_user
 
     with patch("app.gateway.routers.threads.get_paths", return_value=paths):
         with TestClient(app) as client:
@@ -66,11 +77,14 @@ def test_delete_thread_route_cleans_thread_directory(tmp_path):
     assert not thread_dir.exists()
 
 
-def test_delete_thread_route_rejects_invalid_thread_id(tmp_path):
+def test_delete_thread_route_rejects_invalid_thread_id(tmp_path, monkeypatch):
+    monkeypatch.setenv("DEER_FLOW_AUTH_DB_PATH", str(tmp_path / "auth.db"))
     paths = Paths(tmp_path)
+    create_owned_thread(user_id="user_a", biz_thread_id="thread-route")
 
     app = FastAPI()
     app.include_router(threads.router)
+    app.dependency_overrides[threads.get_current_user] = _override_current_user
 
     with patch("app.gateway.routers.threads.get_paths", return_value=paths):
         with TestClient(app) as client:
@@ -79,11 +93,14 @@ def test_delete_thread_route_rejects_invalid_thread_id(tmp_path):
     assert response.status_code == 404
 
 
-def test_delete_thread_route_returns_422_for_route_safe_invalid_id(tmp_path):
+def test_delete_thread_route_returns_422_for_route_safe_invalid_id(tmp_path, monkeypatch):
+    monkeypatch.setenv("DEER_FLOW_AUTH_DB_PATH", str(tmp_path / "auth.db"))
     paths = Paths(tmp_path)
+    create_owned_thread(user_id="user_a", biz_thread_id="thread.with.dot")
 
     app = FastAPI()
     app.include_router(threads.router)
+    app.dependency_overrides[threads.get_current_user] = _override_current_user
 
     with patch("app.gateway.routers.threads.get_paths", return_value=paths):
         with TestClient(app) as client:
@@ -91,6 +108,20 @@ def test_delete_thread_route_returns_422_for_route_safe_invalid_id(tmp_path):
 
     assert response.status_code == 422
     assert "Invalid thread_id" in response.json()["detail"]
+
+
+def test_delete_thread_route_requires_authentication(tmp_path, monkeypatch):
+    monkeypatch.setenv("DEER_FLOW_AUTH_DB_PATH", str(tmp_path / "auth.db"))
+    paths = Paths(tmp_path)
+
+    app = FastAPI()
+    app.include_router(threads.router)
+
+    with patch("app.gateway.routers.threads.get_paths", return_value=paths):
+        with TestClient(app) as client:
+            response = client.delete("/api/threads/thread-route")
+
+    assert response.status_code == 401
 
 
 def test_delete_thread_data_returns_generic_500_error(tmp_path):

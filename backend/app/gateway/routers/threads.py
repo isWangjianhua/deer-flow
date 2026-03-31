@@ -17,10 +17,17 @@ import time
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from app.gateway.deps import get_checkpointer, get_store
+from app.gateway.deps import get_checkpointer, get_current_user, get_store
+from app.gateway.thread_ownership import (
+    create_owned_thread,
+    delete_owned_thread,
+    ensure_thread_belongs_to_user,
+    list_owned_threads,
+    update_owned_thread_title,
+)
 from deerflow.config.paths import Paths, get_paths
 from deerflow.runtime import serialize_channel_values
 
@@ -215,12 +222,17 @@ def _derive_thread_status(checkpoint_tuple) -> str:
 
 
 @router.delete("/{thread_id}", response_model=ThreadDeleteResponse)
-async def delete_thread_data(thread_id: str, request: Request) -> ThreadDeleteResponse:
+async def delete_thread_data(thread_id: str, request: Request, user=Depends(get_current_user)) -> ThreadDeleteResponse:
     """Delete local persisted filesystem data for a thread.
 
     Cleans DeerFlow-managed thread directories, removes checkpoint data,
     and removes the thread record from the Store.
     """
+    try:
+        ensure_thread_belongs_to_user(biz_thread_id=thread_id, user_id=user.id)
+    except PermissionError as exc:
+        raise HTTPException(status_code=404, detail=f"Thread {thread_id} not found") from exc
+
     # Clean local filesystem
     response = _delete_thread_data(thread_id)
 
@@ -241,11 +253,12 @@ async def delete_thread_data(thread_id: str, request: Request) -> ThreadDeleteRe
         except Exception:
             logger.debug("Could not delete checkpoints for thread %s (not critical)", thread_id)
 
+    delete_owned_thread(biz_thread_id=thread_id, user_id=user.id)
     return response
 
 
 @router.post("", response_model=ThreadResponse)
-async def create_thread(body: ThreadCreateRequest, request: Request) -> ThreadResponse:
+async def create_thread(body: ThreadCreateRequest, request: Request, user=Depends(get_current_user)) -> ThreadResponse:
     """Create a new thread.
 
     The thread record is written to the Store (for fast listing) and an
@@ -254,7 +267,11 @@ async def create_thread(body: ThreadCreateRequest, request: Request) -> ThreadRe
     """
     store = get_store(request)
     checkpointer = get_checkpointer(request)
-    thread_id = body.thread_id or str(uuid.uuid4())
+    try:
+        owner_record = create_owned_thread(user_id=user.id, biz_thread_id=body.thread_id)
+    except PermissionError as exc:
+        raise HTTPException(status_code=409, detail="Thread ID already exists") from exc
+    thread_id = owner_record.id
     now = time.time()
 
     # Idempotency: return existing record from Store when already present
@@ -315,7 +332,7 @@ async def create_thread(body: ThreadCreateRequest, request: Request) -> ThreadRe
 
 
 @router.post("/search", response_model=list[ThreadResponse])
-async def search_threads(body: ThreadSearchRequest, request: Request) -> list[ThreadResponse]:
+async def search_threads(body: ThreadSearchRequest, request: Request, user=Depends(get_current_user)) -> list[ThreadResponse]:
     """Search and list threads.
 
     Two-phase approach:
@@ -407,7 +424,8 @@ async def search_threads(body: ThreadSearchRequest, request: Request) -> list[Th
     # -----------------------------------------------------------------------
     # Phase 3: Filter → sort → paginate
     # -----------------------------------------------------------------------
-    results = list(merged.values())
+    owned_ids = {item.id for item in list_owned_threads(user.id)}
+    results = [item for item in merged.values() if item.thread_id in owned_ids]
 
     if body.metadata:
         results = [r for r in results if all(r.metadata.get(k) == v for k, v in body.metadata.items())]
@@ -420,8 +438,13 @@ async def search_threads(body: ThreadSearchRequest, request: Request) -> list[Th
 
 
 @router.patch("/{thread_id}", response_model=ThreadResponse)
-async def patch_thread(thread_id: str, body: ThreadPatchRequest, request: Request) -> ThreadResponse:
+async def patch_thread(thread_id: str, body: ThreadPatchRequest, request: Request, user=Depends(get_current_user)) -> ThreadResponse:
     """Merge metadata into a thread record."""
+    try:
+        ensure_thread_belongs_to_user(biz_thread_id=thread_id, user_id=user.id)
+    except PermissionError as exc:
+        raise HTTPException(status_code=404, detail=f"Thread {thread_id} not found") from exc
+
     store = get_store(request)
     if store is None:
         raise HTTPException(status_code=503, detail="Store not available")
@@ -451,13 +474,18 @@ async def patch_thread(thread_id: str, body: ThreadPatchRequest, request: Reques
 
 
 @router.get("/{thread_id}", response_model=ThreadResponse)
-async def get_thread(thread_id: str, request: Request) -> ThreadResponse:
+async def get_thread(thread_id: str, request: Request, user=Depends(get_current_user)) -> ThreadResponse:
     """Get thread info.
 
     Reads metadata from the Store and derives the accurate execution
     status from the checkpointer.  Falls back to the checkpointer alone
     for threads that pre-date Store adoption (backward compat).
     """
+    try:
+        ensure_thread_belongs_to_user(biz_thread_id=thread_id, user_id=user.id)
+    except PermissionError as exc:
+        raise HTTPException(status_code=404, detail=f"Thread {thread_id} not found") from exc
+
     store = get_store(request)
     checkpointer = get_checkpointer(request)
 
@@ -503,12 +531,17 @@ async def get_thread(thread_id: str, request: Request) -> ThreadResponse:
 
 
 @router.get("/{thread_id}/state", response_model=ThreadStateResponse)
-async def get_thread_state(thread_id: str, request: Request) -> ThreadStateResponse:
+async def get_thread_state(thread_id: str, request: Request, user=Depends(get_current_user)) -> ThreadStateResponse:
     """Get the latest state snapshot for a thread.
 
     Channel values are serialized to ensure LangChain message objects
     are converted to JSON-safe dicts.
     """
+    try:
+        ensure_thread_belongs_to_user(biz_thread_id=thread_id, user_id=user.id)
+    except PermissionError as exc:
+        raise HTTPException(status_code=404, detail=f"Thread {thread_id} not found") from exc
+
     checkpointer = get_checkpointer(request)
 
     config = {"configurable": {"thread_id": thread_id, "checkpoint_ns": ""}}
@@ -552,13 +585,20 @@ async def get_thread_state(thread_id: str, request: Request) -> ThreadStateRespo
 
 
 @router.post("/{thread_id}/state", response_model=ThreadStateResponse)
-async def update_thread_state(thread_id: str, body: ThreadStateUpdateRequest, request: Request) -> ThreadStateResponse:
+async def update_thread_state(
+    thread_id: str, body: ThreadStateUpdateRequest, request: Request, user=Depends(get_current_user)
+) -> ThreadStateResponse:
     """Update thread state (e.g. for human-in-the-loop resume or title rename).
 
     Writes a new checkpoint that merges *body.values* into the latest
     channel values, then syncs any updated ``title`` field back to the Store
     so that ``/threads/search`` reflects the change immediately.
     """
+    try:
+        ensure_thread_belongs_to_user(biz_thread_id=thread_id, user_id=user.id)
+    except PermissionError as exc:
+        raise HTTPException(status_code=404, detail=f"Thread {thread_id} not found") from exc
+
     checkpointer = get_checkpointer(request)
     store = get_store(request)
 
@@ -622,6 +662,7 @@ async def update_thread_state(thread_id: str, body: ThreadStateUpdateRequest, re
     if store is not None and body.values and "title" in body.values:
         try:
             await _store_upsert(store, thread_id, values={"title": body.values["title"]})
+            update_owned_thread_title(biz_thread_id=thread_id, user_id=user.id, title=body.values["title"])
         except Exception:
             logger.debug("Failed to sync title to store for thread %s (non-fatal)", thread_id)
 
@@ -635,8 +676,15 @@ async def update_thread_state(thread_id: str, body: ThreadStateUpdateRequest, re
 
 
 @router.post("/{thread_id}/history", response_model=list[HistoryEntry])
-async def get_thread_history(thread_id: str, body: ThreadHistoryRequest, request: Request) -> list[HistoryEntry]:
+async def get_thread_history(
+    thread_id: str, body: ThreadHistoryRequest, request: Request, user=Depends(get_current_user)
+) -> list[HistoryEntry]:
     """Get checkpoint history for a thread."""
+    try:
+        ensure_thread_belongs_to_user(biz_thread_id=thread_id, user_id=user.id)
+    except PermissionError as exc:
+        raise HTTPException(status_code=404, detail=f"Thread {thread_id} not found") from exc
+
     checkpointer = get_checkpointer(request)
 
     config: dict[str, Any] = {"configurable": {"thread_id": thread_id}}
