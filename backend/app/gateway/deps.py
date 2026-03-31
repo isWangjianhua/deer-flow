@@ -13,6 +13,7 @@ from contextlib import AsyncExitStack, asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request
 
+from app.gateway.auth.session import SESSION_COOKIE_NAME, get_session_by_token, get_user_by_id
 from deerflow.runtime import RunManager, StreamBridge
 
 
@@ -68,3 +69,24 @@ def get_checkpointer(request: Request):
 def get_store(request: Request):
     """Return the global store (may be ``None`` if not configured)."""
     return getattr(request.app.state, "store", None)
+
+
+def get_current_user_optional(request: Request):
+    """Return the current authenticated user, or ``None`` when unauthenticated."""
+    session_token = request.cookies.get(SESSION_COOKIE_NAME)
+    if not session_token:
+        return None
+
+    session = get_session_by_token(session_token)
+    if session is None:
+        return None
+
+    return get_user_by_id(session.user_id)
+
+
+def get_current_user(request: Request):
+    """Return the current authenticated user, or raise 401."""
+    user = get_current_user_optional(request)
+    if user is None:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    return user
