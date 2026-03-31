@@ -11,6 +11,15 @@ export interface AgentThreadState extends Record<string, unknown> {
 
 export interface AgentThread extends Thread<AgentThreadState> {}
 
+export interface ThreadStreamLike {
+  messages: Message[];
+  values: AgentThreadState;
+  error?: Error;
+  isLoading: boolean;
+  isThreadLoading: boolean;
+  stop: () => Promise<void>;
+}
+
 export interface AgentThreadContext extends Record<string, unknown> {
   thread_id: string;
   model_name: string | undefined;

@@ -42,7 +42,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { getAPIClient } from "@/core/api";
+import { getBackendBaseURL } from "@/core/config";
 import { useI18n } from "@/core/i18n/hooks";
 import {
   exportThreadAsJSON,
@@ -132,10 +132,15 @@ export function RecentChatList() {
   const handleExport = useCallback(
     async (thread: AgentThread, format: "markdown" | "json") => {
       try {
-        const apiClient = getAPIClient();
-        const state = await apiClient.threads.getState<AgentThreadState>(
-          thread.thread_id,
+        const response = await fetch(
+          `${getBackendBaseURL()}/api/threads/${encodeURIComponent(
+            thread.thread_id,
+          )}/state`,
         );
+        if (!response.ok) {
+          throw new Error("Failed to load conversation state");
+        }
+        const state = (await response.json()) as { values?: AgentThreadState };
         const messages = state.values?.messages ?? [];
         if (messages.length === 0) {
           toast.error(t.conversation.noMessages);
