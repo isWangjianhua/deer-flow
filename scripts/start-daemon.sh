@@ -12,6 +12,15 @@ set -e
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
+FRONTEND_VARIANT="legacy"
+for arg in "$@"; do
+    case "$arg" in
+        --assistant-ui) FRONTEND_VARIANT="assistant-ui" ;;
+        --legacy-frontend) FRONTEND_VARIANT="legacy" ;;
+        *) echo "Unknown argument: $arg"; echo "Usage: $0 [--assistant-ui|--legacy-frontend]"; exit 1 ;;
+    esac
+done
+
 # ── Stop existing services ────────────────────────────────────────────────────
 
 echo "Stopping existing services if any..."
@@ -30,6 +39,8 @@ echo ""
 echo "=========================================="
 echo " Starting DeerFlow in Daemon Mode"
 echo "=========================================="
+echo ""
+echo " Frontend variant: $FRONTEND_VARIANT"
 echo ""
 
 # ── Config check ─────────────────────────────────────────────────────────────
@@ -76,6 +87,21 @@ trap cleanup_on_failure INT TERM
 
 mkdir -p logs
 
+if [ "$FRONTEND_VARIANT" = "assistant-ui" ]; then
+    FRONTEND_DIR="apps/assistant-ui-web"
+    FRONTEND_LOG_PATH="../../logs/frontend.log"
+    FRONTEND_CMD="pnpm exec next dev --webpack --port 3000"
+else
+    FRONTEND_DIR="frontend"
+    FRONTEND_LOG_PATH="../logs/frontend.log"
+    FRONTEND_CMD="pnpm run dev"
+fi
+
+if [ ! -d "$FRONTEND_DIR" ]; then
+    echo "✗ Frontend directory not found: $FRONTEND_DIR"
+    exit 1
+fi
+
 echo "Starting LangGraph server..."
 nohup sh -c 'cd backend && NO_COLOR=1 uv run langgraph dev --no-browser --allow-blocking --no-reload > ../logs/langgraph.log 2>&1' &
 ./scripts/wait-for-port.sh 2024 60 "LangGraph" || {
@@ -103,7 +129,7 @@ nohup sh -c 'cd backend && PYTHONPATH=. uv run uvicorn app.gateway.app:app --hos
 echo "✓ Gateway API started on localhost:8001"
 
 echo "Starting Frontend..."
-nohup sh -c 'cd frontend && pnpm run dev > ../logs/frontend.log 2>&1' &
+nohup sh -c 'cd "$1" && '"$FRONTEND_CMD"' > "$2" 2>&1' _ "$FRONTEND_DIR" "$FRONTEND_LOG_PATH" &
 ./scripts/wait-for-port.sh 3000 120 "Frontend" || {
     echo "✗ Frontend failed to start. Last log output:"
     tail -60 logs/frontend.log
@@ -136,7 +162,7 @@ echo ""
 echo " 📋 Logs:"
 echo " - LangGraph: logs/langgraph.log"
 echo " - Gateway: logs/gateway.log"
-echo " - Frontend: logs/frontend.log"
+echo " - Frontend: logs/frontend.log ($FRONTEND_VARIANT)"
 echo " - Nginx: logs/nginx.log"
 echo ""
 echo " 🛑 Stop daemon: make stop"

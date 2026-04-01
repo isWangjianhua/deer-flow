@@ -19,18 +19,33 @@ fi
 # ── Argument parsing ─────────────────────────────────────────────────────────
 
 DEV_MODE=true
+FRONTEND_VARIANT="legacy"
 for arg in "$@"; do
     case "$arg" in
         --dev)  DEV_MODE=true ;;
         --prod) DEV_MODE=false ;;
-        *) echo "Unknown argument: $arg"; echo "Usage: $0 [--dev|--prod]"; exit 1 ;;
+        --assistant-ui) FRONTEND_VARIANT="assistant-ui" ;;
+        --legacy-frontend) FRONTEND_VARIANT="legacy" ;;
+        *) echo "Unknown argument: $arg"; echo "Usage: $0 [--dev|--prod] [--assistant-ui|--legacy-frontend]"; exit 1 ;;
     esac
 done
 
-if $DEV_MODE; then
-    FRONTEND_CMD="pnpm run dev"
+if [ "$FRONTEND_VARIANT" = "assistant-ui" ]; then
+    FRONTEND_DIR="apps/assistant-ui-web"
+    FRONTEND_LOG_PATH="../../logs/frontend.log"
+    if $DEV_MODE; then
+        FRONTEND_CMD="pnpm exec next dev --webpack --port 3000"
+    else
+        FRONTEND_CMD="pnpm exec next start --port 3000"
+    fi
 else
-    FRONTEND_CMD="env BETTER_AUTH_SECRET=$(python3 -c 'import secrets; print(secrets.token_hex(16))') pnpm run preview"
+    FRONTEND_DIR="frontend"
+    FRONTEND_LOG_PATH="../logs/frontend.log"
+    if $DEV_MODE; then
+        FRONTEND_CMD="pnpm run dev"
+    else
+        FRONTEND_CMD="env BETTER_AUTH_SECRET=$(python3 -c 'import secrets; print(secrets.token_hex(16))') pnpm run preview"
+    fi
 fi
 
 # ── Stop existing services ────────────────────────────────────────────────────
@@ -64,7 +79,7 @@ fi
 echo ""
 echo "Services starting up..."
 echo "  → Backend: LangGraph + Gateway"
-echo "  → Frontend: Next.js"
+echo "  → Frontend: Next.js ($FRONTEND_VARIANT)"
 echo "  → Nginx: Reverse Proxy"
 echo ""
 
@@ -126,6 +141,11 @@ trap cleanup INT TERM
 
 mkdir -p logs
 
+if [ ! -d "$FRONTEND_DIR" ]; then
+    echo "✗ Frontend directory not found: $FRONTEND_DIR"
+    exit 1
+fi
+
 if $DEV_MODE; then
     LANGGRAPH_EXTRA_FLAGS="--no-reload"
     GATEWAY_EXTRA_FLAGS="--reload --reload-include='*.yaml' --reload-include='.env' --reload-exclude='*.pyc' --reload-exclude='__pycache__' --reload-exclude='sandbox/' --reload-exclude='.deer-flow/'"
@@ -170,7 +190,7 @@ echo "Starting Gateway API..."
 echo "✓ Gateway API started on localhost:8001"
 
 echo "Starting Frontend..."
-(cd frontend && $FRONTEND_CMD > ../logs/frontend.log 2>&1) &
+(cd "$FRONTEND_DIR" && $FRONTEND_CMD > "$FRONTEND_LOG_PATH" 2>&1) &
 ./scripts/wait-for-port.sh 3000 120 "Frontend" || {
     echo "  See logs/frontend.log for details"
     tail -20 logs/frontend.log
@@ -215,7 +235,7 @@ echo ""
 echo "  📋 Logs:"
 echo "     - LangGraph: logs/langgraph.log"
 echo "     - Gateway:   logs/gateway.log"
-echo "     - Frontend:  logs/frontend.log"
+echo "     - Frontend:  logs/frontend.log ($FRONTEND_VARIANT)"
 echo "     - Nginx:     logs/nginx.log"
 echo ""
 echo "Press Ctrl+C to stop all services"
