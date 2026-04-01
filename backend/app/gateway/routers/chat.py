@@ -50,7 +50,7 @@ async def chat(body: UseChatRequest, request: Request, user=Depends(get_current_
             ]
         },
         metadata={"source": "usechat-proxy"},
-        config={"configurable": {"thread_id": record.id}},
+        config={"configurable": {"thread_id": record.id, "user_id": user.id}},
         stream_mode=["messages-tuple"],
     )
     run_record = await start_run(run_body, record.id, request)

@@ -2,28 +2,29 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
+import pytest
+from fastapi import HTTPException
 
 from app.gateway.thread_ownership import create_owned_thread
 
 
-def _build_app(chat_module, user_id: str) -> FastAPI:
-    app = FastAPI()
-    app.include_router(chat_module.router)
+async def _collect_streaming_body(response) -> str:
+    parts: list[str] = []
+    async for chunk in response.body_iterator:
+        if isinstance(chunk, bytes):
+            parts.append(chunk.decode("utf-8"))
+        else:
+            parts.append(str(chunk))
+    return "".join(parts)
 
-    def override_current_user():
-        return SimpleNamespace(id=user_id)
 
-    app.dependency_overrides[chat_module.get_current_user] = override_current_user
-    return app
-
-
-def test_chat_endpoint_creates_conversation_when_missing_id(tmp_path, monkeypatch):
+@pytest.mark.anyio
+async def test_chat_endpoint_creates_conversation_when_missing_id(tmp_path, monkeypatch):
     monkeypatch.setenv("DEER_FLOW_AUTH_DB_PATH", str(tmp_path / "auth.db"))
-    from app.gateway.routers import chat
+    import app.gateway.routers.chat as chat
 
     async def fake_start_run(body, thread_id, request):
+        assert body.config["configurable"]["user_id"] == "user_a"
         return SimpleNamespace(run_id="run_1", thread_id=thread_id)
 
     async def fake_sse_consumer(bridge, record, request, run_mgr):
@@ -34,50 +35,39 @@ def test_chat_endpoint_creates_conversation_when_missing_id(tmp_path, monkeypatc
     monkeypatch.setattr(chat, "get_stream_bridge", lambda request: object())
     monkeypatch.setattr(chat, "get_run_manager", lambda request: object())
 
-    app = _build_app(chat, "user_a")
-    with TestClient(app) as client:
-        response = client.post(
-            "/api/chat",
-            json={
-                "id": "req_1",
-                "messages": [{"role": "user", "content": "Hello"}],
-                "body": {},
-            },
-        )
+    response = await chat.chat(
+        body=chat.UseChatRequest(
+            id="req_1",
+            messages=[chat.ChatMessage(role="user", content="Hello")],
+            body={},
+        ),
+        request=SimpleNamespace(),
+        user=SimpleNamespace(id="user_a"),
+    )
 
-    assert response.status_code == 200
     assert response.headers["x-vercel-ai-ui-message-stream"] == "v1"
-    assert '"type": "data-conversation"' in response.text
-    assert '"conversationId": "' in response.text
-    assert '"type": "text-delta"' in response.text
-    assert "data: [DONE]" in response.text
+    payload = await _collect_streaming_body(response)
+    assert '"type": "data-conversation"' in payload
+    assert '"conversationId": "' in payload
+    assert '"type": "text-delta"' in payload
+    assert "data: [DONE]" in payload
 
 
-def test_chat_endpoint_rejects_foreign_conversation(tmp_path, monkeypatch):
+@pytest.mark.anyio
+async def test_chat_endpoint_rejects_foreign_conversation(tmp_path, monkeypatch):
     monkeypatch.setenv("DEER_FLOW_AUTH_DB_PATH", str(tmp_path / "auth.db"))
     create_owned_thread(user_id="user_a", biz_thread_id="conv_a")
-    from app.gateway.routers import chat
+    import app.gateway.routers.chat as chat
 
-    async def fake_start_run(body, thread_id, request):
-        return SimpleNamespace(run_id="run_1", thread_id=thread_id)
-
-    async def fake_sse_consumer(bridge, record, request, run_mgr):
-        yield 'event: messages-tuple\ndata: {"type":"ai","content":"Hello","id":"ai_1"}\n\n'
-
-    monkeypatch.setattr(chat, "start_run", fake_start_run)
-    monkeypatch.setattr(chat, "sse_consumer", fake_sse_consumer)
-    monkeypatch.setattr(chat, "get_stream_bridge", lambda request: object())
-    monkeypatch.setattr(chat, "get_run_manager", lambda request: object())
-
-    app = _build_app(chat, "user_b")
-    with TestClient(app) as client:
-        response = client.post(
-            "/api/chat",
-            json={
-                "id": "req_1",
-                "messages": [{"role": "user", "content": "Hello"}],
-                "body": {"conversation_id": "conv_a"},
-            },
+    with pytest.raises(HTTPException) as exc_info:
+        await chat.chat(
+            body=chat.UseChatRequest(
+                id="req_1",
+                messages=[chat.ChatMessage(role="user", content="Hello")],
+                body={"conversation_id": "conv_a"},
+            ),
+            request=SimpleNamespace(),
+            user=SimpleNamespace(id="user_b"),
         )
 
-    assert response.status_code == 404
+    assert exc_info.value.status_code == 404

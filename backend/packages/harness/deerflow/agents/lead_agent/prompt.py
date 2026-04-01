@@ -364,6 +364,9 @@ def _get_memory_context(agent_name: str | None = None) -> str:
         config = get_memory_config()
         if not config.enabled or not config.injection_enabled:
             return ""
+        if config.provider == "mem0":
+            # mem0-based memory is injected at runtime per user/query via middleware.
+            return ""
 
         memory_data = get_memory_data(agent_name)
         memory_content = format_memory_for_injection(memory_data, max_tokens=config.max_injection_tokens)

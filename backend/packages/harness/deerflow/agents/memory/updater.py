@@ -12,6 +12,7 @@ from deerflow.agents.memory.prompt import (
     MEMORY_UPDATE_PROMPT,
     format_conversation_for_update,
 )
+from deerflow.agents.memory.mem0_service import get_mem0_service
 from deerflow.agents.memory.storage import create_empty_memory, get_memory_storage
 from deerflow.config.memory_config import get_memory_config
 from deerflow.models import create_chat_model
@@ -29,17 +30,25 @@ def _save_memory_to_file(memory_data: dict[str, Any], agent_name: str | None = N
     return get_memory_storage().save(memory_data, agent_name)
 
 
-def get_memory_data(agent_name: str | None = None) -> dict[str, Any]:
+def get_memory_data(agent_name: str | None = None, user_id: str | None = None) -> dict[str, Any]:
     """Get the current memory data via storage provider."""
+    if get_memory_config().provider == "mem0":
+        if not user_id:
+            return create_empty_memory()
+        return get_mem0_service().build_compat_memory(user_id=user_id)
     return get_memory_storage().load(agent_name)
 
 
-def reload_memory_data(agent_name: str | None = None) -> dict[str, Any]:
+def reload_memory_data(agent_name: str | None = None, user_id: str | None = None) -> dict[str, Any]:
     """Reload memory data via storage provider."""
+    if get_memory_config().provider == "mem0":
+        if not user_id:
+            return create_empty_memory()
+        return get_mem0_service().build_compat_memory(user_id=user_id)
     return get_memory_storage().reload(agent_name)
 
 
-def import_memory_data(memory_data: dict[str, Any], agent_name: str | None = None) -> dict[str, Any]:
+def import_memory_data(memory_data: dict[str, Any], agent_name: str | None = None, user_id: str | None = None) -> dict[str, Any]:
     """Persist imported memory data via storage provider.
 
     Args:
@@ -52,14 +61,27 @@ def import_memory_data(memory_data: dict[str, Any], agent_name: str | None = Non
     Raises:
         OSError: If persisting the imported memory fails.
     """
+    if get_memory_config().provider == "mem0":
+        if not user_id:
+            raise OSError("Missing user_id for mem0 import")
+        service = get_mem0_service()
+        service.delete_all(user_id=user_id)
+        service.import_facts(user_id=user_id, facts=memory_data.get("facts", []))
+        return service.build_compat_memory(user_id=user_id)
+
     storage = get_memory_storage()
     if not storage.save(memory_data, agent_name):
         raise OSError("Failed to save imported memory data")
     return storage.load(agent_name)
 
 
-def clear_memory_data(agent_name: str | None = None) -> dict[str, Any]:
+def clear_memory_data(agent_name: str | None = None, user_id: str | None = None) -> dict[str, Any]:
     """Clear all stored memory data and persist an empty structure."""
+    if get_memory_config().provider == "mem0":
+        if not user_id:
+            raise OSError("Missing user_id for mem0 clear")
+        get_mem0_service().delete_all(user_id=user_id)
+        return create_empty_memory()
     cleared_memory = create_empty_memory()
     if not _save_memory_to_file(cleared_memory, agent_name):
         raise OSError("Failed to save cleared memory data")
@@ -78,6 +100,7 @@ def create_memory_fact(
     category: str = "context",
     confidence: float = 0.5,
     agent_name: str | None = None,
+    user_id: str | None = None,
 ) -> dict[str, Any]:
     """Create a new fact and persist the updated memory data."""
     normalized_content = content.strip()
@@ -86,6 +109,17 @@ def create_memory_fact(
 
     normalized_category = category.strip() or "context"
     validated_confidence = _validate_confidence(confidence)
+    if get_memory_config().provider == "mem0":
+        if not user_id:
+            raise OSError("Missing user_id for mem0 fact creation")
+        get_mem0_service().create_fact(
+            user_id=user_id,
+            content=normalized_content,
+            category=normalized_category,
+            confidence=validated_confidence,
+        )
+        return get_mem0_service().build_compat_memory(user_id=user_id)
+
     now = datetime.utcnow().isoformat() + "Z"
     memory_data = get_memory_data(agent_name)
     updated_memory = dict(memory_data)
@@ -108,8 +142,18 @@ def create_memory_fact(
     return updated_memory
 
 
-def delete_memory_fact(fact_id: str, agent_name: str | None = None) -> dict[str, Any]:
+def delete_memory_fact(fact_id: str, agent_name: str | None = None, user_id: str | None = None) -> dict[str, Any]:
     """Delete a fact by its id and persist the updated memory data."""
+    if get_memory_config().provider == "mem0":
+        if not user_id:
+            raise OSError("Missing user_id for mem0 fact deletion")
+        service = get_mem0_service()
+        existing_ids = {fact["id"] for fact in service.build_compat_memory(user_id=user_id)["facts"]}
+        if fact_id not in existing_ids:
+            raise KeyError(fact_id)
+        service.delete(memory_id=fact_id)
+        return service.build_compat_memory(user_id=user_id)
+
     memory_data = get_memory_data(agent_name)
     facts = memory_data.get("facts", [])
     updated_facts = [fact for fact in facts if fact.get("id") != fact_id]
@@ -131,8 +175,32 @@ def update_memory_fact(
     category: str | None = None,
     confidence: float | None = None,
     agent_name: str | None = None,
+    user_id: str | None = None,
 ) -> dict[str, Any]:
     """Update an existing fact and persist the updated memory data."""
+    if get_memory_config().provider == "mem0":
+        if not user_id:
+            raise OSError("Missing user_id for mem0 fact update")
+        service = get_mem0_service()
+        current = service.build_compat_memory(user_id=user_id)
+        existing = next((fact for fact in current.get("facts", []) if fact.get("id") == fact_id), None)
+        if existing is None:
+            raise KeyError(fact_id)
+        merged_content = content if content is not None else existing.get("content", "")
+        if not str(merged_content).strip():
+            raise ValueError("content")
+        merged_category = category if category is not None else existing.get("category", "context")
+        merged_confidence = confidence if confidence is not None else existing.get("confidence", 0.5)
+        _validate_confidence(float(merged_confidence))
+        service.delete(memory_id=fact_id)
+        service.create_fact(
+            user_id=user_id,
+            content=str(merged_content),
+            category=str(merged_category),
+            confidence=float(merged_confidence),
+        )
+        return service.build_compat_memory(user_id=user_id)
+
     memory_data = get_memory_data(agent_name)
     updated_memory = dict(memory_data)
     updated_facts: list[dict[str, Any]] = []
@@ -266,7 +334,13 @@ class MemoryUpdater:
         model_name = self._model_name or config.model_name
         return create_chat_model(name=model_name, thinking_enabled=False)
 
-    def update_memory(self, messages: list[Any], thread_id: str | None = None, agent_name: str | None = None) -> bool:
+    def update_memory(
+        self,
+        messages: list[Any],
+        thread_id: str | None = None,
+        user_id: str | None = None,
+        agent_name: str | None = None,
+    ) -> bool:
         """Update memory based on conversation messages.
 
         Args:
@@ -285,6 +359,18 @@ class MemoryUpdater:
             return False
 
         try:
+            if config.provider == "mem0":
+                if not user_id:
+                    logger.debug("No user_id provided for mem0 memory update; skipping")
+                    return False
+                get_mem0_service().add_conversation(
+                    messages=messages,
+                    user_id=user_id,
+                    run_id=thread_id,
+                    metadata={"thread_id": thread_id or "", "source": thread_id or "unknown"},
+                )
+                return True
+
             # Get current memory
             current_memory = get_memory_data(agent_name)
 
@@ -412,7 +498,12 @@ class MemoryUpdater:
         return current_memory
 
 
-def update_memory_from_conversation(messages: list[Any], thread_id: str | None = None, agent_name: str | None = None) -> bool:
+def update_memory_from_conversation(
+    messages: list[Any],
+    thread_id: str | None = None,
+    user_id: str | None = None,
+    agent_name: str | None = None,
+) -> bool:
     """Convenience function to update memory from a conversation.
 
     Args:
@@ -424,4 +515,4 @@ def update_memory_from_conversation(messages: list[Any], thread_id: str | None =
         True if successful, False otherwise.
     """
     updater = MemoryUpdater()
-    return updater.update_memory(messages, thread_id, agent_name)
+    return updater.update_memory(messages, thread_id, user_id, agent_name)
