@@ -1,6 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { collectChatStreamEvents, parseStreamFrame } from "./chat-stream";
+import { UnauthorizedError } from "../auth-errors";
+import { collectChatStreamEvents, parseStreamFrame, streamChat } from "./chat-stream";
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe("chat stream", () => {
   it("parses a conversation data frame", () => {
@@ -66,5 +71,13 @@ describe("chat stream", () => {
         delta: " world",
       },
     ]);
+  });
+
+  it("throws UnauthorizedError when chat returns 401", async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue(
+      new Response("Authentication required", { status: 401 }),
+    ) as typeof fetch;
+
+    await expect(streamChat({ messages: [] })).rejects.toThrow(UnauthorizedError);
   });
 });

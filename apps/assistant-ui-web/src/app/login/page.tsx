@@ -1,20 +1,14 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { type FormEvent, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
-import { getCurrentUser, login, register } from "../../lib/auth";
-
-type AuthMode = "login" | "register";
+import { AuthDialog } from "../../components/auth-dialog";
+import { getCurrentUser } from "../../lib/auth";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [mode, setMode] = useState<AuthMode>("login");
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -42,66 +36,23 @@ export default function LoginPage() {
     };
   }, [router]);
 
-  async function onSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setError(null);
-    setSubmitting(true);
-
-    try {
-      if (mode === "login") {
-        await login(username, password);
-      } else {
-        await register(username, password);
-      }
-
-      router.replace("/workspace");
-    } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "Authentication failed");
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
   if (pending) {
-    return <main>Loading...</main>;
+    return <main className="flex min-h-screen items-center justify-center bg-[#111318] text-white">Loading...</main>;
   }
 
   return (
-    <main>
-      <h1>{mode === "login" ? "登录" : "注册"}</h1>
-      <form onSubmit={onSubmit}>
-        <label>
-          用户名
-          <input
-            value={username}
-            onChange={(event) => setUsername(event.target.value)}
-            minLength={3}
-            maxLength={64}
-            required
-          />
-        </label>
-        <label>
-          密码
-          <input
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            minLength={6}
-            maxLength={256}
-            required
-            type="password"
-          />
-        </label>
-        {error ? <p>{error}</p> : null}
-        <button disabled={submitting} type="submit">
-          {submitting ? "处理中..." : mode === "login" ? "登录" : "注册"}
-        </button>
-      </form>
-      <button
-        onClick={() => setMode((current) => (current === "login" ? "register" : "login"))}
-        type="button"
-      >
-        {mode === "login" ? "切换到注册" : "切换到登录"}
-      </button>
+    <main className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top,rgba(104,113,138,0.18),transparent_26%),linear-gradient(180deg,#0f1116_0%,#171a22_100%)] px-6 py-10">
+      <AuthDialog
+        onOpenChange={(open) => {
+          if (!open) {
+            router.replace("/workspace");
+          }
+        }}
+        onSuccess={() => {
+          router.replace("/workspace");
+        }}
+        open
+      />
     </main>
   );
 }

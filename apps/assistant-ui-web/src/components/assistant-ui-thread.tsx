@@ -20,6 +20,8 @@ import type {
 } from "../lib/runtime/message-converter";
 import type { ChatStreamEvent } from "../lib/runtime/chat-stream";
 import type { ThreadMessageLike } from "@assistant-ui/react";
+import { cn } from "@/lib/utils";
+import { ChevronDownIcon, LoaderCircleIcon } from "lucide-react";
 
 import { ToolCard } from "./tool-ui";
 
@@ -189,48 +191,87 @@ function MessageRenderer({ message }: { message: MessageState }) {
   const reasoningParts = message.content.filter((part) => part.type === "reasoning");
   const textParts = message.content.filter((part) => part.type === "text");
   const toolParts = message.content.filter((part) => part.type === "tool-call");
+  const isUser = message.role === "user";
 
   return (
-    <article>
-      <header>
-        <strong>{message.role === "user" ? "You" : "Assistant"}</strong>
-      </header>
+    <article
+      className={cn(
+        "mx-auto w-full max-w-3xl px-4 py-5 md:px-6",
+        isUser ? "flex justify-end" : "flex justify-start",
+      )}
+    >
+      <div
+        className={cn(
+          "w-full",
+          isUser ? "max-w-xl" : "max-w-3xl",
+        )}
+      >
+        <header className={cn("mb-3 text-xs font-semibold uppercase tracking-[0.22em]", isUser ? "text-right text-white/40" : "text-white/35")}>
+          {isUser ? "You" : "Assistant"}
+        </header>
 
-      {reasoningParts.length > 0 || toolParts.length > 0 ? (
-        <details>
-          <summary>Hidden steps</summary>
+        {reasoningParts.length > 0 || toolParts.length > 0 ? (
+          <details className="group mb-4 overflow-hidden rounded-3xl border border-white/10 bg-white/4 backdrop-blur-sm">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 text-sm text-white/75 marker:hidden">
+              <span className="font-medium">Hidden steps</span>
+              <ChevronDownIcon className="size-4 transition-transform group-open:rotate-180" />
+            </summary>
 
-          {reasoningParts.map((part, index) => (
-            <div key={`reasoning-${message.id}-${index}`}>
-              <strong>思考</strong>
-              <p>{part.text}</p>
+            <div className="space-y-4 border-t border-white/8 px-5 py-4">
+              {reasoningParts.map((part, index) => (
+                <div
+                  className="rounded-2xl border border-white/8 bg-black/15 px-4 py-3"
+                  key={`reasoning-${message.id}-${index}`}
+                >
+                  <strong className="text-xs font-semibold uppercase tracking-[0.18em] text-white/45">
+                    思考
+                  </strong>
+                  <p className="mt-2 text-sm leading-7 text-white/72">{part.text}</p>
+                </div>
+              ))}
+
+              {toolParts.map((part, index) => (
+                <ToolCard
+                  key={`tool-${part.toolCallId ?? index}`}
+                  args={part.args as Record<string, unknown>}
+                  content={
+                    typeof part.result === "string"
+                      ? part.result
+                      : JSON.stringify(part.result ?? "", null, 2)
+                  }
+                  toolName={part.toolName}
+                />
+              ))}
             </div>
-          ))}
+          </details>
+        ) : null}
 
-          {toolParts.map((part, index) => (
-            <ToolCard
-              key={`tool-${part.toolCallId ?? index}`}
-              args={part.args as Record<string, unknown>}
-              content={typeof part.result === "string" ? part.result : JSON.stringify(part.result ?? "", null, 2)}
-              toolName={part.toolName}
-            />
-          ))}
-        </details>
-      ) : null}
-
-      {textParts.map((part, index) => (
-        <p key={`text-${message.id}-${index}`}>{part.text}</p>
-      ))}
+        {textParts.map((part, index) => (
+          <div
+            className={cn(
+              "rounded-[28px] px-5 py-4 text-sm leading-8 shadow-lg shadow-black/10",
+              isUser
+                ? "bg-white/10 text-white"
+                : "border border-white/8 bg-white/5 text-white/88 backdrop-blur-sm",
+            )}
+            key={`text-${message.id}-${index}`}
+          >
+            <p className="whitespace-pre-wrap">{part.text}</p>
+          </div>
+        ))}
+      </div>
     </article>
   );
 }
 
 type AssistantUiThreadProps = Readonly<{
   initialState: DeerFlowRuntimeState | null;
+  ensureAuthenticated?: () => Promise<boolean>;
   onStateChange?: (state: DeerFlowRuntimeState) => void;
 }>;
 
 export function AssistantUiThread({
+  ensureAuthenticated,
   initialState,
   onStateChange,
 }: AssistantUiThreadProps) {
@@ -247,6 +288,13 @@ export function AssistantUiThread({
           const text = extractUserText(message);
           if (!text) {
             return;
+          }
+
+          if (ensureAuthenticated) {
+            const authenticated = await ensureAuthenticated();
+            if (!authenticated) {
+              return;
+            }
           }
 
           setIsRunning(true);
@@ -309,17 +357,31 @@ export function AssistantUiThread({
 
   return (
     <AssistantRuntimeProvider runtime={runtime}>
-      <ThreadPrimitive.Root>
-        <ThreadPrimitive.Viewport>
+      <ThreadPrimitive.Root className="flex min-h-[calc(100vh-145px)] flex-col">
+        <ThreadPrimitive.Viewport className="relative flex-1 overflow-y-auto">
           <ThreadPrimitive.Messages>
             {({ message }) => <MessageRenderer message={message} />}
           </ThreadPrimitive.Messages>
+
+          {isRunning ? (
+            <div className="pointer-events-none sticky bottom-36 mx-auto mt-auto flex w-full max-w-3xl items-center gap-2 px-6 pb-4 text-sm text-white/45">
+              <LoaderCircleIcon className="size-4 animate-spin" />
+              Generating…
+            </div>
+          ) : null}
         </ThreadPrimitive.Viewport>
       </ThreadPrimitive.Root>
 
-      <ComposerPrimitive.Root>
-        <ComposerPrimitive.Input placeholder="Ask something..." />
-        <ComposerPrimitive.Send>Send</ComposerPrimitive.Send>
+      <ComposerPrimitive.Root className="sticky bottom-0 border-t border-white/8 bg-[linear-gradient(180deg,rgba(23,26,34,0)_0%,rgba(23,26,34,0.94)_18%,rgba(23,26,34,1)_100%)] px-4 pb-6 pt-5 md:px-6">
+        <div className="mx-auto flex max-w-3xl items-end gap-3 rounded-[28px] border border-white/10 bg-black/20 p-3 shadow-2xl shadow-black/20 backdrop-blur-xl">
+          <ComposerPrimitive.Input
+            className="min-h-14 flex-1 resize-none bg-transparent px-3 py-2 text-[15px] leading-7 text-white outline-none placeholder:text-white/30"
+            placeholder="Ask something..."
+          />
+          <ComposerPrimitive.Send className="flex h-11 min-w-24 items-center justify-center rounded-2xl bg-white px-4 font-medium text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:bg-white/15 disabled:text-white/35">
+            Send
+          </ComposerPrimitive.Send>
+        </div>
       </ComposerPrimitive.Root>
     </AssistantRuntimeProvider>
   );

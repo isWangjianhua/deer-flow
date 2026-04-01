@@ -1,8 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { AuthDialog } from "@/components/auth-dialog";
+import { getCurrentUser, type CurrentUser } from "@/lib/auth";
+import { isUnauthorizedError } from "@/lib/auth-errors";
 import {
   loadRuntimeState,
   type DeerFlowRuntimeState,
@@ -23,33 +26,70 @@ export function ThreadScreen({ initialConversationId = null }: ThreadScreenProps
   const [conversationId, setConversationId] = useState<string | null>(
     initialConversationId,
   );
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [runtimeState, setRuntimeState] = useState<DeerFlowRuntimeState | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [authDialogOpen, setAuthDialogOpen] = useState(false);
+  const authResolverRef = useRef<((authenticated: boolean) => void) | null>(null);
+
+  const ensureAuthenticated = useCallback(async () => {
+    if (currentUser) {
+      return true;
+    }
+
+    const freshUser = await getCurrentUser();
+    if (freshUser) {
+      setCurrentUser(freshUser);
+      return true;
+    }
+
+    setAuthDialogOpen(true);
+    return await new Promise<boolean>((resolve) => {
+      authResolverRef.current = resolve;
+    });
+  }, [currentUser]);
+
+  const resolveAuthDialog = useCallback((authenticated: boolean) => {
+    authResolverRef.current?.(authenticated);
+    authResolverRef.current = null;
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
 
     async function bootstrap() {
       try {
-        const loadedThreads = await threadListRuntime.load();
+        const user = await getCurrentUser();
         if (cancelled) {
           return;
         }
-        setThreads(loadedThreads);
+        setCurrentUser(user);
+
+        if (user) {
+          const loadedThreads = await threadListRuntime.load();
+          if (cancelled) {
+            return;
+          }
+          setThreads(loadedThreads);
+        }
 
         if (!initialConversationId) {
           setLoading(false);
           return;
         }
 
-        const state = await loadRuntimeState(initialConversationId);
-        if (cancelled) {
+        if (!user) {
+          setLoading(false);
           return;
         }
-        setRuntimeState(state);
-      } catch (bootstrapError) {
+
+        const state = await loadRuntimeState(initialConversationId);
         if (!cancelled) {
+          setRuntimeState(state);
+        }
+      } catch (bootstrapError) {
+        if (!cancelled && !isUnauthorizedError(bootstrapError)) {
           setError(
             bootstrapError instanceof Error
               ? bootstrapError.message
@@ -72,12 +112,21 @@ export function ThreadScreen({ initialConversationId = null }: ThreadScreenProps
 
   return (
     <AppShell activeThreadId={conversationId} threads={threads}>
-      <section>
-        <h1>{runtimeState?.title || "Assistant UI"}</h1>
-        {loading ? <p>Loading...</p> : null}
-        {error ? <p>{error}</p> : null}
+      <section className="flex min-h-screen flex-col">
+        <div className="border-b border-white/8 px-6 py-6 md:px-10">
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/35">
+            Workspace
+          </p>
+          <h1 className="mt-3 font-[family-name:var(--font-serif)] text-3xl text-white md:text-4xl">
+            {runtimeState?.title || "Assistant UI"}
+          </h1>
+        </div>
+
+        {loading ? <p className="px-6 py-8 text-sm text-white/55 md:px-10">Loading...</p> : null}
+        {error ? <p className="px-6 py-8 text-sm text-red-300 md:px-10">{error}</p> : null}
         {!loading ? (
           <AssistantUiThread
+            ensureAuthenticated={ensureAuthenticated}
             initialState={runtimeState}
             onStateChange={(nextState) => {
               setRuntimeState(nextState);
@@ -89,6 +138,22 @@ export function ThreadScreen({ initialConversationId = null }: ThreadScreenProps
             }}
           />
         ) : null}
+        <AuthDialog
+          onOpenChange={(open) => {
+            setAuthDialogOpen(open);
+            if (!open) {
+              resolveAuthDialog(false);
+            }
+          }}
+          onSuccess={() => {
+            void getCurrentUser().then((user) => {
+              setCurrentUser(user);
+            });
+            void threadListRuntime.load().then(setThreads).catch(() => {});
+            resolveAuthDialog(true);
+          }}
+          open={authDialogOpen}
+        />
       </section>
     </AppShell>
   );

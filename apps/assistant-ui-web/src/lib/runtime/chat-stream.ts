@@ -1,4 +1,5 @@
 import { buildGatewayUrl } from "../config";
+import { throwIfUnauthorized } from "../auth-errors";
 
 type BaseStreamEvent = {
   type: string;
@@ -156,6 +157,7 @@ export async function streamChat(request: {
 
   if (!response.ok || !response.body) {
     const message = await response.text();
+    throwIfUnauthorized(response.status, message || undefined);
     throw new Error(message || `Gateway request failed with ${response.status}`);
   }
 

@@ -1,4 +1,5 @@
 import { buildGatewayUrl } from "./config";
+import { throwIfUnauthorized } from "./auth-errors";
 
 export type CurrentUser = {
   id: string;
@@ -11,8 +12,10 @@ type AuthPayload = {
 };
 
 async function parseJsonResponse<T>(response: Response): Promise<T> {
+  const message = response.ok ? "" : await response.text();
+  throwIfUnauthorized(response.status, message || undefined);
+
   if (!response.ok) {
-    const message = await response.text();
     throw new Error(message || `Gateway request failed with ${response.status}`);
   }
 
