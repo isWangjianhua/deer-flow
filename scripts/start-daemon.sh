@@ -53,6 +53,10 @@ fi
 
 "$REPO_ROOT/scripts/config-upgrade.sh"
 
+# ── Qdrant preflight for mem0 ─────────────────────────────────────────────
+
+python3 "$REPO_ROOT/scripts/ensure_qdrant.py" || exit 1
+
 # ── Cleanup on failure ───────────────────────────────────────────────────────
 
 cleanup_on_failure() {
