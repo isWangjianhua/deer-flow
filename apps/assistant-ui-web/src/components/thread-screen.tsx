@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Share2Icon } from "lucide-react";
 
 import { AuthDialog } from "@/components/auth-dialog";
 import { getCurrentUser, type CurrentUser } from "@/lib/auth";
@@ -14,6 +15,7 @@ import { createThreadListRuntime, type ThreadListItem } from "../lib/runtime/thr
 
 import { AssistantUiThread } from "./assistant-ui-thread";
 import { AppShell } from "./app-shell";
+import { Button } from "./ui/button";
 
 type ThreadScreenProps = Readonly<{
   initialConversationId?: string | null;
@@ -112,17 +114,31 @@ export function ThreadScreen({ initialConversationId = null }: ThreadScreenProps
 
   return (
     <AppShell activeThreadId={conversationId} threads={threads}>
-      <section className="flex min-h-screen flex-col">
-        <div className="border-b border-white/8 px-6 py-6 md:px-10">
-          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/35">
-            Workspace
-          </p>
-          <h1 className="mt-3 font-[family-name:var(--font-serif)] text-3xl text-white md:text-4xl">
-            {runtimeState?.title || "Assistant UI"}
-          </h1>
+      <section className="flex min-h-screen flex-col bg-background">
+        <div className="flex h-14 items-center justify-between border-b border-border px-4 md:px-6">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="hidden rounded-lg border border-border bg-muted/40 px-3 py-1.5 text-sm text-muted-foreground md:block">
+              DeerFlow
+            </div>
+            <h1 className="truncate text-sm font-medium md:text-base">
+              {runtimeState?.title || "New Thread"}
+            </h1>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {currentUser ? (
+              <div className="hidden text-right text-xs text-muted-foreground md:block">
+                <div className="font-medium text-foreground">{currentUser.username}</div>
+                <div>Connected</div>
+              </div>
+            ) : null}
+            <Button className="size-8" size="icon" variant="ghost">
+              <Share2Icon className="size-4" />
+            </Button>
+          </div>
         </div>
 
-        {loading ? <p className="px-6 py-8 text-sm text-white/55 md:px-10">Loading...</p> : null}
+        {loading ? <p className="px-6 py-8 text-sm text-muted-foreground md:px-10">Loading...</p> : null}
         {error ? <p className="px-6 py-8 text-sm text-red-300 md:px-10">{error}</p> : null}
         {!loading ? (
           <AssistantUiThread

@@ -21,7 +21,8 @@ import type {
 import type { ChatStreamEvent } from "../lib/runtime/chat-stream";
 import type { ThreadMessageLike } from "@assistant-ui/react";
 import { cn } from "@/lib/utils";
-import { ChevronDownIcon, LoaderCircleIcon } from "lucide-react";
+import { ChevronDownIcon, LoaderCircleIcon, PlusIcon } from "lucide-react";
+import { Button } from "./ui/button";
 
 import { ToolCard } from "./tool-ui";
 
@@ -196,7 +197,7 @@ function MessageRenderer({ message }: { message: MessageState }) {
   return (
     <article
       className={cn(
-        "mx-auto w-full max-w-3xl px-4 py-5 md:px-6",
+        "mx-auto w-full max-w-4xl px-4 py-4 md:px-6",
         isUser ? "flex justify-end" : "flex justify-start",
       )}
     >
@@ -206,27 +207,23 @@ function MessageRenderer({ message }: { message: MessageState }) {
           isUser ? "max-w-xl" : "max-w-3xl",
         )}
       >
-        <header className={cn("mb-3 text-xs font-semibold uppercase tracking-[0.22em]", isUser ? "text-right text-white/40" : "text-white/35")}>
-          {isUser ? "You" : "Assistant"}
-        </header>
-
         {reasoningParts.length > 0 || toolParts.length > 0 ? (
-          <details className="group mb-4 overflow-hidden rounded-3xl border border-white/10 bg-white/4 backdrop-blur-sm">
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 text-sm text-white/75 marker:hidden">
+          <details className="group mb-4 overflow-hidden rounded-2xl border border-border bg-card/60">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm text-muted-foreground marker:hidden">
               <span className="font-medium">Hidden steps</span>
               <ChevronDownIcon className="size-4 transition-transform group-open:rotate-180" />
             </summary>
 
-            <div className="space-y-4 border-t border-white/8 px-5 py-4">
+            <div className="space-y-3 border-t border-border px-4 py-4">
               {reasoningParts.map((part, index) => (
                 <div
-                  className="rounded-2xl border border-white/8 bg-black/15 px-4 py-3"
+                  className="rounded-xl border border-border bg-muted/30 px-4 py-3"
                   key={`reasoning-${message.id}-${index}`}
                 >
-                  <strong className="text-xs font-semibold uppercase tracking-[0.18em] text-white/45">
+                  <strong className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                     思考
                   </strong>
-                  <p className="mt-2 text-sm leading-7 text-white/72">{part.text}</p>
+                  <p className="mt-2 text-sm leading-7 text-foreground/80">{part.text}</p>
                 </div>
               ))}
 
@@ -249,10 +246,10 @@ function MessageRenderer({ message }: { message: MessageState }) {
         {textParts.map((part, index) => (
           <div
             className={cn(
-              "rounded-[28px] px-5 py-4 text-sm leading-8 shadow-lg shadow-black/10",
+              "rounded-2xl px-4 py-3 text-[15px] leading-7",
               isUser
-                ? "bg-white/10 text-white"
-                : "border border-white/8 bg-white/5 text-white/88 backdrop-blur-sm",
+                ? "bg-muted text-foreground"
+                : "text-foreground",
             )}
             key={`text-${message.id}-${index}`}
           >
@@ -357,14 +354,39 @@ export function AssistantUiThread({
 
   return (
     <AssistantRuntimeProvider runtime={runtime}>
-      <ThreadPrimitive.Root className="flex min-h-[calc(100vh-145px)] flex-col">
-        <ThreadPrimitive.Viewport className="relative flex-1 overflow-y-auto">
+      <ThreadPrimitive.Root className="flex min-h-[calc(100vh-56px)] flex-col bg-background">
+        <ThreadPrimitive.Viewport className="relative flex flex-1 flex-col overflow-y-auto px-4 pt-4 md:px-6">
+          {(runtimeState?.messages.length ?? 0) === 0 ? (
+            <div className="mx-auto my-auto flex w-full max-w-3xl flex-col px-4 pb-10 pt-16">
+              <div className="mb-8">
+                <h2 className="text-5xl font-semibold tracking-tight text-foreground">Hello there!</h2>
+                <p className="mt-2 text-3xl text-muted-foreground">How can I help you today?</p>
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-2">
+                {[
+                  ["What's the weather", "in Shanghai tomorrow?"],
+                  ["Explain React hooks", "like useState and useEffect"],
+                ].map(([title, subtitle]) => (
+                  <button
+                    className="rounded-3xl border border-border bg-background px-5 py-4 text-left transition-colors hover:bg-muted"
+                    key={title}
+                    onClick={() => {}}
+                    type="button"
+                  >
+                    <div className="font-medium text-foreground">{title}</div>
+                    <div className="text-muted-foreground">{subtitle}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
           <ThreadPrimitive.Messages>
             {({ message }) => <MessageRenderer message={message} />}
           </ThreadPrimitive.Messages>
 
           {isRunning ? (
-            <div className="pointer-events-none sticky bottom-36 mx-auto mt-auto flex w-full max-w-3xl items-center gap-2 px-6 pb-4 text-sm text-white/45">
+            <div className="pointer-events-none sticky bottom-34 mx-auto mt-auto flex w-full max-w-3xl items-center gap-2 px-4 pb-4 text-sm text-muted-foreground md:px-0">
               <LoaderCircleIcon className="size-4 animate-spin" />
               Generating…
             </div>
@@ -372,15 +394,23 @@ export function AssistantUiThread({
         </ThreadPrimitive.Viewport>
       </ThreadPrimitive.Root>
 
-      <ComposerPrimitive.Root className="sticky bottom-0 border-t border-white/8 bg-[linear-gradient(180deg,rgba(23,26,34,0)_0%,rgba(23,26,34,0.94)_18%,rgba(23,26,34,1)_100%)] px-4 pb-6 pt-5 md:px-6">
-        <div className="mx-auto flex max-w-3xl items-end gap-3 rounded-[28px] border border-white/10 bg-black/20 p-3 shadow-2xl shadow-black/20 backdrop-blur-xl">
+      <ComposerPrimitive.Root className="sticky bottom-0 border-t border-border bg-background px-4 pb-4 pt-4 md:px-6 md:pb-6">
+        <div className="mx-auto flex max-w-3xl flex-col gap-2 rounded-[28px] border border-border bg-background p-3">
+          <div className="flex items-center justify-between px-1">
+            <Button className="size-8 rounded-full" size="icon" type="button" variant="ghost">
+              <PlusIcon className="size-4" />
+            </Button>
+          </div>
+
+          <div className="flex items-end gap-3">
           <ComposerPrimitive.Input
-            className="min-h-14 flex-1 resize-none bg-transparent px-3 py-2 text-[15px] leading-7 text-white outline-none placeholder:text-white/30"
-            placeholder="Ask something..."
+            className="min-h-12 flex-1 resize-none bg-transparent px-3 py-2 text-[15px] leading-7 text-foreground outline-none placeholder:text-muted-foreground"
+            placeholder="Send a message..."
           />
-          <ComposerPrimitive.Send className="flex h-11 min-w-24 items-center justify-center rounded-2xl bg-white px-4 font-medium text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:bg-white/15 disabled:text-white/35">
-            Send
+          <ComposerPrimitive.Send className="flex size-10 items-center justify-center rounded-full bg-primary text-primary-foreground transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground">
+            <ChevronDownIcon className="-rotate-90 size-4" />
           </ComposerPrimitive.Send>
+        </div>
         </div>
       </ComposerPrimitive.Root>
     </AssistantRuntimeProvider>
