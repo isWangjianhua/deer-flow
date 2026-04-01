@@ -1,7 +1,7 @@
 "use client";
 
 import { BotIcon, PlusSquare } from "lucide-react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, usePathname, useRouter } from "next/navigation";
 import { useCallback } from "react";
 
 import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
@@ -30,6 +30,7 @@ export default function AgentChatPage() {
   const { t } = useI18n();
   const [settings, setSettings] = useLocalSettings();
   const router = useRouter();
+  const pathname = usePathname();
 
   const { agent_name } = useParams<{
     agent_name: string;
@@ -47,14 +48,15 @@ export default function AgentChatPage() {
     onStart: (resolvedThreadId) => {
       setIsNewThread(false);
       setThreadId(resolvedThreadId);
-      // ! Important: Never use next.js router for navigation in this case, otherwise it will cause the thread to re-mount and lose all states. Use native history API instead.
-      history.replaceState(
-        null,
-        "",
-        `/workspace/agents/${agent_name}/chats/${resolvedThreadId}`,
-      );
     },
-    onFinish: (state) => {
+    onFinish: (state, resolvedThreadId) => {
+      if (pathname.endsWith("/new")) {
+        history.replaceState(
+          null,
+          "",
+          `/workspace/agents/${agent_name}/chats/${resolvedThreadId}`,
+        );
+      }
       if (document.hidden || !document.hasFocus()) {
         let body = "Conversation finished";
         const lastMessage = state.messages[state.messages.length - 1];

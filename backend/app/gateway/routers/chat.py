@@ -42,6 +42,22 @@ class UseChatRequest(BaseModel):
     body: dict[str, Any] = Field(default_factory=dict)
 
 
+def _build_run_messages(messages: list[ChatMessage]) -> list[dict[str, str]]:
+    latest_user_message: ChatMessage | None = None
+    for message in messages:
+        if message.role == "user" and message.content:
+            latest_user_message = message
+
+    if latest_user_message is not None:
+        return [{"role": "user", "content": latest_user_message.content}]
+
+    return [
+        {"role": message.role, "content": message.content}
+        for message in messages
+        if message.content
+    ]
+
+
 @router.post("")
 async def chat(body: UseChatRequest, request: Request, user=Depends(get_current_user)) -> StreamingResponse:
     conversation_id = body.body.get("conversation_id")
@@ -56,13 +72,7 @@ async def chat(body: UseChatRequest, request: Request, user=Depends(get_current_
 
     run_body = RunCreateRequest(
         assistant_id="lead_agent",
-        input={
-            "messages": [
-                {"role": message.role, "content": message.content}
-                for message in body.messages
-                if message.content
-            ]
-        },
+        input={"messages": _build_run_messages(body.messages)},
         metadata={"source": "usechat-proxy"},
         config={"configurable": {"thread_id": record.id, "user_id": user.id}},
         stream_mode=["messages-tuple"],

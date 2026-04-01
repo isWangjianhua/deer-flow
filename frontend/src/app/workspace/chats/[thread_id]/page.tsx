@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { useCallback } from "react";
 
 import { type PromptInputMessage } from "@/components/ai-elements/prompt-input";
@@ -28,6 +29,7 @@ import { cn } from "@/lib/utils";
 export default function ChatPage() {
   const { t } = useI18n();
   const [settings, setSettings] = useLocalSettings();
+  const pathname = usePathname();
 
   const { threadId, setThreadId, isNewThread, setIsNewThread, isMock } =
     useThreadChat();
@@ -42,10 +44,11 @@ export default function ChatPage() {
     onStart: (resolvedThreadId) => {
       setIsNewThread(false);
       setThreadId(resolvedThreadId);
-      // ! Important: Never use next.js router for navigation in this case, otherwise it will cause the thread to re-mount and lose all states. Use native history API instead.
-      history.replaceState(null, "", `/workspace/chats/${resolvedThreadId}`);
     },
-    onFinish: (state) => {
+    onFinish: (state, resolvedThreadId) => {
+      if (pathname.endsWith("/new")) {
+        history.replaceState(null, "", `/workspace/chats/${resolvedThreadId}`);
+      }
       if (document.hidden || !document.hasFocus()) {
         let body = "Conversation finished";
         const lastMessage = state.messages.at(-1);

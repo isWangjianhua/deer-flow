@@ -59,6 +59,9 @@ def _extract_text_from_langgraph_chunk(chunk: str) -> str:
         if isinstance(payload, list) and payload:
             first = payload[0]
             if isinstance(first, dict):
+                payload_type = first.get("type")
+                if payload_type not in ("AIMessageChunk", "ai"):
+                    continue
                 content = first.get("content")
                 if isinstance(content, str) and content:
                     return content
@@ -69,7 +72,10 @@ def _extract_text_from_langgraph_chunk(chunk: str) -> str:
             content = payload.get("content")
             if isinstance(content, str) and content:
                 return content
-        text = payload.get("text")
+        if payload.get("type") != "tool":
+            text = payload.get("text")
+        else:
+            text = None
         if isinstance(text, str):
             return text
     return ""

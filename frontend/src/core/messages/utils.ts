@@ -52,6 +52,10 @@ export function groupMessages<T>(
   }
 
   for (const message of messages) {
+    if (isInternalControlMessage(message)) {
+      continue;
+    }
+
     if (message.name === "todo_reminder") {
       continue;
     }
@@ -313,6 +317,10 @@ export function hasSubagent(message: AIMessage) {
     }
   }
   return false;
+}
+
+export function isInternalControlMessage(message: Message) {
+  return extractTextFromMessage(message).startsWith("[LOOP DETECTED]");
 }
 
 export function findToolCallResult(toolCallId: string, messages: Message[]) {

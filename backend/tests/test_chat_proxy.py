@@ -96,3 +96,18 @@ async def test_usechat_stream_from_langgraph_parses_real_messages_event_tuple():
     assert joined.count('"type": "text-start"') == 1
     assert '"delta": "Hello"' in joined
     assert '"delta": " world"' in joined
+
+
+@pytest.mark.anyio
+async def test_usechat_stream_from_langgraph_ignores_tool_messages():
+    async def upstream():
+        yield 'event: messages\ndata: [{"id":"tool-1","content":"{\\"results\\": []}","type":"tool"},{"langgraph_node":"tools"}]\n\n'
+        yield 'event: messages\ndata: [{"id":"ai-1","content":"Final answer","type":"AIMessageChunk"},{"langgraph_node":"agent"}]\n\n'
+
+    frames = []
+    async for frame in usechat_stream_from_langgraph(upstream(), conversation_id="conv_1"):
+        frames.append(frame)
+
+    joined = "".join(frames)
+    assert '{\\"results\\": []}' not in joined
+    assert '"delta": "Final answer"' in joined

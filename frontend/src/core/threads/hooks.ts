@@ -15,6 +15,10 @@ import type { ConversationSummary } from "../chat/types";
 import { getBackendBaseURL } from "../config";
 import { useI18n } from "../i18n/hooks";
 import type { AgentMessage as Message } from "../messages/types";
+import {
+  extractContentFromMessage,
+  isInternalControlMessage,
+} from "../messages/utils";
 import type { FileInMessage } from "../messages/utils";
 import type { LocalSettings } from "../settings";
 import type { UploadedFileInfo } from "../uploads";
@@ -61,7 +65,7 @@ export type ThreadStreamOptions = {
   context: LocalSettings["context"];
   isMock?: boolean;
   onStart?: (threadId: string) => void;
-  onFinish?: (state: AgentThreadState) => void;
+  onFinish?: (state: AgentThreadState, threadId: string) => void;
   onToolEnd?: (event: ToolEndEvent) => void;
 };
 
@@ -133,6 +137,19 @@ function legacyMessageToUIMessage(message: Message): UIMessage {
   } as UIMessage;
 }
 
+function isVisibleChatHistoryMessage(message: Message): boolean {
+  if (isInternalControlMessage(message)) {
+    return false;
+  }
+  if (message.type === "human") {
+    return true;
+  }
+  if (message.type !== "ai" || (message.tool_calls?.length ?? 0) > 0) {
+    return false;
+  }
+  return extractContentFromMessage(message).trim().length > 0;
+}
+
 function uiMessageToLegacyMessage(message: UIMessage): Message {
   const text = extractTextFromUIMessage(message);
   return {
@@ -146,6 +163,9 @@ function uiMessageToLegacyMessage(message: UIMessage): Message {
 async function fetchThreadState(threadId: string): Promise<AgentThreadState> {
   const response = await fetch(
     `${getBackendBaseURL()}/api/threads/${encodeURIComponent(threadId)}/state`,
+    {
+      credentials: "include",
+    },
   );
   if (!response.ok) {
     throw new Error("Failed to load conversation state.");
@@ -254,6 +274,7 @@ export function useThreadStream({
     messages: [],
     transport: new DefaultChatTransport({
       api: `${getBackendBaseURL()}/api/chat`,
+      credentials: "include",
       prepareSendMessagesRequest: ({ id, messages }) => ({
         body: {
           id,
@@ -282,13 +303,20 @@ export function useThreadStream({
       void setMessages([]);
       return;
     }
+    if (status !== "ready") {
+      return;
+    }
     let cancelled = false;
     void refreshThreadState(threadId)
       .then((state) => {
         if (cancelled) {
           return;
         }
-        void setMessages(state.messages.map(legacyMessageToUIMessage));
+        void setMessages(
+          state.messages
+            .filter(isVisibleChatHistoryMessage)
+            .map(legacyMessageToUIMessage),
+        );
       })
       .catch(() => {
         if (!cancelled) {
@@ -305,7 +333,7 @@ export function useThreadStream({
     return () => {
       cancelled = true;
     };
-  }, [refreshThreadState, setMessages, threadId]);
+  }, [refreshThreadState, setMessages, status, threadId]);
 
   useEffect(() => {
     const previousStatus = statusRef.current;
@@ -318,14 +346,22 @@ export function useThreadStream({
     ) {
       void refreshThreadState(threadIdRef.current)
         .then((state) => {
-          void setMessages(state.messages.map(legacyMessageToUIMessage));
+          const resolvedThreadId = threadIdRef.current;
+          if (!resolvedThreadId) {
+            return;
+          }
+          void setMessages(
+            state.messages
+              .filter(isVisibleChatHistoryMessage)
+              .map(legacyMessageToUIMessage),
+          );
           const normalizedTitle = state.title.trim();
-          if (normalizedTitle && threadIdRef.current) {
-            void updateConversation(threadIdRef.current, normalizedTitle).catch(
+          if (normalizedTitle) {
+            void updateConversation(resolvedThreadId, normalizedTitle).catch(
               () => undefined,
             );
           }
-          listeners.current.onFinish?.(state);
+          listeners.current.onFinish?.(state, resolvedThreadId);
           void queryClient.invalidateQueries({ queryKey: ["threads", "search"] });
         })
         .catch(() => {
@@ -341,6 +377,10 @@ export function useThreadStream({
   const legacyMessages = useMemo(
     () => uiMessages.map(uiMessageToLegacyMessage),
     [uiMessages],
+  );
+  const canonicalMessages = useMemo(
+    () => (threadValues.messages.length > 0 ? threadValues.messages : legacyMessages),
+    [legacyMessages, threadValues.messages],
   );
   const prevMsgCountRef = useRef(legacyMessages.length);
 
@@ -508,7 +548,6 @@ export function useThreadStream({
             ? `${buildUploadedFilesBlock(uploadedFileInfo)}\n\n`
             : "";
 
-        setOptimisticMessages([]);
         await sendChatMessage({ text: `${uploadedFilesPrefix}${text}` });
         void queryClient.invalidateQueries({ queryKey: ["threads", "search"] });
       } catch (error) {
@@ -523,15 +562,19 @@ export function useThreadStream({
   );
 
   const mergedMessages =
-    optimisticMessages.length > 0
-      ? [...legacyMessages, ...optimisticMessages]
-      : legacyMessages;
+    status === "ready"
+      ? optimisticMessages.length > 0
+        ? [...canonicalMessages, ...optimisticMessages]
+        : canonicalMessages
+      : optimisticMessages.length > 0
+        ? [...legacyMessages, ...optimisticMessages]
+        : legacyMessages;
 
   const mergedThread: ThreadStreamLike = {
     messages: mergedMessages,
     values: {
       ...threadValues,
-      messages: legacyMessages,
+      messages: canonicalMessages,
     },
     error:
       error instanceof Error
@@ -573,6 +616,7 @@ export function useDeleteThread() {
         `${getBackendBaseURL()}/api/threads/${encodeURIComponent(threadId)}`,
         {
           method: "DELETE",
+          credentials: "include",
         },
       );
 

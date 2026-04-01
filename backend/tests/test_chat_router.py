@@ -42,6 +42,44 @@ def test_usechat_request_accepts_ui_message_parts():
 
 
 @pytest.mark.anyio
+async def test_chat_endpoint_only_forwards_latest_user_message(tmp_path, monkeypatch):
+    monkeypatch.setenv("DEER_FLOW_AUTH_DB_PATH", str(tmp_path / "auth.db"))
+    import app.gateway.routers.chat as chat
+
+    captured_inputs: list[dict] = []
+
+    async def fake_start_run(body, thread_id, request):
+        captured_inputs.append(body.input)
+        return SimpleNamespace(run_id="run_1", thread_id=thread_id)
+
+    async def fake_sse_consumer(bridge, record, request, run_mgr):
+        yield 'event: messages-tuple\ndata: {"type":"ai","content":"Done","id":"ai_1"}\n\n'
+
+    monkeypatch.setattr(chat, "start_run", fake_start_run)
+    monkeypatch.setattr(chat, "sse_consumer", fake_sse_consumer)
+    monkeypatch.setattr(chat, "get_stream_bridge", lambda request: object())
+    monkeypatch.setattr(chat, "get_run_manager", lambda request: object())
+
+    await chat.chat(
+        body=chat.UseChatRequest(
+            id="req_1",
+            messages=[
+                chat.ChatMessage(role="user", content="你好"),
+                chat.ChatMessage(role="assistant", content="你好！"),
+                chat.ChatMessage(role="user", content="做一个简单的html网页"),
+            ],
+            body={},
+        ),
+        request=SimpleNamespace(),
+        user=SimpleNamespace(id="user_a"),
+    )
+
+    assert captured_inputs == [
+        {"messages": [{"role": "user", "content": "做一个简单的html网页"}]}
+    ]
+
+
+@pytest.mark.anyio
 async def test_chat_endpoint_creates_conversation_when_missing_id(tmp_path, monkeypatch):
     monkeypatch.setenv("DEER_FLOW_AUTH_DB_PATH", str(tmp_path / "auth.db"))
     import app.gateway.routers.chat as chat

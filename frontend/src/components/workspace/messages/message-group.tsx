@@ -1,6 +1,6 @@
 import {
   BookOpenTextIcon,
-  ChevronUp,
+  ChevronDown,
   FolderOpenIcon,
   GlobeIcon,
   LightbulbIcon,
@@ -16,12 +16,12 @@ import { useMemo, useState } from "react";
 import {
   ChainOfThought,
   ChainOfThoughtContent,
+  ChainOfThoughtHeader,
   ChainOfThoughtSearchResult,
   ChainOfThoughtSearchResults,
   ChainOfThoughtStep,
 } from "@/components/ai-elements/chain-of-thought";
 import { CodeBlock } from "@/components/ai-elements/code-block";
-import { Button } from "@/components/ui/button";
 import { useI18n } from "@/core/i18n/hooks";
 import type { AgentMessage as Message } from "@/core/messages/types";
 import {
@@ -34,10 +34,41 @@ import { env } from "@/env";
 import { cn } from "@/lib/utils";
 
 import { useArtifacts } from "../artifacts";
-import { FlipDisplay } from "../flip-display";
 import { Tooltip } from "../tooltip";
 
 import { MarkdownContent } from "./markdown-content";
+
+type WebSearchResultItem = {
+  title?: string;
+  url?: string;
+};
+
+function extractWebSearchResults(
+  result: unknown,
+): Array<{ title: string; url: string }> {
+  const items = Array.isArray(result)
+    ? result
+    : Array.isArray((result as { results?: unknown[] } | null)?.results)
+      ? ((result as { results: unknown[] }).results ?? [])
+      : [];
+
+  return items
+    .map((item) => {
+      if (
+        item &&
+        typeof item === "object" &&
+        typeof (item as WebSearchResultItem).title === "string" &&
+        typeof (item as WebSearchResultItem).url === "string"
+      ) {
+        return {
+          title: (item as WebSearchResultItem).title!,
+          url: (item as WebSearchResultItem).url!,
+        };
+      }
+      return null;
+    })
+    .filter((item): item is { title: string; url: string } => item !== null);
+}
 
 export function MessageGroup({
   className,
@@ -49,136 +80,64 @@ export function MessageGroup({
   isLoading?: boolean;
 }) {
   const { t } = useI18n();
-  const [showAbove, setShowAbove] = useState(
-    env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true",
-  );
-  const [showLastThinking, setShowLastThinking] = useState(
+  const [isOpen, setIsOpen] = useState(
     env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true",
   );
   const steps = useMemo(() => convertToSteps(messages), [messages]);
-  const lastToolCallStep = useMemo(() => {
-    const filteredSteps = steps.filter((step) => step.type === "toolCall");
-    return filteredSteps[filteredSteps.length - 1];
-  }, [steps]);
-  const aboveLastToolCallSteps = useMemo(() => {
-    if (lastToolCallStep) {
-      const index = steps.indexOf(lastToolCallStep);
-      return steps.slice(0, index);
-    }
-    return [];
-  }, [lastToolCallStep, steps]);
-  const lastReasoningStep = useMemo(() => {
-    if (lastToolCallStep) {
-      const index = steps.indexOf(lastToolCallStep);
-      return steps.slice(index + 1).find((step) => step.type === "reasoning");
-    } else {
-      const filteredSteps = steps.filter((step) => step.type === "reasoning");
-      return filteredSteps[filteredSteps.length - 1];
-    }
-  }, [lastToolCallStep, steps]);
   const rehypePlugins = useRehypeSplitWordsIntoSpans(isLoading);
+
+  if (steps.length === 0) {
+    return null;
+  }
+
   return (
     <ChainOfThought
-      className={cn("w-full gap-2 rounded-lg border p-0.5", className)}
-      open={true}
+      className={cn(
+        "bg-card/40 w-full rounded-xl border border-white/8 px-3 py-2",
+        className,
+      )}
+      open={isOpen}
+      onOpenChange={setIsOpen}
     >
-      {aboveLastToolCallSteps.length > 0 && (
-        <Button
-          key="above"
-          className="w-full items-start justify-start text-left"
-          variant="ghost"
-          onClick={() => setShowAbove(!showAbove)}
-        >
-          <ChainOfThoughtStep
-            label={
-              <span className="opacity-60">
-                {showAbove
-                  ? t.toolCalls.lessSteps
-                  : t.toolCalls.moreSteps(aboveLastToolCallSteps.length)}
-              </span>
-            }
-            icon={
-              <ChevronUp
-                className={cn(
-                  "size-4 opacity-60 transition-transform duration-200",
-                  showAbove ? "rotate-180" : "",
-                )}
-              />
-            }
-          ></ChainOfThoughtStep>
-        </Button>
-      )}
-      {lastToolCallStep && (
-        <ChainOfThoughtContent className="px-4 pb-2">
-          {showAbove &&
-            aboveLastToolCallSteps.map((step) =>
-              step.type === "reasoning" ? (
-                <ChainOfThoughtStep
-                  key={step.id}
-                  label={
-                    <MarkdownContent
-                      content={step.reasoning ?? ""}
-                      isLoading={isLoading}
-                      rehypePlugins={rehypePlugins}
-                    />
-                  }
-                ></ChainOfThoughtStep>
-              ) : (
-                <ToolCall key={step.id} {...step} isLoading={isLoading} />
-              ),
-            )}
-          {lastToolCallStep && (
-            <FlipDisplay uniqueKey={lastToolCallStep.id ?? ""}>
-              <ToolCall
-                key={lastToolCallStep.id}
-                {...lastToolCallStep}
-                isLast={true}
-                isLoading={isLoading}
-              />
-            </FlipDisplay>
-          )}
-        </ChainOfThoughtContent>
-      )}
-      {lastReasoningStep && (
-        <>
-          <Button
-            key={lastReasoningStep.id}
-            className="w-full items-start justify-start text-left"
-            variant="ghost"
-            onClick={() => setShowLastThinking(!showLastThinking)}
-          >
-            <div className="flex w-full items-center justify-between">
-              <ChainOfThoughtStep
-                className="font-normal"
-                label={t.common.thinking}
-                icon={LightbulbIcon}
-              ></ChainOfThoughtStep>
-              <div>
-                <ChevronUp
-                  className={cn(
-                    "text-muted-foreground size-4",
-                    showLastThinking ? "" : "rotate-180",
-                  )}
+      <ChainOfThoughtHeader
+        className="hover:bg-accent/30 rounded-md px-1 py-1"
+        icon={<ChevronDown className="text-muted-foreground size-4" />}
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-muted-foreground text-sm">
+            {t.toolCalls.hiddenSteps}
+          </span>
+          <span className="text-muted-foreground/70 text-xs">
+            {steps.length}
+          </span>
+        </div>
+      </ChainOfThoughtHeader>
+      <ChainOfThoughtContent className="mt-3 space-y-4 px-2 pb-1">
+        {steps.map((step, index) =>
+          step.type === "reasoning" ? (
+            <ChainOfThoughtStep
+              key={step.id ?? `reasoning-${index}`}
+              className="text-muted-foreground"
+              label={
+                <MarkdownContent
+                  content={step.reasoning ?? ""}
+                  isLoading={isLoading}
+                  rehypePlugins={rehypePlugins}
+                  className="text-sm leading-7"
                 />
-              </div>
-            </div>
-          </Button>
-          {showLastThinking && (
-            <ChainOfThoughtContent className="px-4 pb-2">
-              <ChainOfThoughtStep
-                key={lastReasoningStep.id}
-                label={
-                  <MarkdownContent
-                    content={lastReasoningStep.reasoning ?? ""}
-                    isLoading={isLoading}
-                    rehypePlugins={rehypePlugins}
-                  />
-                }
-              ></ChainOfThoughtStep>
-            </ChainOfThoughtContent>
-          )}
-        </>
-      )}
+              }
+              icon={LightbulbIcon}
+            />
+          ) : (
+            <ToolCall
+              key={step.id ?? `tool-${index}`}
+              {...step}
+              isLast={index === steps.length - 1}
+              isLoading={isLoading}
+            />
+          ),
+        )}
+      </ChainOfThoughtContent>
     </ChainOfThought>
   );
 }
@@ -196,7 +155,7 @@ function ToolCall({
   messageId?: string;
   name: string;
   args: Record<string, unknown>;
-  result?: string | Record<string, unknown>;
+  result?: unknown;
   isLast?: boolean;
   isLoading?: boolean;
 }) {
@@ -209,11 +168,12 @@ function ToolCall({
     if (typeof args.query === "string") {
       label = t.toolCalls.searchOnWebFor(args.query);
     }
+    const results = extractWebSearchResults(result);
     return (
       <ChainOfThoughtStep key={id} label={label} icon={SearchIcon}>
-        {Array.isArray(result) && (
+        {results.length > 0 && (
           <ChainOfThoughtSearchResults>
-            {result.map((item) => (
+            {results.map((item) => (
               <ChainOfThoughtSearchResult key={item.url}>
                 <a href={item.url} target="_blank" rel="noreferrer">
                   {item.title}
@@ -435,7 +395,7 @@ interface CoTReasoningStep extends GenericCoTStep<"reasoning"> {
 interface CoTToolCallStep extends GenericCoTStep<"toolCall"> {
   name: string;
   args: Record<string, unknown>;
-  result?: string;
+  result?: unknown;
 }
 
 type CoTStep = CoTReasoningStep | CoTToolCallStep;

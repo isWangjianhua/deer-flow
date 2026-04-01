@@ -11,7 +11,9 @@ async function readErrorDetail(
 }
 
 export async function listConversations(): Promise<ConversationSummary[]> {
-  const response = await fetch(`${getBackendBaseURL()}/api/conversations`);
+  const response = await fetch(`${getBackendBaseURL()}/api/conversations`, {
+    credentials: "include",
+  });
   if (!response.ok) {
     throw new Error(
       await readErrorDetail(response, "Failed to load conversations"),
@@ -25,6 +27,7 @@ export async function createConversation(
 ): Promise<ConversationSummary> {
   const response = await fetch(`${getBackendBaseURL()}/api/conversations`, {
     method: "POST",
+    credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ title }),
   });
@@ -41,7 +44,7 @@ export async function deleteConversation(conversationId: string): Promise<void> 
     `${getBackendBaseURL()}/api/conversations/${encodeURIComponent(
       conversationId,
     )}`,
-    { method: "DELETE" },
+    { method: "DELETE", credentials: "include" },
   );
   if (!response.ok) {
     throw new Error(
@@ -60,6 +63,7 @@ export async function updateConversation(
     )}`,
     {
       method: "PATCH",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ title }),
     },

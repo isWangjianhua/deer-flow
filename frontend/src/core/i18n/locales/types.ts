@@ -179,6 +179,7 @@ export interface Translations {
 
   // Tool calls
   toolCalls: {
+    hiddenSteps: string;
     moreSteps: (count: number) => string;
     lessSteps: string;
     executeCommand: string;
