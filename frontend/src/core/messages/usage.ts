@@ -14,9 +14,7 @@ function getUsageMetadata(message: Message): TokenUsage | null {
   if (message.type !== "ai") {
     return null;
   }
-  const usage = (message as Record<string, unknown>).usage_metadata as
-    | { input_tokens?: number; output_tokens?: number; total_tokens?: number }
-    | undefined;
+  const usage = message.usage_metadata ?? undefined;
   if (!usage) {
     return null;
   }

@@ -9,12 +9,10 @@ export type MessageContentPart =
   | {
       type: "image_url";
       image_url: string | { url: string };
-    }
-  | Record<string, unknown>;
+    };
 
-export interface BaseAgentMessage {
+interface CommonAgentMessage {
   id?: string;
-  type: string;
   content: string | MessageContentPart[];
   name?: string | null;
   additional_kwargs?: Record<string, unknown>;
@@ -28,16 +26,16 @@ export interface BaseAgentMessage {
   } | null;
 }
 
-export interface HumanAgentMessage extends BaseAgentMessage {
+export interface HumanAgentMessage extends CommonAgentMessage {
   type: "human";
 }
 
-export interface ToolAgentMessage extends BaseAgentMessage {
+export interface ToolAgentMessage extends CommonAgentMessage {
   type: "tool";
   tool_call_id?: string | null;
 }
 
-export interface AIAgentMessage extends BaseAgentMessage {
+export interface AIAgentMessage extends CommonAgentMessage {
   type: "ai";
   tool_calls?: ToolCall[];
 }
@@ -45,8 +43,7 @@ export interface AIAgentMessage extends BaseAgentMessage {
 export type AgentMessage =
   | HumanAgentMessage
   | ToolAgentMessage
-  | AIAgentMessage
-  | BaseAgentMessage;
+  | AIAgentMessage;
 
 export interface AgentThreadLike<TValues> {
   thread_id: string;

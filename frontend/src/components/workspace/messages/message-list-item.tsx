@@ -19,6 +19,7 @@ import { Task, TaskTrigger } from "@/components/ai-elements/task";
 import { Badge } from "@/components/ui/badge";
 import { resolveArtifactURL } from "@/core/artifacts/utils";
 import { useI18n } from "@/core/i18n/hooks";
+import type { AgentMessage as Message } from "@/core/messages/types";
 import {
   extractContentFromMessage,
   extractReasoningContentFromMessage,
@@ -29,7 +30,6 @@ import {
 import { useRehypeSplitWordsIntoSpans } from "@/core/rehype";
 import { humanMessagePlugins } from "@/core/streamdown";
 import { cn } from "@/lib/utils";
-import type { AgentMessage as Message } from "@/core/messages/types";
 
 import { CopyButton } from "../copy-button";
 

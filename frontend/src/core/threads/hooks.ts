@@ -14,8 +14,8 @@ import {
 import type { ConversationSummary } from "../chat/types";
 import { getBackendBaseURL } from "../config";
 import { useI18n } from "../i18n/hooks";
-import type { FileInMessage } from "../messages/utils";
 import type { AgentMessage as Message } from "../messages/types";
+import type { FileInMessage } from "../messages/utils";
 import type { LocalSettings } from "../settings";
 import type { UploadedFileInfo } from "../uploads";
 import { uploadFiles } from "../uploads";

@@ -1,7 +1,7 @@
 import type { ToolCall } from "@langchain/core/messages";
-import type { AIAgentMessage as AIMessage } from "../messages/types";
 
 import type { Translations } from "../i18n";
+import type { AIAgentMessage as AIMessage } from "../messages/types";
 import { hasToolCalls } from "../messages/utils";
 
 export function explainLastToolCall(message: AIMessage, t: Translations) {

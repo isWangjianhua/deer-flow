@@ -1,5 +1,4 @@
 import type { AgentMessage as Message, AgentThreadLike } from "../messages/types";
-
 import type { Todo } from "../todos";
 
 export interface AgentThreadState extends Record<string, unknown> {

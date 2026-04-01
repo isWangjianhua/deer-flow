@@ -1,5 +1,4 @@
 import type { AgentMessage as Message } from "../messages/types";
-
 import {
   extractContentFromMessage,
   extractReasoningContentFromMessage,

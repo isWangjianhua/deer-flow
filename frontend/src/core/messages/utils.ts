@@ -134,7 +134,11 @@ export function extractTextFromMessage(message: Message) {
   }
   if (Array.isArray(message.content)) {
     return message.content
-      .map((content) => (content.type === "text" ? content.text : ""))
+      .map((content) =>
+        content.type === "text" && typeof content.text === "string"
+          ? content.text
+          : "",
+      )
       .join("\n")
       .trim();
   }
@@ -180,7 +184,7 @@ export function extractContentFromMessage(message: Message) {
       .map((content) => {
         switch (content.type) {
           case "text":
-            return content.text;
+            return typeof content.text === "string" ? content.text : "";
           case "image_url":
             const imageURL = extractURLFromImageURLContent(content.image_url);
             return `![image](${imageURL})`;
@@ -206,8 +210,8 @@ export function extractReasoningContentFromMessage(message: Message) {
   }
   if (Array.isArray(message.content)) {
     const part = message.content[0];
-    if (part && "thinking" in part) {
-      return part.thinking as string;
+    if (part && "thinking" in part && typeof part.thinking === "string") {
+      return part.thinking;
     }
   }
   if (typeof message.content === "string") {

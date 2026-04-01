@@ -23,6 +23,7 @@ import {
 import { CodeBlock } from "@/components/ai-elements/code-block";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/core/i18n/hooks";
+import type { AgentMessage as Message } from "@/core/messages/types";
 import {
   extractReasoningContentFromMessage,
   findToolCallResult,
@@ -35,7 +36,6 @@ import { cn } from "@/lib/utils";
 import { useArtifacts } from "../artifacts";
 import { FlipDisplay } from "../flip-display";
 import { Tooltip } from "../tooltip";
-import type { AgentMessage as Message } from "@/core/messages/types";
 
 import { MarkdownContent } from "./markdown-content";
 
