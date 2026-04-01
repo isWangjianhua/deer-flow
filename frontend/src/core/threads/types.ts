@@ -1,4 +1,4 @@
-import type { Message, Thread } from "@langchain/langgraph-sdk";
+import type { AgentMessage as Message, AgentThreadLike } from "../messages/types";
 
 import type { Todo } from "../todos";
 
@@ -9,7 +9,7 @@ export interface AgentThreadState extends Record<string, unknown> {
   todos?: Todo[];
 }
 
-export interface AgentThread extends Thread<AgentThreadState> {}
+export interface AgentThread extends AgentThreadLike<AgentThreadState> {}
 
 export interface ThreadStreamLike {
   messages: Message[];

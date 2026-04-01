@@ -27,7 +27,7 @@ def test_chat_endpoint_creates_conversation_when_missing_id(tmp_path, monkeypatc
         return SimpleNamespace(run_id="run_1", thread_id=thread_id)
 
     async def fake_sse_consumer(bridge, record, request, run_mgr):
-        yield 'event: messages/partial\ndata: {"text":"Hello"}\n\n'
+        yield 'event: messages-tuple\ndata: {"type":"ai","content":"Hello","id":"ai_1"}\n\n'
 
     monkeypatch.setattr(chat, "start_run", fake_start_run)
     monkeypatch.setattr(chat, "sse_consumer", fake_sse_consumer)
@@ -62,7 +62,7 @@ def test_chat_endpoint_rejects_foreign_conversation(tmp_path, monkeypatch):
         return SimpleNamespace(run_id="run_1", thread_id=thread_id)
 
     async def fake_sse_consumer(bridge, record, request, run_mgr):
-        yield 'event: messages/partial\ndata: {"text":"Hello"}\n\n'
+        yield 'event: messages-tuple\ndata: {"type":"ai","content":"Hello","id":"ai_1"}\n\n'
 
     monkeypatch.setattr(chat, "start_run", fake_start_run)
     monkeypatch.setattr(chat, "sse_consumer", fake_sse_consumer)

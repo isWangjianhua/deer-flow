@@ -1,6 +1,5 @@
 "use client";
 
-import type { Message } from "@langchain/langgraph-sdk";
 import { CoinsIcon } from "lucide-react";
 import { useMemo } from "react";
 
@@ -10,6 +9,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useI18n } from "@/core/i18n/hooks";
+import type { AgentMessage as Message } from "@/core/messages/types";
 import { accumulateUsage, formatTokenCount } from "@/core/messages/usage";
 import { cn } from "@/lib/utils";
 

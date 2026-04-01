@@ -1,4 +1,4 @@
-import type { AIMessage } from "@langchain/langgraph-sdk";
+import type { AIAgentMessage as AIMessage } from "../messages/types";
 
 export interface Subtask {
   id: string;

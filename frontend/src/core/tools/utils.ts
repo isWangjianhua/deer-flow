@@ -1,5 +1,5 @@
 import type { ToolCall } from "@langchain/core/messages";
-import type { AIMessage } from "@langchain/langgraph-sdk";
+import type { AIAgentMessage as AIMessage } from "../messages/types";
 
 import type { Translations } from "../i18n";
 import { hasToolCalls } from "../messages/utils";

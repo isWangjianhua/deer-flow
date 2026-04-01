@@ -56,10 +56,23 @@ def _extract_text_from_langgraph_chunk(chunk: str) -> str:
             payload = json.loads(line[6:])
         except json.JSONDecodeError:
             continue
+        if isinstance(payload, list) and payload:
+            first = payload[0]
+            if isinstance(first, dict):
+                content = first.get("content")
+                if isinstance(content, str) and content:
+                    return content
+            continue
+        if not isinstance(payload, dict):
+            continue
+        if payload.get("type") == "ai":
+            content = payload.get("content")
+            if isinstance(content, str) and content:
+                return content
         text = payload.get("text")
         if isinstance(text, str):
             return text
-    return chunk
+    return ""
 
 
 async def usechat_stream_from_langgraph(
@@ -80,11 +93,18 @@ async def usechat_stream_from_langgraph(
     yield _encode_data({"type": "start", "messageId": message_id})
 
     async for chunk in upstream:
-        if "event: messages/partial" in chunk:
+        if (
+            "event: messages/partial" in chunk
+            or "event: messages-tuple" in chunk
+            or "event: messages" in chunk
+        ):
+            text = _extract_text_from_langgraph_chunk(chunk)
+            if not text:
+                continue
             if not text_started:
                 yield _encode_data({"type": "text-start", "id": text_id})
                 text_started = True
-            yield encode_usechat_text_delta(text_id, _extract_text_from_langgraph_chunk(chunk))
+            yield encode_usechat_text_delta(text_id, text)
             continue
         if "event: error" in chunk:
             yield _encode_data({"type": "error", "errorText": chunk})

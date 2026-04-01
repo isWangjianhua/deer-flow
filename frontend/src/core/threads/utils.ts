@@ -1,4 +1,4 @@
-import type { Message } from "@langchain/langgraph-sdk";
+import type { AgentMessage as Message } from "../messages/types";
 
 import type { AgentThread } from "./types";
 

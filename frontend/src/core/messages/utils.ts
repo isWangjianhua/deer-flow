@@ -1,4 +1,4 @@
-import type { AIMessage, Message } from "@langchain/langgraph-sdk";
+import type { AIAgentMessage as AIMessage, AgentMessage as Message } from "./types";
 
 interface GenericMessageGroup<T = string> {
   type: T;

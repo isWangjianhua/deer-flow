@@ -1,5 +1,4 @@
 import { useChat } from "@ai-sdk/react";
-import type { Message } from "@langchain/langgraph-sdk";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -16,6 +15,7 @@ import type { ConversationSummary } from "../chat/types";
 import { getBackendBaseURL } from "../config";
 import { useI18n } from "../i18n/hooks";
 import type { FileInMessage } from "../messages/utils";
+import type { AgentMessage as Message } from "../messages/types";
 import type { LocalSettings } from "../settings";
 import type { UploadedFileInfo } from "../uploads";
 import { uploadFiles } from "../uploads";

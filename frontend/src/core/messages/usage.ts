@@ -1,4 +1,4 @@
-import type { Message } from "@langchain/langgraph-sdk";
+import type { AgentMessage as Message } from "./types";
 
 export interface TokenUsage {
   inputTokens: number;

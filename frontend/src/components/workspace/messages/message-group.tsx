@@ -1,4 +1,3 @@
-import type { Message } from "@langchain/langgraph-sdk";
 import {
   BookOpenTextIcon,
   ChevronUp,
@@ -36,6 +35,7 @@ import { cn } from "@/lib/utils";
 import { useArtifacts } from "../artifacts";
 import { FlipDisplay } from "../flip-display";
 import { Tooltip } from "../tooltip";
+import type { AgentMessage as Message } from "@/core/messages/types";
 
 import { MarkdownContent } from "./markdown-content";
 

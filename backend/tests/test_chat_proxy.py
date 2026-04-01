@@ -49,7 +49,7 @@ def test_encode_usechat_text_delta_includes_text_payload():
 @pytest.mark.anyio
 async def test_usechat_stream_from_langgraph_includes_conversation_data_and_done():
     async def upstream():
-        yield 'event: messages/partial\ndata: {"text":"Hello"}\n\n'
+        yield 'event: messages-tuple\ndata: {"type":"ai","content":"Hello","id":"ai_1"}\n\n'
 
     frames = []
     async for frame in usechat_stream_from_langgraph(upstream(), conversation_id="conv_1"):
@@ -65,3 +65,34 @@ async def test_usechat_stream_from_langgraph_includes_conversation_data_and_done
     assert '"type": "text-end"' in joined
     assert '"type": "finish"' in joined
     assert "data: [DONE]" in joined
+
+
+@pytest.mark.anyio
+async def test_usechat_stream_from_langgraph_ignores_empty_ai_chunks():
+    async def upstream():
+        yield 'event: messages-tuple\ndata: {"type":"ai","content":"","id":"ai_1","tool_calls":[{"name":"search"}]}\n\n'
+        yield 'event: messages-tuple\ndata: {"type":"ai","content":"Final text","id":"ai_1"}\n\n'
+
+    frames = []
+    async for frame in usechat_stream_from_langgraph(upstream(), conversation_id="conv_1"):
+        frames.append(frame)
+
+    joined = "".join(frames)
+    assert joined.count('"type": "text-start"') == 1
+    assert '"delta": "Final text"' in joined
+
+
+@pytest.mark.anyio
+async def test_usechat_stream_from_langgraph_parses_real_messages_event_tuple():
+    async def upstream():
+        yield 'event: messages\ndata: [{"id":"ai-1","content":"Hello","type":"AIMessageChunk"},{"langgraph_node":"agent"}]\n\n'
+        yield 'event: messages\ndata: [{"id":"ai-1","content":" world","type":"AIMessageChunk"},{"langgraph_node":"agent"}]\n\n'
+
+    frames = []
+    async for frame in usechat_stream_from_langgraph(upstream(), conversation_id="conv_1"):
+        frames.append(frame)
+
+    joined = "".join(frames)
+    assert joined.count('"type": "text-start"') == 1
+    assert '"delta": "Hello"' in joined
+    assert '"delta": " world"' in joined
