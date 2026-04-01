@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import uuid
 from collections.abc import AsyncIterator
+from typing import Any
 
 from app.gateway.thread_ownership import create_owned_thread, ensure_thread_belongs_to_user
 
@@ -48,14 +49,20 @@ def encode_usechat_data_part(part_type: str, data: dict, *, transient: bool = Fa
     return _encode_data(payload)
 
 
-def _extract_text_from_langgraph_chunk(chunk: str) -> str:
+def _iter_langgraph_payloads(chunk: str) -> list[Any]:
+    payloads: list[Any] = []
     for line in chunk.splitlines():
         if not line.startswith("data: "):
             continue
         try:
-            payload = json.loads(line[6:])
+            payloads.append(json.loads(line[6:]))
         except json.JSONDecodeError:
             continue
+    return payloads
+
+
+def _extract_text_from_langgraph_chunk(chunk: str) -> str:
+    for payload in _iter_langgraph_payloads(chunk):
         if isinstance(payload, list) and payload:
             first = payload[0]
             if isinstance(first, dict):
@@ -81,6 +88,53 @@ def _extract_text_from_langgraph_chunk(chunk: str) -> str:
     return ""
 
 
+def _extract_tool_events_from_langgraph_chunk(chunk: str) -> list[dict[str, Any]]:
+    events: list[dict[str, Any]] = []
+    for payload in _iter_langgraph_payloads(chunk):
+        if isinstance(payload, list) and payload:
+            first = payload[0]
+            if isinstance(first, dict):
+                payload = first
+            else:
+                continue
+        if not isinstance(payload, dict):
+            continue
+
+        payload_type = payload.get("type")
+        if payload_type == "ai":
+            for tool_call in payload.get("tool_calls") or []:
+                if not isinstance(tool_call, dict):
+                    continue
+                tool_call_id = tool_call.get("id")
+                name = tool_call.get("name")
+                args = tool_call.get("args")
+                if not isinstance(tool_call_id, str) or not isinstance(name, str):
+                    continue
+                events.append(
+                    {
+                        "kind": "tool-call",
+                        "message_id": payload.get("id"),
+                        "tool_call_id": tool_call_id,
+                        "name": name,
+                        "args": args if isinstance(args, dict) else {},
+                    }
+                )
+        elif payload_type == "tool":
+            tool_call_id = payload.get("tool_call_id")
+            if not isinstance(tool_call_id, str):
+                continue
+            events.append(
+                {
+                    "kind": "tool-result",
+                    "message_id": payload.get("id"),
+                    "tool_call_id": tool_call_id,
+                    "name": payload.get("name"),
+                    "content": payload.get("content") if isinstance(payload.get("content"), str) else "",
+                }
+            )
+    return events
+
+
 async def usechat_stream_from_langgraph(
     upstream: AsyncIterator[str],
     *,
@@ -104,6 +158,31 @@ async def usechat_stream_from_langgraph(
             or "event: messages-tuple" in chunk
             or "event: messages" in chunk
         ):
+            for event in _extract_tool_events_from_langgraph_chunk(chunk):
+                if event["kind"] == "tool-call":
+                    yield encode_usechat_data_part(
+                        "data-tool-call",
+                        {
+                            "messageId": event["message_id"],
+                            "toolCallId": event["tool_call_id"],
+                            "name": event["name"],
+                            "args": event["args"],
+                        },
+                        transient=True,
+                        part_id=event["tool_call_id"],
+                    )
+                elif event["kind"] == "tool-result":
+                    yield encode_usechat_data_part(
+                        "data-tool-result",
+                        {
+                            "messageId": event["message_id"],
+                            "toolCallId": event["tool_call_id"],
+                            "name": event["name"],
+                            "content": event["content"],
+                        },
+                        transient=True,
+                        part_id=event["tool_call_id"],
+                    )
             text = _extract_text_from_langgraph_chunk(chunk)
             if not text:
                 continue
