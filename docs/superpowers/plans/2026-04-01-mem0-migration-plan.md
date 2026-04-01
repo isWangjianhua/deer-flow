@@ -48,6 +48,12 @@ User scope:
 - use authenticated Gateway `user.id`
 - use `thread_id` as `run_id`
 
+Provider note:
+
+- when using Volcengine Ark, keep chat generation on `Doubao-Seed`
+- configure mem0 `embedder` separately with an embedding model such as `doubao-embedding-large`
+- keep API secrets in config as `$VOLCENGINE_API_KEY` so DeerFlow env resolution can substitute them
+
 ### 2. Keep a compatibility memory payload
 
 The existing frontend expects:

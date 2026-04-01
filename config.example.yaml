@@ -546,6 +546,25 @@ memory:
   provider: file # file | mem0
   storage_path: memory.json # Path relative to backend directory
   mem0: {} # mem0 Memory.from_config(...) payload when provider=mem0
+  # Example mem0 OSS configuration with Volcengine Ark:
+  # mem0:
+  #   vector_store:
+  #     provider: qdrant
+  #     config:
+  #       host: localhost
+  #       port: 6333
+  #   llm:
+  #     provider: openai
+  #     config:
+  #       model: doubao-seed-1-6-flash-250828
+  #       api_key: $VOLCENGINE_API_KEY
+  #       openai_base_url: https://ark.cn-beijing.volces.com/api/v3
+  #   embedder:
+  #     provider: openai
+  #     config:
+  #       model: doubao-embedding-large
+  #       api_key: $VOLCENGINE_API_KEY
+  #       openai_base_url: https://ark.cn-beijing.volces.com/api/v3
   search_limit: 5 # Number of retrieved memories injected into prompts
   debounce_seconds: 30 # Wait time before processing queued updates
   model_name: null # Use default model
