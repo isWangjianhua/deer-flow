@@ -4,7 +4,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from app.gateway.chat_proxy import (
     build_usechat_headers,
@@ -20,7 +20,20 @@ router = APIRouter(prefix="/api/chat", tags=["chat"])
 
 class ChatMessage(BaseModel):
     role: str
-    content: str
+    content: str | None = None
+    parts: list[dict[str, Any]] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def populate_content_from_parts(self) -> "ChatMessage":
+        if self.content is not None:
+            return self
+        text_parts = [
+            part.get("text", "")
+            for part in self.parts
+            if part.get("type") == "text" and isinstance(part.get("text"), str)
+        ]
+        self.content = "\n".join(part for part in text_parts if part).strip()
+        return self
 
 
 class UseChatRequest(BaseModel):
@@ -47,6 +60,7 @@ async def chat(body: UseChatRequest, request: Request, user=Depends(get_current_
             "messages": [
                 {"role": message.role, "content": message.content}
                 for message in body.messages
+                if message.content
             ]
         },
         metadata={"source": "usechat-proxy"},

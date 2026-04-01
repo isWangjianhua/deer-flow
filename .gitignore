@@ -54,3 +54,7 @@ web/
 # Deployment artifacts
 backend/Dockerfile.langgraph
 config.yaml.bak
+
+# other
+.playwright-cli/*
+.tmp/*

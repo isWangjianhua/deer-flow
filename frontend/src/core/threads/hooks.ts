@@ -168,8 +168,8 @@ export function useThreadStream({
   onToolEnd,
 }: ThreadStreamOptions) {
   const { t } = useI18n();
-  const [currentConversationId, setCurrentConversationId] = useState<string | null>(
-    () => threadId ?? null,
+  const [chatSessionId] = useState<string>(
+    () => threadId ?? `pending-${crypto.randomUUID()}`,
   );
   const [threadValues, setThreadValues] = useState<AgentThreadState>({
     title: "",
@@ -199,7 +199,6 @@ export function useThreadStream({
     const normalizedThreadId = threadId ?? null;
     if (!normalizedThreadId) {
       startedRef.current = false;
-      setCurrentConversationId(null);
       setThreadValues({
         title: "",
         messages: [],
@@ -210,7 +209,6 @@ export function useThreadStream({
       setIsThreadLoading(false);
     }
     threadIdRef.current = normalizedThreadId;
-    setCurrentConversationId(normalizedThreadId);
   }, [threadId]);
 
   const _handleOnStart = useCallback((id: string) => {
@@ -252,7 +250,7 @@ export function useThreadStream({
     setMessages,
     error,
   } = useChat({
-    id: currentConversationId ?? "pending-conversation",
+    id: chatSessionId,
     messages: [],
     transport: new DefaultChatTransport({
       api: `${getBackendBaseURL()}/api/chat`,
@@ -274,7 +272,6 @@ export function useThreadStream({
       const conversationId = dataPart.data?.conversationId;
       if (typeof conversationId === "string" && conversationId) {
         threadIdRef.current = conversationId;
-        setCurrentConversationId(conversationId);
         _handleOnStart(conversationId);
       }
     },
@@ -400,7 +397,6 @@ export function useThreadStream({
           const conversation = await createConversation();
           resolvedConversationId = conversation.conversation_id;
           threadIdRef.current = resolvedConversationId;
-          setCurrentConversationId(resolvedConversationId);
           _handleOnStart(resolvedConversationId);
         }
 

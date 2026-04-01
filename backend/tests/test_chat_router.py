@@ -18,6 +18,29 @@ async def _collect_streaming_body(response) -> str:
     return "".join(parts)
 
 
+def test_usechat_request_accepts_ui_message_parts():
+    import app.gateway.routers.chat as chat
+
+    request = chat.UseChatRequest.model_validate(
+        {
+            "id": "req_1",
+            "messages": [
+                {
+                    "id": "msg_1",
+                    "role": "user",
+                    "parts": [
+                        {"type": "text", "text": "Hello"},
+                        {"type": "text", "text": "World"},
+                    ],
+                }
+            ],
+            "body": {},
+        }
+    )
+
+    assert request.messages[0].content == "Hello\nWorld"
+
+
 @pytest.mark.anyio
 async def test_chat_endpoint_creates_conversation_when_missing_id(tmp_path, monkeypatch):
     monkeypatch.setenv("DEER_FLOW_AUTH_DB_PATH", str(tmp_path / "auth.db"))
