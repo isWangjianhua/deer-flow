@@ -26,7 +26,7 @@ class MemoryConfig(BaseModel):
         ),
     )
     provider: str = Field(
-        default="file",
+        default="mem0",
         description="Memory backend provider: `file` or `mem0`.",
     )
     storage_class: str = Field(
