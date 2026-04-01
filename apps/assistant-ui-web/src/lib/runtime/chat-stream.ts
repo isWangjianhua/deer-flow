@@ -159,8 +159,10 @@ export async function streamChat(request: {
     throw new Error(message || `Gateway request failed with ${response.status}`);
   }
 
+  const responseBody = response.body;
+
   return (async function* () {
-    for await (const chunk of readSseChunks(response.body)) {
+    for await (const chunk of readSseChunks(responseBody)) {
       const event = parseStreamFrame(chunk);
       if (event) {
         yield event;

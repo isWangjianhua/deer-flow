@@ -92,7 +92,7 @@ function normalizeId(message: DeerFlowMessage, fallback: string): string {
 }
 
 export function convertDeerFlowMessages(messages: DeerFlowMessage[]): AssistantUiMessage[] {
-  return messages.flatMap((message, index) => {
+  return messages.flatMap<AssistantUiMessage>((message, index) => {
     if (isInternalControlMessage(message)) {
       return [];
     }
