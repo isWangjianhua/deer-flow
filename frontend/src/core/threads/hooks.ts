@@ -60,6 +60,36 @@ function isConversationDataPart(
   return dataPart.type === "data-conversation";
 }
 
+function isToolCallDataPart(
+  dataPart: { type: `data-${string}`; id?: string; data: unknown },
+): dataPart is {
+  type: "data-tool-call";
+  id?: string;
+  data: {
+    messageId?: string;
+    toolCallId?: string;
+    name?: string;
+    args?: Record<string, unknown>;
+  };
+} {
+  return dataPart.type === "data-tool-call";
+}
+
+function isToolResultDataPart(
+  dataPart: { type: `data-${string}`; id?: string; data: unknown },
+): dataPart is {
+  type: "data-tool-result";
+  id?: string;
+  data: {
+    messageId?: string;
+    toolCallId?: string;
+    name?: string;
+    content?: string;
+  };
+} {
+  return dataPart.type === "data-tool-result";
+}
+
 export type ThreadStreamOptions = {
   threadId?: string | null | undefined;
   context: LocalSettings["context"];
@@ -160,6 +190,116 @@ function uiMessageToLegacyMessage(message: UIMessage): Message {
   } as Message;
 }
 
+function upsertLiveToolCallMessage(
+  messages: Message[],
+  event: {
+    messageId?: string;
+    toolCallId?: string;
+    name?: string;
+    args?: Record<string, unknown>;
+  },
+): Message[] {
+  if (!event.toolCallId || !event.name) {
+    return messages;
+  }
+  const messageId = event.messageId || `live-ai-${event.toolCallId}`;
+  const toolCall = {
+    id: event.toolCallId,
+    name: event.name,
+    args: event.args ?? {},
+  };
+
+  const existingIndex = messages.findIndex(
+    (message) => message.type === "ai" && message.id === messageId,
+  );
+  if (existingIndex >= 0) {
+    const existing = messages[existingIndex];
+    if (!existing) {
+      return messages;
+    }
+    const existingToolCalls = existing.tool_calls ?? [];
+    if (existingToolCalls.some((item) => item.id === event.toolCallId)) {
+      return messages;
+    }
+    const next = [...messages];
+    next[existingIndex] = {
+      ...existing,
+      tool_calls: [...existingToolCalls, toolCall],
+    } as Message;
+    return next;
+  }
+
+  return [
+    ...messages,
+    {
+      id: messageId,
+      type: "ai",
+      content: "",
+      additional_kwargs: {},
+      tool_calls: [toolCall],
+    } as Message,
+  ];
+}
+
+function upsertLiveToolResultMessage(
+  messages: Message[],
+  event: {
+    messageId?: string;
+    toolCallId?: string;
+    name?: string;
+    content?: string;
+  },
+): Message[] {
+  if (!event.toolCallId) {
+    return messages;
+  }
+  const toolMessageId = event.messageId || `live-tool-${event.toolCallId}`;
+  const existingIndex = messages.findIndex(
+    (message) =>
+      message.type === "tool" && message.tool_call_id === event.toolCallId,
+  );
+  const nextMessage = {
+    id: toolMessageId,
+    type: "tool",
+    tool_call_id: event.toolCallId,
+    name: event.name ?? null,
+    content: event.content ?? "",
+    additional_kwargs: {},
+  } as Message;
+
+  if (existingIndex >= 0) {
+    const next = [...messages];
+    next[existingIndex] = nextMessage;
+    return next;
+  }
+
+  return [...messages, nextMessage];
+}
+
+function mergeStreamingMessages(
+  legacyMessages: Message[],
+  liveToolMessages: Message[],
+): Message[] {
+  if (liveToolMessages.length === 0) {
+    return legacyMessages;
+  }
+  let assistantIndex = -1;
+  for (let index = legacyMessages.length - 1; index >= 0; index -= 1) {
+    if (legacyMessages[index]?.type === "ai") {
+      assistantIndex = index;
+      break;
+    }
+  }
+  if (assistantIndex < 0) {
+    return [...legacyMessages, ...liveToolMessages];
+  }
+  return [
+    ...legacyMessages.slice(0, assistantIndex),
+    ...liveToolMessages,
+    ...legacyMessages.slice(assistantIndex),
+  ];
+}
+
 async function fetchThreadState(threadId: string): Promise<AgentThreadState> {
   const response = await fetch(
     `${getBackendBaseURL()}/api/threads/${encodeURIComponent(threadId)}/state`,
@@ -199,6 +339,7 @@ export function useThreadStream({
   });
   const [isThreadLoading, setIsThreadLoading] = useState(Boolean(threadId));
   const [stateError, setStateError] = useState<Error | undefined>(undefined);
+  const [liveToolMessages, setLiveToolMessages] = useState<Message[]>([]);
   const threadIdRef = useRef<string | null>(threadId ?? null);
   const startedRef = useRef(false);
   const streamContextRef = useRef<Record<string, unknown>>({});
@@ -227,6 +368,7 @@ export function useThreadStream({
       });
       setStateError(undefined);
       setIsThreadLoading(false);
+      setLiveToolMessages([]);
     }
     threadIdRef.current = normalizedThreadId;
   }, [threadId]);
@@ -287,13 +429,30 @@ export function useThreadStream({
       }),
     }),
     onData: (dataPart) => {
-      if (!isConversationDataPart(dataPart)) {
+      if (isConversationDataPart(dataPart)) {
+        const conversationId = dataPart.data?.conversationId;
+        if (typeof conversationId === "string" && conversationId) {
+          threadIdRef.current = conversationId;
+          _handleOnStart(conversationId);
+        }
         return;
       }
-      const conversationId = dataPart.data?.conversationId;
-      if (typeof conversationId === "string" && conversationId) {
-        threadIdRef.current = conversationId;
-        _handleOnStart(conversationId);
+      if (isToolCallDataPart(dataPart)) {
+        setLiveToolMessages((messages) =>
+          upsertLiveToolCallMessage(messages, dataPart.data),
+        );
+        return;
+      }
+      if (isToolResultDataPart(dataPart)) {
+        setLiveToolMessages((messages) =>
+          upsertLiveToolResultMessage(messages, dataPart.data),
+        );
+        if (typeof dataPart.data.name === "string") {
+          listeners.current.onToolEnd?.({
+            name: dataPart.data.name,
+            data: dataPart.data.content,
+          });
+        }
       }
     },
   });
@@ -350,6 +509,7 @@ export function useThreadStream({
           if (!resolvedThreadId) {
             return;
           }
+          setLiveToolMessages([]);
           void setMessages(
             state.messages
               .filter(isVisibleChatHistoryMessage)
@@ -407,6 +567,7 @@ export function useThreadStream({
       const text = message.text.trim();
 
       prevMsgCountRef.current = legacyMessages.length;
+      setLiveToolMessages([]);
 
       const optimisticFiles: FileInMessage[] = (message.files ?? []).map(
         (f) => ({
@@ -567,8 +728,8 @@ export function useThreadStream({
         ? [...canonicalMessages, ...optimisticMessages]
         : canonicalMessages
       : optimisticMessages.length > 0
-        ? [...legacyMessages, ...optimisticMessages]
-        : legacyMessages;
+        ? [...mergeStreamingMessages(legacyMessages, liveToolMessages), ...optimisticMessages]
+        : mergeStreamingMessages(legacyMessages, liveToolMessages);
 
   const mergedThread: ThreadStreamLike = {
     messages: mergedMessages,
