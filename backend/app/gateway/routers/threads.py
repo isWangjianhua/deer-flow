@@ -542,6 +542,10 @@ async def get_thread_state(thread_id: str, request: Request, user=Depends(get_cu
     except PermissionError as exc:
         raise HTTPException(status_code=404, detail=f"Thread {thread_id} not found") from exc
 
+    return await load_thread_state(thread_id=thread_id, request=request)
+
+
+async def load_thread_state(thread_id: str, request: Request) -> ThreadStateResponse:
     checkpointer = get_checkpointer(request)
 
     config = {"configurable": {"thread_id": thread_id, "checkpoint_ns": ""}}

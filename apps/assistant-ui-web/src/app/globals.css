@@ -1,8 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-@custom-variant dark (&:is(.dark *));
-
 :root {
   --background: oklch(0.98 0 0);
   --foreground: oklch(0.16 0 0);
@@ -31,9 +29,11 @@
   --sidebar-accent-foreground: oklch(0.22 0 0);
   --sidebar-border: oklch(0.88 0 0);
   --sidebar-ring: oklch(0.55 0.02 264);
+  color-scheme: light;
 }
 
-.dark {
+@media (prefers-color-scheme: dark) {
+  :root {
   --background: oklch(0.16 0.01 264);
   --foreground: oklch(0.97 0 0);
   --card: oklch(0.2 0.01 264);
@@ -60,6 +60,8 @@
   --sidebar-accent-foreground: oklch(0.96 0 0);
   --sidebar-border: oklch(0.26 0.01 264);
   --sidebar-ring: oklch(0.67 0.02 264);
+  color-scheme: dark;
+  }
 }
 
 @theme inline {
@@ -97,10 +99,6 @@
 
 * {
   @apply border-border;
-}
-
-html {
-  color-scheme: dark;
 }
 
 body {

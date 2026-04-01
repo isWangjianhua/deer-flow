@@ -1,4 +1,4 @@
-import { convertDeerFlowMessages, type AssistantUiMessage } from "./message-converter";
+import type { AssistantUiMessage } from "./message-converter";
 import { streamChat, type ChatRequestMessage, type ChatStreamEvent } from "./chat-stream";
 
 import { getThreadState } from "../thread-state";
@@ -15,8 +15,8 @@ export type DeerFlowRuntimeState = {
 export async function loadRuntimeState(conversationId: string): Promise<DeerFlowRuntimeState> {
   const state = await getThreadState(conversationId);
   return {
-    conversationId,
-    messages: convertDeerFlowMessages(state.messages as Parameters<typeof convertDeerFlowMessages>[0]),
+    conversationId: state.thread_id ?? conversationId,
+    messages: state.messages as AssistantUiMessage[],
     title: state.title,
     artifacts: state.artifacts,
     todos: state.todos,

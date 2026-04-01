@@ -5,9 +5,9 @@ import { createThreadListRuntime } from "./thread-list-runtime";
 describe("thread list runtime", () => {
   it("maps Gateway conversations into assistant-ui thread items", async () => {
     const runtime = createThreadListRuntime({
-      listConversations: async () => [
+      listThreads: async () => [
         {
-          conversation_id: "conv_1",
+          thread_id: "conv_1",
           title: "Chat A",
           created_at: "",
           updated_at: "",

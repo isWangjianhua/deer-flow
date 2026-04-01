@@ -354,8 +354,8 @@ export function AssistantUiThread({
 
   return (
     <AssistantRuntimeProvider runtime={runtime}>
-      <ThreadPrimitive.Root className="flex min-h-[calc(100vh-56px)] flex-col bg-background">
-        <ThreadPrimitive.Viewport className="relative flex flex-1 flex-col overflow-y-auto px-4 pt-4 md:px-6">
+      <ThreadPrimitive.Root className="flex min-h-0 flex-1 flex-col bg-background">
+        <ThreadPrimitive.Viewport className="relative flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pt-4 md:px-6">
           {(runtimeState?.messages.length ?? 0) === 0 ? (
             <div className="mx-auto my-auto flex w-full max-w-3xl flex-col px-4 pb-10 pt-16">
               <div className="mb-8">

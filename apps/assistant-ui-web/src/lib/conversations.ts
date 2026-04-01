@@ -8,6 +8,13 @@ export type ConversationSummary = {
   updated_at: string;
 };
 
+export type AssistantUiThreadSummary = {
+  thread_id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+};
+
 async function parseJsonResponse<T>(response: Response): Promise<T> {
   const message = response.ok ? "" : await response.text();
   throwIfUnauthorized(response.status, message || undefined);
@@ -26,6 +33,15 @@ export async function listConversations(): Promise<ConversationSummary[]> {
   });
 
   return parseJsonResponse<ConversationSummary[]>(response);
+}
+
+export async function listAssistantUiThreads(): Promise<AssistantUiThreadSummary[]> {
+  const response = await fetch(buildGatewayUrl("/api/assistant-ui/threads"), {
+    credentials: "include",
+    cache: "no-store",
+  });
+
+  return parseJsonResponse<AssistantUiThreadSummary[]>(response);
 }
 
 export async function createConversation(title = ""): Promise<ConversationSummary> {

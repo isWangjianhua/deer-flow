@@ -1,6 +1,8 @@
 import { IBM_Plex_Sans, Source_Serif_4 } from "next/font/google";
 import type { ReactNode } from "react";
 
+import { TooltipProvider } from "@/components/ui/tooltip";
+
 import "./globals.css";
 
 const sans = IBM_Plex_Sans({
@@ -18,8 +20,10 @@ const serif = Source_Serif_4({
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <html lang="zh-CN">
-      <body className={`${sans.variable} ${serif.variable} font-[family-name:var(--font-sans)]`}>
-        {children}
+      <body
+        className={`${sans.variable} ${serif.variable} min-h-screen bg-background font-[family-name:var(--font-sans)] text-foreground`}
+      >
+        <TooltipProvider>{children}</TooltipProvider>
       </body>
     </html>
   );

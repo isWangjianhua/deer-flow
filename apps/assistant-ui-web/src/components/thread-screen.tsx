@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Share2Icon } from "lucide-react";
 
 import { AuthDialog } from "@/components/auth-dialog";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 import { getCurrentUser, type CurrentUser } from "@/lib/auth";
 import { isUnauthorizedError } from "@/lib/auth-errors";
 import {
@@ -114,12 +115,10 @@ export function ThreadScreen({ initialConversationId = null }: ThreadScreenProps
 
   return (
     <AppShell activeThreadId={conversationId} threads={threads}>
-      <section className="flex min-h-screen flex-col bg-background">
+      <section className="flex h-full min-h-0 flex-col bg-background">
         <div className="flex h-14 items-center justify-between border-b border-border px-4 md:px-6">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="hidden rounded-lg border border-border bg-muted/40 px-3 py-1.5 text-sm text-muted-foreground md:block">
-              DeerFlow
-            </div>
+            <SidebarTrigger className="-ml-1" />
             <h1 className="truncate text-sm font-medium md:text-base">
               {runtimeState?.title || "New Thread"}
             </h1>

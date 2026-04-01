@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from app.gateway.config import get_gateway_config
 from app.gateway.deps import langgraph_runtime
 from app.gateway.routers import (
+    assistant_ui,
     agents,
     artifacts,
     assistants_compat,
@@ -112,6 +113,10 @@ This gateway provides custom endpoints for models, MCP configuration, skills, an
         openapi_url="/openapi.json",
         openapi_tags=[
             {
+                "name": "assistant-ui",
+                "description": "assistant-ui friendly Gateway endpoints for standalone chat frontends",
+            },
+            {
                 "name": "auth",
                 "description": "Minimal user registration, login, logout, and current-user endpoints",
             },
@@ -183,6 +188,9 @@ This gateway provides custom endpoints for models, MCP configuration, skills, an
     # Include routers
     # Auth API is mounted at /api/auth
     app.include_router(auth.router)
+
+    # assistant-ui facing API is mounted at /api/assistant-ui
+    app.include_router(assistant_ui.router)
 
     # Business-facing conversation API is mounted at /api/conversations
     app.include_router(conversations.router)
