@@ -543,7 +543,10 @@ summarization:
 # Stores user context and conversation history for personalized responses
 memory:
   enabled: true
+  provider: file # file | mem0
   storage_path: memory.json # Path relative to backend directory
+  mem0: {} # mem0 Memory.from_config(...) payload when provider=mem0
+  search_limit: 5 # Number of retrieved memories injected into prompts
   debounce_seconds: 30 # Wait time before processing queued updates
   model_name: null # Use default model
   max_facts: 100 # Maximum number of facts to store

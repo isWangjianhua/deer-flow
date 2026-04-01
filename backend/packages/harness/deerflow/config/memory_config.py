@@ -1,5 +1,7 @@
 """Configuration for memory mechanism."""
 
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 
@@ -23,9 +25,23 @@ class MemoryConfig(BaseModel):
             "migrate existing data or use an absolute path to preserve the old location."
         ),
     )
+    provider: str = Field(
+        default="file",
+        description="Memory backend provider: `file` or `mem0`.",
+    )
     storage_class: str = Field(
         default="deerflow.agents.memory.storage.FileMemoryStorage",
         description="The class path for memory storage provider",
+    )
+    mem0: dict[str, Any] = Field(
+        default_factory=dict,
+        description="mem0 client configuration passed to `Memory.from_config(...)`.",
+    )
+    search_limit: int = Field(
+        default=5,
+        ge=1,
+        le=20,
+        description="Maximum number of mem0 memories to retrieve for prompt injection.",
     )
     debounce_seconds: int = Field(
         default=30,
