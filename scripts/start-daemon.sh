@@ -102,6 +102,25 @@ if [ ! -d "$FRONTEND_DIR" ]; then
     exit 1
 fi
 
+ensure_frontend_dependencies() {
+    local frontend_dir="$1"
+    local frontend_variant="$2"
+    if [ -x "$frontend_dir/node_modules/.bin/next" ]; then
+        return 0
+    fi
+
+    echo "Frontend dependencies for $frontend_variant are missing. Installing..."
+    (
+        cd "$frontend_dir"
+        pnpm install --frozen-lockfile
+    ) || {
+        echo "✗ Failed to install frontend dependencies for $frontend_variant"
+        exit 1
+    }
+}
+
+ensure_frontend_dependencies "$FRONTEND_DIR" "$FRONTEND_VARIANT"
+
 echo "Starting LangGraph server..."
 nohup sh -c 'cd backend && NO_COLOR=1 uv run langgraph dev --no-browser --allow-blocking --no-reload > ../logs/langgraph.log 2>&1' &
 ./scripts/wait-for-port.sh 2024 60 "LangGraph" || {
