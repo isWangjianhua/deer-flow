@@ -42,7 +42,10 @@ export function rehypeSplitWordsIntoSpans() {
 
 export function useRehypeSplitWordsIntoSpans(enabled = true) {
   const rehypePlugins = useMemo(
-    () => (enabled ? [rehypeSplitWordsIntoSpans] : []),
+    // Word-by-word fade-in makes streamed Chinese replies feel choppy because
+    // every delta re-wraps the paragraph into animated spans. Keep the hook
+    // shape for call sites, but disable the plugin for live chat rendering.
+    () => (enabled ? [] : []),
     [enabled],
   );
   return rehypePlugins;
