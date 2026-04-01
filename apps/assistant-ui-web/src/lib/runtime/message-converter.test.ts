@@ -153,4 +153,75 @@ describe("message conversion", () => {
       },
     ]);
   });
+
+  it("groups one assistant turn into a single message across ai and tool events", () => {
+    const messages = convertDeerFlowMessages([
+      {
+        id: "human_1",
+        type: "human",
+        content: "上海明天的天气如何",
+      },
+      {
+        id: "ai_1",
+        type: "ai",
+        content: "",
+        additional_kwargs: {
+          reasoning_content: "先搜索天气",
+        },
+        tool_calls: [
+          {
+            id: "call_1",
+            name: "web_search",
+            args: { query: "上海明天天气" },
+          },
+        ],
+      },
+      {
+        id: "tool_1",
+        type: "tool",
+        tool_call_id: "call_1",
+        name: "web_search",
+        content: "{\"results\":[{\"title\":\"天气网\"}]}",
+      },
+      {
+        id: "ai_2",
+        type: "ai",
+        content: "上海明天阴天，约 19°C。",
+      },
+    ]);
+
+    expect(messages).toEqual<AssistantUiMessage[]>([
+      {
+        id: "human_1",
+        role: "user",
+        parts: [{ type: "text", text: "上海明天的天气如何" }],
+      },
+      {
+        id: "ai_1",
+        role: "assistant",
+        parts: [
+          {
+            type: "reasoning",
+            text: "先搜索天气",
+          },
+          {
+            type: "tool-call",
+            toolCallId: "call_1",
+            toolName: "web_search",
+            args: { query: "上海明天天气" },
+          },
+          {
+            type: "tool-result",
+            toolCallId: "call_1",
+            toolName: "web_search",
+            content: "{\"results\":[{\"title\":\"天气网\"}]}",
+          },
+          {
+            type: "text",
+            text: "上海明天阴天，约 19°C。",
+          },
+        ],
+      },
+    ]);
+  });
 });

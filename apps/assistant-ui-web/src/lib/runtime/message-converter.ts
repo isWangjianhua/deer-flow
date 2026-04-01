@@ -91,80 +91,88 @@ function normalizeId(message: DeerFlowMessage, fallback: string): string {
   return typeof message.id === "string" && message.id.length > 0 ? message.id : fallback;
 }
 
+function extractAssistantParts(message: DeerFlowMessage, fallbackId: string): AssistantUiMessage["parts"] {
+  if (message.type === "tool") {
+    return [
+      {
+        type: "tool-result",
+        toolCallId: message.tool_call_id ?? fallbackId,
+        toolName: message.name ?? "tool",
+        content: extractTextContent(message),
+      },
+    ];
+  }
+
+  const parts: AssistantUiMessage["parts"] = [];
+  const reasoning = extractReasoningContent(message);
+  if (reasoning) {
+    parts.push({
+      type: "reasoning",
+      text: reasoning,
+    });
+  }
+
+  for (const toolCall of message.tool_calls ?? []) {
+    if (!toolCall.id || !toolCall.name) {
+      continue;
+    }
+    parts.push({
+      type: "tool-call",
+      toolCallId: toolCall.id,
+      toolName: toolCall.name,
+      args: toolCall.args ?? {},
+    });
+  }
+
+  const text = extractTextContent(message);
+  if (text.length > 0) {
+    parts.push({
+      type: "text",
+      text,
+    });
+  }
+
+  return parts;
+}
+
 export function convertDeerFlowMessages(messages: DeerFlowMessage[]): AssistantUiMessage[] {
-  return messages.flatMap<AssistantUiMessage>((message, index) => {
+  const converted: AssistantUiMessage[] = [];
+  let currentAssistant: AssistantUiMessage | null = null;
+
+  for (const [index, message] of messages.entries()) {
     if (isInternalControlMessage(message)) {
-      return [];
+      continue;
     }
 
     const id = normalizeId(message, `message_${index}`);
 
     if (message.type === "human") {
-      return [
-        {
-          id,
-          role: "user",
-          parts: [{ type: "text", text: extractTextContent(message) }],
-        },
-      ];
-    }
-
-    if (message.type === "tool") {
-      return [
-        {
-          id,
-          role: "assistant",
-          parts: [
-            {
-              type: "tool-result",
-              toolCallId: message.tool_call_id ?? id,
-              toolName: message.name ?? "tool",
-              content: extractTextContent(message),
-            },
-          ],
-        },
-      ];
-    }
-
-    const parts: AssistantUiMessage["parts"] = [];
-    const reasoning = extractReasoningContent(message);
-    if (reasoning) {
-      parts.push({
-        type: "reasoning",
-        text: reasoning,
+      currentAssistant = null;
+      converted.push({
+        id,
+        role: "user",
+        parts: [{ type: "text", text: extractTextContent(message) }],
       });
+      continue;
     }
 
-    for (const toolCall of message.tool_calls ?? []) {
-      if (!toolCall.id || !toolCall.name) {
-        continue;
-      }
-      parts.push({
-        type: "tool-call",
-        toolCallId: toolCall.id,
-        toolName: toolCall.name,
-        args: toolCall.args ?? {},
-      });
-    }
-
-    const text = extractTextContent(message);
-    if (text.length > 0) {
-      parts.push({
-        type: "text",
-        text,
-      });
-    }
-
+    const parts = extractAssistantParts(message, id);
     if (parts.length === 0) {
-      return [];
+      continue;
     }
 
-    return [
-      {
+    if (!currentAssistant) {
+      currentAssistant = {
         id,
         role: "assistant",
-        parts,
-      },
-    ];
-  });
+        parts: [...parts],
+      };
+      converted.push(currentAssistant);
+      continue;
+    }
+
+    currentAssistant.parts.push(...parts);
+  }
+
+  return converted;
 }
