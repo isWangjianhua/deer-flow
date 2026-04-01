@@ -3,8 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
-import { getCurrentUser } from "@/lib/auth";
-import { listConversations } from "@/lib/conversations";
+import { getCurrentUser } from "../../lib/auth";
+import { listConversations } from "../../lib/conversations";
 
 export default function WorkspacePage() {
   const router = useRouter();

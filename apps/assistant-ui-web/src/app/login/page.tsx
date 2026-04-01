@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { type FormEvent, useEffect, useState } from "react";
 
-import { getCurrentUser, login, register } from "@/lib/auth";
+import { getCurrentUser, login, register } from "../../lib/auth";
 
 type AuthMode = "login" | "register";
 

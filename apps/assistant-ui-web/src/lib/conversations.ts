@@ -1,4 +1,4 @@
-import { buildGatewayUrl } from "@/lib/config";
+import { buildGatewayUrl } from "./config";
 
 export type ConversationSummary = {
   conversation_id: string;
