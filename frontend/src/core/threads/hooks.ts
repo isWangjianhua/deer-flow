@@ -318,6 +318,13 @@ export function useThreadStream({
     ) {
       void refreshThreadState(threadIdRef.current)
         .then((state) => {
+          void setMessages(state.messages.map(legacyMessageToUIMessage));
+          const normalizedTitle = state.title.trim();
+          if (normalizedTitle && threadIdRef.current) {
+            void updateConversation(threadIdRef.current, normalizedTitle).catch(
+              () => undefined,
+            );
+          }
           listeners.current.onFinish?.(state);
           void queryClient.invalidateQueries({ queryKey: ["threads", "search"] });
         })
@@ -325,7 +332,7 @@ export function useThreadStream({
           void queryClient.invalidateQueries({ queryKey: ["threads", "search"] });
         });
     }
-  }, [queryClient, refreshThreadState, status]);
+  }, [queryClient, refreshThreadState, setMessages, status]);
 
   // Optimistic messages shown before the server stream responds
   const [optimisticMessages, setOptimisticMessages] = useState<Message[]>([]);
