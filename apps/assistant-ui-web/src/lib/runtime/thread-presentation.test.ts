@@ -73,10 +73,10 @@ describe("thread presentation", () => {
     expect(presentation.liveBlock?.events.map((event) => event.id)).toEqual(["call_live"]);
   });
 
-  it("passes canvas artifacts through separately from the message blocks", () => {
-    const presentation = buildThreadPresentation([], [], ["artifact-a", "artifact-b"]);
+  it("exposes artifact paths for the right canvas", () => {
+    const presentation = buildThreadPresentation([], [], ["/tmp/report.md"]);
 
-    expect(presentation.canvas.items).toEqual(["artifact-a", "artifact-b"]);
+    expect(presentation.canvas.items).toEqual(["/tmp/report.md"]);
     expect(presentation.blocks).toEqual([]);
     expect(presentation.liveBlock).toBeNull();
   });

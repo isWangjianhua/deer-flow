@@ -5,6 +5,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Share2Icon } from "lucide-react";
 
 import { AuthDialog } from "@/components/auth-dialog";
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@/components/ui/resizable";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { getCurrentUser, type CurrentUser } from "@/lib/auth";
 import { isUnauthorizedError } from "@/lib/auth-errors";
@@ -17,6 +22,7 @@ import { createThreadListRuntime, type ThreadListItem } from "../lib/runtime/thr
 import { AssistantUiThread } from "./assistant-ui-thread";
 import { AppShell } from "./app-shell";
 import { Button } from "./ui/button";
+import { CanvasPanel } from "./workspace/canvas-panel";
 
 type ThreadScreenProps = Readonly<{
   initialConversationId?: string | null;
@@ -137,22 +143,40 @@ export function ThreadScreen({ initialConversationId = null }: ThreadScreenProps
           </div>
         </div>
 
-        {loading ? <p className="px-6 py-8 text-sm text-muted-foreground md:px-10">Loading...</p> : null}
-        {error ? <p className="px-6 py-8 text-sm text-red-300 md:px-10">{error}</p> : null}
-        {!loading ? (
-          <AssistantUiThread
-            ensureAuthenticated={ensureAuthenticated}
-            initialState={runtimeState}
-            onStateChange={(nextState) => {
-              setRuntimeState(nextState);
-              if (nextState.conversationId && nextState.conversationId !== conversationId) {
-                setConversationId(nextState.conversationId);
-                router.replace(`/workspace/${nextState.conversationId}`);
-              }
-              void threadListRuntime.load().then(setThreads).catch(() => {});
-            }}
-          />
-        ) : null}
+        <ResizablePanelGroup className="min-h-0 flex-1" direction="horizontal">
+          <ResizablePanel defaultSize={64} minSize={45}>
+            <div className="flex h-full min-h-0 flex-col">
+              {loading ? (
+                <p className="px-6 py-8 text-sm text-muted-foreground md:px-10">Loading...</p>
+              ) : null}
+              {error ? <p className="px-6 py-8 text-sm text-red-300 md:px-10">{error}</p> : null}
+              {!loading ? (
+                <AssistantUiThread
+                  ensureAuthenticated={ensureAuthenticated}
+                  initialState={runtimeState}
+                  onStateChange={(nextState) => {
+                    setRuntimeState(nextState);
+                    if (
+                      nextState.conversationId &&
+                      nextState.conversationId !== conversationId
+                    ) {
+                      setConversationId(nextState.conversationId);
+                      router.replace(`/workspace/${nextState.conversationId}`);
+                    }
+                    void threadListRuntime.load().then(setThreads).catch(() => {});
+                  }}
+                />
+              ) : null}
+            </div>
+          </ResizablePanel>
+          <ResizableHandle withHandle />
+          <ResizablePanel defaultSize={36} minSize={24}>
+            <CanvasPanel
+              artifacts={runtimeState?.artifacts ?? []}
+              title={runtimeState?.title ?? "New Thread"}
+            />
+          </ResizablePanel>
+        </ResizablePanelGroup>
         <AuthDialog
           onOpenChange={(open) => {
             setAuthDialogOpen(open);
