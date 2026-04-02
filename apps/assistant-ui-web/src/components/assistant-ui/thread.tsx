@@ -4,11 +4,9 @@ import {
   UserMessageAttachments,
 } from "@/components/assistant-ui/attachment";
 import { MarkdownText } from "@/components/assistant-ui/markdown-text";
-import { ToolCard } from "@/components/tool-ui";
 import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
 import { Button } from "@/components/ui/button";
-import { EventCard } from "@/components/workspace/event-card";
-import { getReasoningSummary } from "@/lib/event-cards";
+import { AssistantSteps } from "@/components/workspace/assistant-steps";
 import { cn } from "@/lib/utils";
 import {
   ActionBarMorePrimitive,
@@ -229,59 +227,7 @@ const AssistantMessage: FC = () => {
 };
 
 const AssistantMessageEventDetails: FC = () => {
-  const hasEvents = useAuiState((s) =>
-    s.message.content.some(
-      (part) => part.type === "reasoning" || part.type === "tool-call",
-    ),
-  );
-
-  if (!hasEvents) {
-    return null;
-  }
-
-  return (
-    <div className="mb-4 space-y-3">
-      <div className="px-1 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-        Steps
-      </div>
-      <MessagePrimitive.Parts>
-        {({ part }) => {
-          if (part.type === "reasoning") {
-            return (
-              <EventCard
-                defaultOpen={false}
-                key={part.text}
-                status="Done"
-                summary={getReasoningSummary(part.text)}
-                title="Reasoning"
-              >
-                <p className="whitespace-pre-wrap text-sm leading-7 text-foreground/80">
-                  {part.text}
-                </p>
-              </EventCard>
-            );
-          }
-
-          if (part.type === "tool-call") {
-            return (
-              <ToolCard
-                key={part.toolCallId ?? part.toolName}
-                args={part.args as Record<string, unknown>}
-                content={
-                  typeof part.result === "string"
-                    ? part.result
-                    : JSON.stringify(part.result ?? "", null, 2)
-                }
-                toolName={part.toolName}
-              />
-            );
-          }
-
-          return null;
-        }}
-      </MessagePrimitive.Parts>
-    </div>
-  );
+  return <AssistantSteps />;
 };
 
 const AssistantActionBar: FC = () => {

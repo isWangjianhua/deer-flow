@@ -16,28 +16,28 @@ type ToolRendererProps = Readonly<{
   content?: string;
 }>;
 
-export function ToolCard({ toolName, args, content }: ToolRendererProps) {
-  const renderBody = () => {
-    switch (toolName) {
-      case "web_search":
-        return <WebSearchToolUI args={args} content={content} />;
-      case "read_file":
-        return <ReadFileToolUI args={args} content={content} />;
-      case "write_file":
-      case "str_replace":
-        return <WriteFileToolUI args={args} />;
-      case "bash":
-      case "run_command":
-        return <CommandToolUI args={args} content={content} />;
-      case "ask_clarification":
-        return <ClarificationToolUI args={args} content={content} />;
-      default:
-        return (
-          <pre className="whitespace-pre-wrap">{content ?? JSON.stringify(args ?? {}, null, 2)}</pre>
-        );
-    }
-  };
+export function ToolContent({ toolName, args, content }: ToolRendererProps) {
+  switch (toolName) {
+    case "web_search":
+      return <WebSearchToolUI args={args} content={content} />;
+    case "read_file":
+      return <ReadFileToolUI args={args} content={content} />;
+    case "write_file":
+    case "str_replace":
+      return <WriteFileToolUI args={args} />;
+    case "bash":
+    case "run_command":
+      return <CommandToolUI args={args} content={content} />;
+    case "ask_clarification":
+      return <ClarificationToolUI args={args} content={content} />;
+    default:
+      return (
+        <pre className="whitespace-pre-wrap">{content ?? JSON.stringify(args ?? {}, null, 2)}</pre>
+      );
+  }
+}
 
+export function ToolCard({ toolName, args, content }: ToolRendererProps) {
   return (
     <EventCard
       defaultOpen={!content}
@@ -45,7 +45,7 @@ export function ToolCard({ toolName, args, content }: ToolRendererProps) {
       summary={getToolSummary(toolName, args, content)}
       title={getToolDisplayName(toolName ?? "tool")}
     >
-      {renderBody()}
+      <ToolContent args={args} content={content} toolName={toolName} />
     </EventCard>
   );
 }
