@@ -5,6 +5,16 @@ import type { AssistantUiMessage } from "./message-converter";
 import { buildThreadPresentation } from "./thread-presentation";
 
 describe("thread presentation", () => {
+  it("produces a stable live assistant block while streaming text deltas", () => {
+    const presentation = buildThreadPresentation([], [
+      { type: "text-start", id: "live_1" },
+      { type: "text-delta", id: "live_1", delta: "Hello" },
+      { type: "text-delta", id: "live_1", delta: " world" },
+    ]);
+
+    expect(presentation.liveBlock?.body).toBe("Hello world");
+  });
+
   it("keeps assistant body text separate from reasoning and tool cards", () => {
     const messages: AssistantUiMessage[] = [
       {

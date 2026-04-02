@@ -252,11 +252,16 @@ describe("message conversion", () => {
     ]);
 
     expect(messages).toHaveLength(1);
-    expect(messages[0]).toMatchObject({
+    const message = messages[0];
+    expect(message).toBeDefined();
+    if (!message) {
+      throw new Error("expected a converted message");
+    }
+    expect(message).toMatchObject({
       id: "ai_1",
       role: "assistant",
     });
-    expect(messages[0].parts).toEqual(
+    expect(message.parts).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           type: "reasoning",

@@ -4,7 +4,7 @@ import {
   UserMessageAttachments,
 } from "@/components/assistant-ui/attachment";
 import { MarkdownText } from "@/components/assistant-ui/markdown-text";
-import { ToolFallback } from "@/components/assistant-ui/tool-fallback";
+import { ToolCard } from "@/components/tool-ui";
 import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -208,11 +208,10 @@ const AssistantMessage: FC = () => {
       data-role="assistant"
     >
       <div className="aui-assistant-message-content wrap-break-word px-2 text-foreground leading-relaxed">
+        <AssistantMessageEventDetails />
         <MessagePrimitive.Parts>
           {({ part }) => {
             if (part.type === "text") return <MarkdownText />;
-            if (part.type === "tool-call")
-              return part.toolUI ?? <ToolFallback {...part} />;
             return null;
           }}
         </MessagePrimitive.Parts>
@@ -224,6 +223,66 @@ const AssistantMessage: FC = () => {
         <AssistantActionBar />
       </div>
     </MessagePrimitive.Root>
+  );
+};
+
+const AssistantMessageEventDetails: FC = () => {
+  const hasEvents = useAuiState((s) =>
+    s.message.content.some(
+      (part) => part.type === "reasoning" || part.type === "tool-call",
+    ),
+  );
+
+  if (!hasEvents) {
+    return null;
+  }
+
+  return (
+    <details className="group mb-4 overflow-hidden rounded-2xl border border-border bg-card/60">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm text-muted-foreground marker:hidden">
+        <span className="font-medium">Hidden steps</span>
+        <ChevronRightIcon className="size-4 transition-transform group-open:rotate-90" />
+      </summary>
+
+      <div className="space-y-3 border-t border-border px-4 py-4">
+        <MessagePrimitive.Parts>
+          {({ part }) => {
+            if (part.type === "reasoning") {
+              return (
+                <div
+                  className="rounded-xl border border-border bg-muted/30 px-4 py-3"
+                  key={part.text}
+                >
+                  <strong className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                    Reasoning
+                  </strong>
+                  <p className="mt-2 whitespace-pre-wrap text-sm leading-7 text-foreground/80">
+                    {part.text}
+                  </p>
+                </div>
+              );
+            }
+
+            if (part.type === "tool-call") {
+              return (
+                <ToolCard
+                  key={part.toolCallId ?? part.toolName}
+                  args={part.args as Record<string, unknown>}
+                  content={
+                    typeof part.result === "string"
+                      ? part.result
+                      : JSON.stringify(part.result ?? "", null, 2)
+                  }
+                  toolName={part.toolName}
+                />
+              );
+            }
+
+            return null;
+          }}
+        </MessagePrimitive.Parts>
+      </div>
+    </details>
   );
 };
 
