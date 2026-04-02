@@ -12,10 +12,24 @@ export function CommandToolUI({ args, content }: CommandToolProps) {
         : "";
 
   return (
-    <div>
-      <strong>执行命令</strong>
-      {command ? <pre>{command}</pre> : null}
-      {content ? <pre>{content}</pre> : <p>等待执行结果...</p>}
+    <div className="space-y-2 text-sm text-foreground">
+      <div className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
+        Execute Command
+      </div>
+      {command ? (
+        <pre className="rounded-lg border border-border/70 bg-background/60 p-2 text-xs leading-tight text-muted-foreground">
+          {command}
+        </pre>
+      ) : (
+        <p className="text-xs text-muted-foreground">No command provided</p>
+      )}
+      {content ? (
+        <pre className="rounded-lg border border-border/70 bg-background/70 p-2 text-xs leading-tight text-muted-foreground">
+          {content}
+        </pre>
+      ) : (
+        <p className="text-xs text-muted-foreground">Waiting for execution result…</p>
+      )}
     </div>
   );
 }

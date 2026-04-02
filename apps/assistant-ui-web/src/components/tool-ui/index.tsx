@@ -2,6 +2,7 @@ import { ClarificationToolUI } from "./clarification";
 import { CommandToolUI } from "./command";
 import { ReadFileToolUI } from "./read-file";
 import { WebSearchToolUI } from "./web-search";
+import { EventCard } from "@/components/workspace/event-card";
 
 type ToolRendererProps = Readonly<{
   toolName: string;
@@ -10,23 +11,30 @@ type ToolRendererProps = Readonly<{
 }>;
 
 export function ToolCard({ toolName, args, content }: ToolRendererProps) {
-  switch (toolName) {
-    case "web_search":
-      return <WebSearchToolUI args={args} content={content} />;
-    case "read_file":
-      return <ReadFileToolUI args={args} content={content} />;
-    case "bash":
-    case "run_command":
-      return <CommandToolUI args={args} content={content} />;
-    case "ask_clarification":
-      return <ClarificationToolUI args={args} content={content} />;
-    default:
-      return (
-        <div>
-          <strong>{toolName}</strong>
-          {args ? <pre>{JSON.stringify(args, null, 2)}</pre> : null}
-          {content ? <pre>{content}</pre> : null}
-        </div>
-      );
-  }
+  const renderBody = () => {
+    switch (toolName) {
+      case "web_search":
+        return <WebSearchToolUI args={args} content={content} />;
+      case "read_file":
+        return <ReadFileToolUI args={args} content={content} />;
+      case "bash":
+      case "run_command":
+        return <CommandToolUI args={args} content={content} />;
+      case "ask_clarification":
+        return <ClarificationToolUI args={args} content={content} />;
+      default:
+        return (
+          <pre className="whitespace-pre-wrap">{content ?? JSON.stringify(args ?? {}, null, 2)}</pre>
+        );
+    }
+  };
+
+  return (
+    <EventCard
+      title={toolName ?? "tool"}
+      summary={content ? "Completed" : "In progress"}
+    >
+      {renderBody()}
+    </EventCard>
+  );
 }
