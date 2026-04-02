@@ -1,21 +1,31 @@
+import {
+  ToolCodeBlock,
+  ToolEmptyState,
+  ToolMetaRow,
+  ToolStack,
+} from "./common";
+import { extractCommandText } from "@/lib/tool-ui";
+
 type CommandToolProps = Readonly<{
   args?: Record<string, unknown>;
   content?: string;
 }>;
 
 export function CommandToolUI({ args, content }: CommandToolProps) {
-  const command =
-    typeof args?.command === "string"
-      ? args.command
-      : typeof args?.cmd === "string"
-        ? args.cmd
-        : "";
+  const command = extractCommandText(args);
 
   return (
-    <div>
-      <strong>执行命令</strong>
-      {command ? <pre>{command}</pre> : null}
-      {content ? <pre>{content}</pre> : <p>等待执行结果...</p>}
-    </div>
+    <ToolStack>
+      {command ? (
+        <ToolMetaRow label="Command" value={command} />
+      ) : (
+        <ToolEmptyState>No command provided.</ToolEmptyState>
+      )}
+      {content ? (
+        <ToolCodeBlock>{content}</ToolCodeBlock>
+      ) : (
+        <ToolEmptyState>Waiting for execution result…</ToolEmptyState>
+      )}
+    </ToolStack>
   );
 }

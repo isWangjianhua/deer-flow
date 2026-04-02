@@ -224,4 +224,66 @@ describe("message conversion", () => {
       },
     ]);
   });
+
+  it("keeps assistant body text separate from reasoning and tool boundaries", () => {
+    const messages = convertDeerFlowMessages([
+      {
+        id: "ai_1",
+        type: "ai",
+        content: "final answer",
+        additional_kwargs: {
+          reasoning_content: "plan first",
+        },
+        tool_calls: [
+          {
+            id: "call_1",
+            name: "web_search",
+            args: { query: "Shanghai weather" },
+          },
+        ],
+      },
+      {
+        id: "tool_1",
+        type: "tool",
+        tool_call_id: "call_1",
+        name: "web_search",
+        content: "{\"results\":[{\"title\":\"Weather\"}]}",
+      },
+    ]);
+
+    expect(messages).toHaveLength(1);
+    const message = messages[0];
+    expect(message).toBeDefined();
+    if (!message) {
+      throw new Error("expected a converted message");
+    }
+    expect(message).toMatchObject({
+      id: "ai_1",
+      role: "assistant",
+    });
+    expect(message.parts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "reasoning",
+          text: "plan first",
+        }),
+        expect.objectContaining({
+          type: "tool-call",
+          toolCallId: "call_1",
+          toolName: "web_search",
+          args: { query: "Shanghai weather" },
+        }),
+        expect.objectContaining({
+          type: "text",
+          text: "final answer",
+        }),
+        expect.objectContaining({
+          type: "tool-result",
+          toolCallId: "call_1",
+          toolName: "web_search",
+          content: "{\"results\":[{\"title\":\"Weather\"}]}",
+        }),
+      ]),
+    );
+  });
 });

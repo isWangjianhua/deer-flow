@@ -12,16 +12,38 @@ export type DeerFlowRuntimeState = {
   liveEvents: ChatStreamEvent[];
 };
 
-export async function loadRuntimeState(conversationId: string): Promise<DeerFlowRuntimeState> {
-  const state = await getThreadState(conversationId);
+function normalizeRuntimeState(
+  state: Partial<{
+    thread_id: string | null;
+    messages: AssistantUiMessage[];
+    title: string | null;
+    artifacts: string[] | null;
+    todos: unknown[] | null;
+  }>,
+  fallbackConversationId: string | null,
+): DeerFlowRuntimeState {
   return {
-    conversationId: state.thread_id ?? conversationId,
-    messages: state.messages as AssistantUiMessage[],
-    title: state.title,
-    artifacts: state.artifacts,
-    todos: state.todos,
+    conversationId: state.thread_id ?? fallbackConversationId,
+    messages: state.messages ?? [],
+    title: state.title ?? "",
+    artifacts: state.artifacts ?? [],
+    todos: state.todos ?? [],
     liveEvents: [],
   };
+}
+
+export async function loadRuntimeState(conversationId: string): Promise<DeerFlowRuntimeState> {
+  const state = await getThreadState(conversationId);
+  return normalizeRuntimeState(
+    {
+      thread_id: state.thread_id,
+      messages: state.messages as AssistantUiMessage[],
+      title: state.title,
+      artifacts: state.artifacts,
+      todos: state.todos,
+    },
+    conversationId,
+  );
 }
 
 export async function runConversationStream(request: {

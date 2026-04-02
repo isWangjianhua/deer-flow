@@ -124,7 +124,7 @@ const defaultComponents = memoizeMarkdownComponents({
   p: ({ className, ...props }) => (
     <p
       className={cn(
-        "aui-md-p my-2.5 leading-normal first:mt-0 last:mb-0",
+        "aui-md-p my-2 leading-relaxed text-sm text-foreground/90 first:mt-0 last:mb-0",
         className,
       )}
       {...props}
@@ -133,7 +133,7 @@ const defaultComponents = memoizeMarkdownComponents({
   a: ({ className, ...props }) => (
     <a
       className={cn(
-        "aui-md-a text-primary underline underline-offset-2 hover:text-primary/80",
+        "aui-md-a text-primary underline-offset-2 hover:text-primary/80 transition-colors",
         className,
       )}
       {...props}
@@ -241,3 +241,5 @@ const defaultComponents = memoizeMarkdownComponents({
   },
   CodeHeader,
 });
+
+export const assistantUiMarkdownComponents = defaultComponents;
