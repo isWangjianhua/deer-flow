@@ -1,4 +1,12 @@
+import sys
+from types import SimpleNamespace
+
 from deerflow.agents.memory.mem0_service import Mem0Service
+from deerflow.agents.memory.prompt import (
+    MEM0_FACT_EXTRACTION_PROMPT,
+    MEM0_UPDATE_MEMORY_PROMPT,
+)
+from deerflow.config.memory_config import MemoryConfig, get_memory_config, set_memory_config
 
 
 class _FakeMem0Client:
@@ -65,3 +73,81 @@ def test_add_conversation_sends_user_id_and_run_id():
     assert fake.add_calls[0]["user_id"] == "user_a"
     assert fake.add_calls[0]["run_id"] == "thread_a"
     assert fake.add_calls[0]["messages"] == [{"role": "user", "content": "remember this"}]
+
+
+def test_ensure_client_injects_default_mem0_prompts(monkeypatch):
+    captured = {}
+
+    class _FakeMemory:
+        @classmethod
+        def from_config(cls, config):
+            captured["config"] = config
+            return _FakeMem0Client()
+
+    original_config = get_memory_config()
+    set_memory_config(
+        MemoryConfig(
+            provider="mem0",
+            mem0={
+                "vector_store": {"provider": "qdrant", "config": {}},
+                "llm": {"provider": "openai", "config": {}},
+                "embedder": {"provider": "openai", "config": {}},
+            },
+        )
+    )
+    monkeypatch.setitem(sys.modules, "mem0", SimpleNamespace(Memory=_FakeMemory))
+
+    try:
+        service = Mem0Service()
+        service._ensure_client()
+    finally:
+        set_memory_config(original_config)
+
+    assert captured["config"]["custom_fact_extraction_prompt"] == MEM0_FACT_EXTRACTION_PROMPT
+    assert captured["config"]["custom_update_memory_prompt"] == MEM0_UPDATE_MEMORY_PROMPT
+
+
+def test_ensure_client_keeps_explicit_mem0_prompt_overrides(monkeypatch):
+    captured = {}
+
+    class _FakeMemory:
+        @classmethod
+        def from_config(cls, config):
+            captured["config"] = config
+            return _FakeMem0Client()
+
+    original_config = get_memory_config()
+    set_memory_config(
+        MemoryConfig(
+            provider="mem0",
+            mem0={
+                "vector_store": {"provider": "qdrant", "config": {}},
+                "llm": {"provider": "openai", "config": {}},
+                "embedder": {"provider": "openai", "config": {}},
+                "custom_fact_extraction_prompt": "fact override",
+                "custom_update_memory_prompt": "update override",
+            },
+        )
+    )
+    monkeypatch.setitem(sys.modules, "mem0", SimpleNamespace(Memory=_FakeMemory))
+
+    try:
+        service = Mem0Service()
+        service._ensure_client()
+    finally:
+        set_memory_config(original_config)
+
+    assert captured["config"]["custom_fact_extraction_prompt"] == "fact override"
+    assert captured["config"]["custom_update_memory_prompt"] == "update override"
+
+
+def test_mem0_fact_extraction_prompt_keeps_original_fact_extraction_guidance():
+    assert "Categories:" in MEM0_FACT_EXTRACTION_PROMPT
+    assert "preference|knowledge|context|behavior|goal" in MEM0_FACT_EXTRACTION_PROMPT
+    assert "confidence" in MEM0_FACT_EXTRACTION_PROMPT.lower()
+
+
+def test_mem0_update_prompt_keeps_original_memory_update_guidance():
+    assert "specific metrics, version numbers, and proper nouns" in MEM0_UPDATE_MEMORY_PROMPT
+    assert "future interactions" in MEM0_UPDATE_MEMORY_PROMPT
+    assert "Do NOT record file upload events" in MEM0_UPDATE_MEMORY_PROMPT

@@ -145,6 +145,89 @@ Rules:
 Return ONLY valid JSON."""
 
 
+MEM0_FACT_EXTRACTION_PROMPT = """Extract factual information about the user from this conversation.
+
+Conversation:
+{message}
+
+Categories:
+- preference: User preferences (likes/dislikes, styles, tools)
+- knowledge: User's expertise or knowledge areas
+- context: Background context (location, job, projects)
+- behavior: Behavioral patterns
+- goal: User's goals or objectives
+
+Rules:
+- Only extract clear, specific facts
+- Confidence should reflect certainty (explicit statement = 0.9+, implied = 0.6-0.8)
+- Skip vague or temporary information
+- Generate facts based on the user's messages only
+- Do not include assistant or system messages as facts about the user
+- Do not extract file paths, upload bookkeeping, or session-scoped artifacts
+- Prefer durable information that will be useful in future conversations
+- Record facts in the same language as the user input
+
+Return ONLY valid JSON in this format:
+{
+  "facts": ["fact 1", "fact 2"]
+}
+
+Note:
+- The output must be a list of concise fact strings only.
+- The retained semantic categories are: preference|knowledge|context|behavior|goal
+- Do not output category or confidence fields; use the rules above only to decide what should be kept as a fact."""
+
+
+MEM0_UPDATE_MEMORY_PROMPT = """You are a memory management system. Your task is to analyze extracted user facts and update the user's long-term memory.
+
+Instructions:
+1. Analyze the newly extracted facts for important information about the user
+2. Keep relevant facts, preferences, and context with specific details (numbers, names, technologies)
+3. Decide how the existing memory should change using ADD, UPDATE, DELETE, or NONE
+
+Memory quality guidelines:
+- Preserve technical accuracy - keep exact names of technologies, companies, projects
+- Include specific metrics, version numbers, and proper nouns when they are useful
+- Focus on information useful for future interactions and personalization
+- Prefer durable user facts over temporary task context
+- Avoid duplicate memories that say the same thing with minor wording differences
+- If a fact is already covered or not valuable as long-term memory, use NONE
+
+What to avoid:
+- Do NOT record file upload events in memory
+- Do NOT store uploaded file paths, session-scoped artifacts, or temporary execution details
+- Do NOT keep one-off task state unless it clearly reveals a durable user preference, goal, or background fact
+
+You can perform four operations:
+1. ADD
+2. UPDATE
+3. DELETE
+4. NONE
+
+Decision rules:
+- ADD: the new fact is durable and not already represented in memory
+- UPDATE: an existing memory should be replaced with a clearer, more specific, or more current durable fact
+- DELETE: an existing memory is contradicted by the new fact
+- NONE: the fact is already covered, redundant, too temporary, too vague, or not worth long-term storage
+
+Output rules:
+- When updating, keep the existing ID
+- When adding, generate a new ID
+- Return ONLY valid JSON
+
+Return ONLY valid JSON in this format:
+{
+  "memory": [
+    {
+      "id": "0",
+      "text": "memory text",
+      "event": "ADD|UPDATE|DELETE|NONE",
+      "old_memory": "previous text when event is UPDATE"
+    }
+  ]
+}"""
+
+
 def _count_tokens(text: str, encoding_name: str = "cl100k_base") -> int:
     """Count tokens in text using tiktoken.
 

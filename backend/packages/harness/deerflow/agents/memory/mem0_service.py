@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 import threading
 from collections.abc import Iterable
 from datetime import UTC, datetime
 from typing import Any
 
+from deerflow.agents.memory.prompt import (
+    MEM0_FACT_EXTRACTION_PROMPT,
+    MEM0_UPDATE_MEMORY_PROMPT,
+)
 from deerflow.config.memory_config import get_memory_config
 
 
@@ -111,7 +116,11 @@ class Mem0Service:
         if not config.mem0:
             raise RuntimeError("memory.mem0 config is empty. Configure mem0 before enabling provider=mem0.")
 
-        self._client = Memory.from_config(config.mem0)
+        mem0_config = deepcopy(config.mem0)
+        mem0_config.setdefault("custom_fact_extraction_prompt", MEM0_FACT_EXTRACTION_PROMPT)
+        mem0_config.setdefault("custom_update_memory_prompt", MEM0_UPDATE_MEMORY_PROMPT)
+
+        self._client = Memory.from_config(mem0_config)
         return self._client
 
     def add_conversation(
