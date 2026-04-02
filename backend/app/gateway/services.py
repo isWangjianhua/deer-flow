@@ -162,6 +162,7 @@ async def _sync_thread_title_after_run(
 
     # Deferred import to avoid circular import with the threads router module.
     from app.gateway.routers.threads import _store_get, _store_put
+    from app.gateway.thread_ownership import get_thread_owner_record, update_owned_thread_title
 
     try:
         ckpt_config = {"configurable": {"thread_id": thread_id, "checkpoint_ns": ""}}
@@ -182,6 +183,13 @@ async def _sync_thread_title_after_run(
         updated.setdefault("values", {})["title"] = title
         updated["updated_at"] = time.time()
         await _store_put(store, updated)
+        owner_record = get_thread_owner_record(thread_id)
+        if owner_record is not None and owner_record.title != title:
+            update_owned_thread_title(
+                biz_thread_id=thread_id,
+                user_id=owner_record.user_id,
+                title=title,
+            )
         logger.debug("Synced title %r for thread %s", title, thread_id)
     except Exception:
         logger.debug("Failed to sync title for thread %s (non-fatal)", thread_id, exc_info=True)

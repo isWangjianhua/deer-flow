@@ -88,12 +88,14 @@ function createOptimisticState(
 type AssistantUiThreadProps = Readonly<{
   initialState: DeerFlowRuntimeState | null;
   ensureAuthenticated?: () => Promise<boolean>;
+  modelName?: string;
   onStateChange?: (state: DeerFlowRuntimeState) => void;
 }>;
 
 export function AssistantUiThread({
   ensureAuthenticated,
   initialState,
+  modelName,
   onStateChange,
 }: AssistantUiThreadProps) {
   const [runtimeState, setRuntimeState] = useState<DeerFlowRuntimeState | null>(initialState);
@@ -160,6 +162,7 @@ export function AssistantUiThread({
             const nextState = await runConversationStream({
               conversationId: runtimeState?.conversationId ?? undefined,
               messages: [{ role: "user", content: text, parts: [{ type: "text", text }] }],
+              modelName,
               onEvent: (event) => {
                 setRuntimeState((current) => {
                   if (!current) {
@@ -181,7 +184,7 @@ export function AssistantUiThread({
           }
         },
       }),
-      [ensureAuthenticated, isRunning, onStateChange, runtimeMessages, runtimeState?.conversationId],
+      [ensureAuthenticated, isRunning, modelName, onStateChange, runtimeMessages, runtimeState?.conversationId],
     ),
   );
 

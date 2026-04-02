@@ -61,6 +61,7 @@ def _build_run_messages(messages: list[ChatMessage]) -> list[dict[str, str]]:
 @router.post("")
 async def chat(body: UseChatRequest, request: Request, user=Depends(get_current_user)) -> StreamingResponse:
     conversation_id = body.body.get("conversation_id")
+    requested_model_name = body.body.get("model_name")
     try:
         record, created = resolve_or_create_conversation(
             conversation_id=conversation_id,
@@ -74,8 +75,18 @@ async def chat(body: UseChatRequest, request: Request, user=Depends(get_current_
         assistant_id="lead_agent",
         input={"messages": _build_run_messages(body.messages)},
         metadata={"source": "usechat-proxy"},
-        config={"configurable": {"thread_id": record.id, "user_id": user.id}},
-        stream_mode=["messages-tuple"],
+        config={
+            "configurable": {
+                "thread_id": record.id,
+                "user_id": user.id,
+                **(
+                    {"model_name": requested_model_name.strip()}
+                    if isinstance(requested_model_name, str) and requested_model_name.strip()
+                    else {}
+                ),
+            }
+        },
+        stream_mode=["messages-tuple", "values"],
     )
     run_record = await start_run(run_body, record.id, request)
     bridge = get_stream_bridge(request)

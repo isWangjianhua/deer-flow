@@ -67,7 +67,7 @@ def _extract_text_from_langgraph_chunk(chunk: str) -> str:
             first = payload[0]
             if isinstance(first, dict):
                 payload_type = first.get("type")
-                if payload_type not in ("AIMessageChunk", "ai"):
+                if str(payload_type).lower() not in ("aimessagechunk", "ai"):
                     continue
                 content = first.get("content")
                 if isinstance(content, str) and content:
@@ -75,17 +75,70 @@ def _extract_text_from_langgraph_chunk(chunk: str) -> str:
             continue
         if not isinstance(payload, dict):
             continue
-        if payload.get("type") == "ai":
+        if str(payload.get("type", "")).lower() in ("ai", "aimessagechunk"):
             content = payload.get("content")
             if isinstance(content, str) and content:
                 return content
-        if payload.get("type") != "tool":
+        if str(payload.get("type", "")).lower() != "tool":
             text = payload.get("text")
         else:
             text = None
         if isinstance(text, str):
             return text
     return ""
+
+
+def _extract_reasoning_content(payload: dict[str, Any]) -> str | None:
+    additional_kwargs = payload.get("additional_kwargs")
+    if isinstance(additional_kwargs, dict):
+        reasoning = additional_kwargs.get("reasoning_content")
+        if isinstance(reasoning, str) and reasoning.strip():
+            return reasoning.strip()
+
+    content = payload.get("content")
+    if isinstance(content, list):
+        for part in content:
+            if not isinstance(part, dict):
+                continue
+            thinking = part.get("thinking")
+            if isinstance(thinking, str) and thinking.strip():
+                return thinking.strip()
+
+    return None
+
+
+def _extract_reasoning_events_from_langgraph_chunk(chunk: str) -> list[dict[str, str]]:
+    events: list[dict[str, str]] = []
+
+    def append_reasoning(payload: dict[str, Any]) -> None:
+        payload_type = str(payload.get("type", "")).lower()
+        if payload_type == "tool":
+            return
+        reasoning = _extract_reasoning_content(payload)
+        message_id = payload.get("id")
+        if reasoning and isinstance(message_id, str) and message_id:
+            events.append({"message_id": message_id, "content": reasoning})
+
+    for payload in _iter_langgraph_payloads(chunk):
+        if isinstance(payload, list) and payload:
+            first = payload[0]
+            if isinstance(first, dict):
+                append_reasoning(first)
+            continue
+
+        if not isinstance(payload, dict):
+            continue
+
+        messages = payload.get("messages")
+        if isinstance(messages, list):
+            for message in messages:
+                if isinstance(message, dict):
+                    append_reasoning(message)
+            continue
+
+        append_reasoning(payload)
+
+    return events
 
 
 def _extract_tool_events_from_langgraph_chunk(chunk: str) -> list[dict[str, Any]]:
@@ -100,8 +153,8 @@ def _extract_tool_events_from_langgraph_chunk(chunk: str) -> list[dict[str, Any]
         if not isinstance(payload, dict):
             continue
 
-        payload_type = payload.get("type")
-        if payload_type == "ai":
+        payload_type = str(payload.get("type", "")).lower()
+        if payload_type in ("ai", "aimessagechunk"):
             for tool_call in payload.get("tool_calls") or []:
                 if not isinstance(tool_call, dict):
                     continue
@@ -144,6 +197,7 @@ async def usechat_stream_from_langgraph(
     message_id = f"msg_{uuid.uuid4().hex}"
     text_id = f"text_{uuid.uuid4().hex}"
     text_started = False
+    latest_reasoning_by_message: dict[str, str] = {}
 
     yield encode_usechat_data_part(
         "data-conversation",
@@ -153,6 +207,22 @@ async def usechat_stream_from_langgraph(
     yield _encode_data({"type": "start", "messageId": message_id})
 
     async for chunk in upstream:
+        for reasoning in _extract_reasoning_events_from_langgraph_chunk(chunk):
+            previous = latest_reasoning_by_message.get(reasoning["message_id"])
+            if previous == reasoning["content"]:
+                continue
+
+            latest_reasoning_by_message[reasoning["message_id"]] = reasoning["content"]
+            yield encode_usechat_data_part(
+                "data-reasoning",
+                {
+                    "messageId": reasoning["message_id"],
+                    "content": reasoning["content"],
+                },
+                transient=True,
+                part_id=f"reasoning_{reasoning['message_id']}",
+            )
+
         if (
             "event: messages/partial" in chunk
             or "event: messages-tuple" in chunk

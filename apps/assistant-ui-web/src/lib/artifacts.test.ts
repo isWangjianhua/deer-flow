@@ -4,6 +4,7 @@ import {
   getArtifactKindLabel,
   getArtifactName,
   getArtifactPreviewKind,
+  reconcileCanvasState,
   resolveArtifactUrl,
   selectCanvasArtifact,
 } from "./artifacts";
@@ -54,6 +55,42 @@ describe("artifacts", () => {
       ),
     ).toBe("/tmp/one.md");
     expect(selectCanvasArtifact([], "/tmp/one.md")).toBeNull();
+  });
+
+  it("keeps the canvas closed when artifacts arrive until the user opens it", () => {
+    expect(
+      reconcileCanvasState(["/tmp/report.md"], {
+        open: false,
+        selectedArtifact: null,
+      }),
+    ).toEqual({
+      open: false,
+      selectedArtifact: null,
+    });
+  });
+
+  it("closes the canvas when no artifacts remain", () => {
+    expect(
+      reconcileCanvasState([], {
+        open: true,
+        selectedArtifact: "/tmp/report.md",
+      }),
+    ).toEqual({
+      open: false,
+      selectedArtifact: null,
+    });
+  });
+
+  it("clears stale selections without forcing the canvas closed", () => {
+    expect(
+      reconcileCanvasState(["/tmp/other.md"], {
+        open: true,
+        selectedArtifact: "/tmp/report.md",
+      }),
+    ).toEqual({
+      open: true,
+      selectedArtifact: null,
+    });
   });
 
   it("derives stable labels and names for the canvas list", () => {

@@ -73,6 +73,35 @@ describe("thread presentation", () => {
     expect(presentation.liveBlock?.events.map((event) => event.id)).toEqual(["call_live"]);
   });
 
+  it("keeps a live reasoning card updated from stream events", () => {
+    const events: ChatStreamEvent[] = [
+      {
+        type: "data-reasoning",
+        data: { messageId: "msg_live", content: "Inspecting the request" },
+      },
+      {
+        type: "data-reasoning",
+        data: { messageId: "msg_live", content: "Inspecting the request\nNeed a tool call next" },
+      },
+    ];
+
+    const presentation = buildThreadPresentation([], events);
+
+    expect(presentation.liveBlock?.events).toEqual([
+      {
+        id: "msg_live:reasoning:live",
+        source: {
+          messageId: "msg_live",
+          partIndex: -1,
+        },
+        kind: "reasoning",
+        title: "Reasoning",
+        content: "Inspecting the request\nNeed a tool call next",
+        status: "streaming",
+      },
+    ]);
+  });
+
   it("exposes artifact paths for the right canvas", () => {
     const presentation = buildThreadPresentation([], [], ["/tmp/report.md"]);
 

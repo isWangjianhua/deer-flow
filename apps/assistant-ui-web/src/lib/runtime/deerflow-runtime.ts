@@ -49,6 +49,7 @@ export async function loadRuntimeState(conversationId: string): Promise<DeerFlow
 export async function runConversationStream(request: {
   conversationId?: string;
   messages: ChatRequestMessage[];
+  modelName?: string;
   onEvent?: (event: ChatStreamEvent) => void;
 }): Promise<DeerFlowRuntimeState> {
   let resolvedConversationId = request.conversationId ?? null;
@@ -56,6 +57,7 @@ export async function runConversationStream(request: {
   const stream = await streamChat({
     conversationId: request.conversationId,
     messages: request.messages,
+    modelName: request.modelName,
   });
 
   for await (const event of stream) {

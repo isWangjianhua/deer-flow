@@ -2,6 +2,7 @@ import { ClarificationToolUI } from "./clarification";
 import { CommandToolUI } from "./command";
 import { ReadFileToolUI } from "./read-file";
 import { WebSearchToolUI } from "./web-search";
+import { WriteFileToolUI } from "./write-file";
 import { EventCard } from "@/components/workspace/event-card";
 import {
   getToolDisplayName,
@@ -22,6 +23,9 @@ export function ToolCard({ toolName, args, content }: ToolRendererProps) {
         return <WebSearchToolUI args={args} content={content} />;
       case "read_file":
         return <ReadFileToolUI args={args} content={content} />;
+      case "write_file":
+      case "str_replace":
+        return <WriteFileToolUI args={args} />;
       case "bash":
       case "run_command":
         return <CommandToolUI args={args} content={content} />;

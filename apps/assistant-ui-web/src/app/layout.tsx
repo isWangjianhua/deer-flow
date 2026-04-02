@@ -21,7 +21,7 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
   return (
     <html lang="zh-CN">
       <body
-        className={`${sans.variable} ${serif.variable} min-h-screen bg-background font-[family-name:var(--font-sans)] text-foreground`}
+        className={`${sans.variable} ${serif.variable} h-screen overflow-hidden bg-background font-[family-name:var(--font-sans)] text-foreground`}
       >
         <TooltipProvider>{children}</TooltipProvider>
       </body>

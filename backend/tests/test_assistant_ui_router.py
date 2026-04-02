@@ -1,7 +1,5 @@
+import asyncio
 from types import SimpleNamespace
-
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
 
 from app.gateway.assistant_ui_adapter import convert_deerflow_messages_to_assistant_ui
 from app.gateway.routers import assistant_ui
@@ -67,10 +65,6 @@ def test_convert_deerflow_messages_to_assistant_ui_groups_assistant_turns():
 
 
 def test_assistant_ui_thread_endpoint_returns_assistant_ui_messages(monkeypatch):
-    app = FastAPI()
-    app.include_router(assistant_ui.router)
-    app.dependency_overrides[assistant_ui.get_current_user] = _override_current_user
-
     async def fake_load_state(thread_id: str, request):
         assert thread_id == "thread_1"
         return ThreadStateResponse(
@@ -97,11 +91,15 @@ def test_assistant_ui_thread_endpoint_returns_assistant_ui_messages(monkeypatch)
         lambda biz_thread_id, user_id: SimpleNamespace(id=biz_thread_id, user_id=user_id),
     )
 
-    with TestClient(app) as client:
-        response = client.get("/api/assistant-ui/threads/thread_1")
+    response = asyncio.run(
+        assistant_ui.get_thread(
+            "thread_1",
+            request=SimpleNamespace(),
+            user=_override_current_user(),
+        )
+    )
 
-    assert response.status_code == 200
-    assert response.json() == {
+    assert response.model_dump() == {
         "thread_id": "thread_1",
         "title": "Hello",
         "messages": [
@@ -122,3 +120,43 @@ def test_assistant_ui_thread_endpoint_returns_assistant_ui_messages(monkeypatch)
         "artifacts": ["a.txt"],
         "todos": ["todo"],
     }
+
+
+def test_assistant_ui_list_threads_falls_back_to_state_title(monkeypatch):
+    async def fake_list_conversations(user):
+        return [
+            SimpleNamespace(
+                conversation_id="thread_1",
+                title="",
+                created_at="1",
+                updated_at="2",
+            )
+        ]
+
+    async def fake_load_state(thread_id: str, request):
+        assert thread_id == "thread_1"
+        return ThreadStateResponse(
+            values={
+                "title": "Real Title",
+                "messages": [{"id": "u1", "type": "human", "content": "你好"}],
+            }
+        )
+
+    monkeypatch.setattr(assistant_ui.conversations, "list_conversations", fake_list_conversations)
+    monkeypatch.setattr(assistant_ui.threads, "load_thread_state", fake_load_state)
+
+    response = asyncio.run(
+        assistant_ui.list_threads(
+            request=SimpleNamespace(),
+            user=_override_current_user(),
+        )
+    )
+
+    assert [item.model_dump() for item in response] == [
+        {
+            "thread_id": "thread_1",
+            "title": "Real Title",
+            "created_at": "1",
+            "updated_at": "2",
+        }
+    ]

@@ -137,3 +137,23 @@ async def test_usechat_stream_from_langgraph_emits_tool_progress_parts():
     assert '"type": "data-tool-result"' in joined
     assert '\\"results\\": []' in joined
     assert '"delta": "Final answer"' in joined
+
+
+@pytest.mark.anyio
+async def test_usechat_stream_from_langgraph_emits_reasoning_parts_from_values():
+    async def upstream():
+        yield (
+            'event: values\n'
+            'data: {"messages":[{"type":"human","content":"Hi","id":"human_1"},{"type":"ai","id":"ai_1","content":"","additional_kwargs":{"reasoning_content":"Need to inspect the request"}}]}\n\n'
+        )
+        yield 'event: messages-tuple\ndata: {"type":"ai","content":"Final answer","id":"ai_1"}\n\n'
+
+    frames = []
+    async for frame in usechat_stream_from_langgraph(upstream(), conversation_id="conv_1"):
+        frames.append(frame)
+
+    joined = "".join(frames)
+    assert '"type": "data-reasoning"' in joined
+    assert '"messageId": "ai_1"' in joined
+    assert '"content": "Need to inspect the request"' in joined
+    assert '"delta": "Final answer"' in joined

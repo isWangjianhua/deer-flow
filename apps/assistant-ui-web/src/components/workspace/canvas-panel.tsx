@@ -6,6 +6,7 @@ import {
   ExternalLinkIcon,
   FileTextIcon,
   LayoutPanelTopIcon,
+  XIcon,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -30,6 +31,9 @@ type CanvasPanelProps = Readonly<{
   artifacts: string[];
   conversationId: string | null;
   title: string;
+  selectedArtifact: string | null;
+  onClose: () => void;
+  onSelectArtifact: (artifactPath: string) => void;
   className?: string;
 }>;
 
@@ -37,16 +41,14 @@ export function CanvasPanel({
   artifacts,
   conversationId,
   title,
+  selectedArtifact,
+  onClose,
+  onSelectArtifact,
   className,
 }: CanvasPanelProps) {
-  const [selectedArtifact, setSelectedArtifact] = useState<string | null>(null);
   const [previewContent, setPreviewContent] = useState<string>("");
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
-
-  useEffect(() => {
-    setSelectedArtifact((current) => selectCanvasArtifact(artifacts, current));
-  }, [artifacts]);
 
   const activeArtifact = useMemo(
     () => selectCanvasArtifact(artifacts, selectedArtifact),
@@ -129,9 +131,20 @@ export function CanvasPanel({
       )}
     >
       <div className="border-b border-border/70 px-4 py-4 md:px-5">
-        <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
-          <LayoutPanelTopIcon className="size-3.5" />
-          Canvas
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+            <LayoutPanelTopIcon className="size-3.5" />
+            Canvas
+          </div>
+          <Button
+            aria-label="Close canvas"
+            className="size-8 shrink-0"
+            onClick={onClose}
+            size="icon"
+            variant="ghost"
+          >
+            <XIcon className="size-4" />
+          </Button>
         </div>
         <h2 className="mt-3 line-clamp-2 text-sm font-semibold text-foreground md:text-base">
           {title || "New Thread"}
@@ -335,7 +348,7 @@ export function CanvasPanel({
                         <Button
                           className="px-0 text-sm"
                           onClick={() => {
-                            setSelectedArtifact(artifactPath);
+                            onSelectArtifact(artifactPath);
                           }}
                           variant="link"
                         >

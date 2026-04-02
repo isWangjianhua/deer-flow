@@ -49,6 +49,20 @@ describe("chat stream", () => {
     });
   });
 
+  it("parses reasoning data frames", () => {
+    const event = parseStreamFrame(
+      'data: {"type":"data-reasoning","data":{"messageId":"msg_1","content":"Need to inspect the file"}}\n\n',
+    );
+
+    expect(event).toEqual({
+      type: "data-reasoning",
+      data: {
+        messageId: "msg_1",
+        content: "Need to inspect the file",
+      },
+    });
+  });
+
   it("collects text deltas in order", async () => {
     const events = await collectChatStreamEvents([
       'data: {"type":"text-start","id":"text_1"}\n\n',

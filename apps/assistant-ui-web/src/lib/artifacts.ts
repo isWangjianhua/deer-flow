@@ -8,6 +8,11 @@ export type ArtifactPreviewKind =
   | "html"
   | "none";
 
+export type CanvasState = {
+  open: boolean;
+  selectedArtifact: string | null;
+};
+
 const IMAGE_EXTENSIONS = new Set([
   "png",
   "jpg",
@@ -115,4 +120,25 @@ export function selectCanvasArtifact(
   }
 
   return artifacts[0] ?? null;
+}
+
+export function reconcileCanvasState(
+  artifacts: string[],
+  state: CanvasState,
+): CanvasState {
+  if (artifacts.length === 0) {
+    return {
+      open: false,
+      selectedArtifact: null,
+    };
+  }
+
+  if (state.selectedArtifact && artifacts.includes(state.selectedArtifact)) {
+    return state;
+  }
+
+  return {
+    open: state.open,
+    selectedArtifact: null,
+  };
 }

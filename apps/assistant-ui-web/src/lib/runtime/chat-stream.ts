@@ -29,6 +29,13 @@ export type ChatStreamEvent =
       };
     }
   | {
+      type: "data-reasoning";
+      data: {
+        messageId?: string;
+        content?: string;
+      };
+    }
+  | {
       type: "text-start";
       id: string;
     }
@@ -139,6 +146,7 @@ async function* readSseChunks(stream: ReadableStream<Uint8Array>): AsyncGenerato
 export async function streamChat(request: {
   conversationId?: string;
   messages: ChatRequestMessage[];
+  modelName?: string;
 }): Promise<AsyncGenerator<ChatStreamEvent>> {
   const response = await fetch(buildGatewayUrl("/api/chat"), {
     method: "POST",
@@ -151,6 +159,7 @@ export async function streamChat(request: {
       messages: request.messages,
       body: {
         conversation_id: request.conversationId,
+        model_name: request.modelName,
       },
     }),
   });

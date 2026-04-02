@@ -125,6 +125,7 @@ function collectMessageEvents(messageId: string, parts: AssistantUiMessage["part
 
 function buildLiveBlock(events: ChatStreamEvent[]): ThreadRenderBlock | null {
   const bodyParts: string[] = [];
+  const reasoningCards = new Map<string, Extract<ThreadEventCard, { kind: "reasoning" }>>();
   const cards = new Map<string, Extract<ThreadEventCard, { kind: "tool" }>>();
   let id = "live";
   let sourceMessageId = "live";
@@ -146,6 +147,27 @@ function buildLiveBlock(events: ChatStreamEvent[]): ThreadRenderBlock | null {
     if (event.type === "text-end") {
       id = event.id;
       sourceMessageId = event.id;
+      continue;
+    }
+
+    if (event.type === "data-reasoning") {
+      const messageId = event.data.messageId ?? sourceMessageId;
+      const content = event.data.content?.trim();
+      if (!content) {
+        continue;
+      }
+
+      reasoningCards.set(messageId, {
+        id: `${messageId}:reasoning:live`,
+        source: {
+          messageId,
+          partIndex: -1,
+        },
+        kind: "reasoning",
+        title: "Reasoning",
+        content,
+        status: "streaming",
+      });
       continue;
     }
 
@@ -200,7 +222,7 @@ function buildLiveBlock(events: ChatStreamEvent[]): ThreadRenderBlock | null {
     }
   }
 
-  if (bodyParts.length === 0 && cards.size === 0) {
+  if (bodyParts.length === 0 && reasoningCards.size === 0 && cards.size === 0) {
     return null;
   }
 
@@ -211,7 +233,7 @@ function buildLiveBlock(events: ChatStreamEvent[]): ThreadRenderBlock | null {
     },
     role: "assistant",
     body: bodyParts.join(""),
-    events: [...cards.values()],
+    events: [...reasoningCards.values(), ...cards.values()],
   };
 }
 
