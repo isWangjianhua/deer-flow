@@ -215,16 +215,20 @@ function StepRow({ step, isLast }: Readonly<{ step: StepItem; isLast: boolean }>
 }
 
 export function AssistantSteps() {
-  const parts = useAuiState((s) =>
-    s.message.content.filter(
-      (part) => part.type === "reasoning" || part.type === "tool-call",
-    ),
-  );
+  const content = useAuiState((s) => s.message.content);
   const isStreaming = useAuiState(
     (s) => s.thread.isRunning && s.message.isLast && s.message.role === "assistant",
   );
   const [open, setOpen] = useState(isStreaming);
   const wasStreamingRef = useRef(isStreaming);
+
+  const parts = useMemo(
+    () =>
+      content.filter(
+        (part) => part.type === "reasoning" || part.type === "tool-call",
+      ),
+    [content],
+  );
 
   const steps = useMemo(
     () => buildSteps(parts as Array<{ type: "text"; text: string } | AssistantReasoningPart | AssistantToolCallPart>, isStreaming),
