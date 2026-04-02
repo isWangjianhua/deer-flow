@@ -167,7 +167,7 @@ ensure_frontend_dependencies "$FRONTEND_DIR" "$FRONTEND_VARIANT"
 
 if $DEV_MODE; then
     LANGGRAPH_EXTRA_FLAGS="--no-reload"
-    GATEWAY_EXTRA_FLAGS="--reload --reload-include='*.yaml' --reload-include='.env' --reload-exclude='*.pyc' --reload-exclude='__pycache__' --reload-exclude='sandbox/' --reload-exclude='.deer-flow/'"
+    GATEWAY_EXTRA_FLAGS="--reload --reload-include='*.yaml' --reload-include='.env' --reload-exclude='*.pyc' --reload-exclude='__pycache__' --reload-exclude='sandbox/' --reload-exclude='.deer-flow/' --reload-exclude='.venv/' --reload-exclude='logs/' --reload-exclude='.next/' --reload-exclude='node_modules/' --reload-exclude='.tmp/'"
 else
     LANGGRAPH_EXTRA_FLAGS="--no-reload"
     GATEWAY_EXTRA_FLAGS=""

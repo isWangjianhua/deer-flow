@@ -97,9 +97,9 @@ setup-sandbox:
 # Start all services in development mode (with hot-reloading)
 dev:
 ifeq ($(OS),Windows_NT)
-	@call scripts\run-with-git-bash.cmd ./scripts/serve.sh --dev
+	@call scripts\run-with-git-bash.cmd ./scripts/serve.sh --dev --assistant-ui
 else
-	@./scripts/serve.sh --dev
+	@./scripts/serve.sh --dev --assistant-ui
 endif
 
 # Start all services in production mode (with optimizations)

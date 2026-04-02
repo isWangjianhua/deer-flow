@@ -25,6 +25,7 @@ from app.gateway.routers import (
     threads,
     uploads,
 )
+from deerflow.agents.memory.queue import get_memory_queue
 from deerflow.config.app_config import get_app_config
 
 # Configure logging
@@ -66,6 +67,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             logger.exception("No IM channels configured or channel service failed to start")
 
         yield
+
+        # Best-effort drain of debounced memory updates so dev reload/shutdown
+        # does not drop queued mem0 writes that have not reached due time yet.
+        try:
+            get_memory_queue().flush()
+        except Exception:
+            logger.exception("Failed to flush memory update queue during shutdown")
 
         # Stop channel service on shutdown
         try:
