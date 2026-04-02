@@ -2,7 +2,7 @@
 
 ## Summary
 
-Redesign the `frontend` workspace chat experience so it aligns closely with the mature interaction model already demonstrated in `apps/assistant-ui-web`, while preserving DeerFlow's existing thread streaming, artifact, and task data sources.
+Redesign the `apps/assistant-ui-web` workspace chat experience so it fully matches the assistant-ui + shadcn template language already used in that app, while fixing the current streaming, title, collapsible content, markdown, and right-canvas regressions.
 
 This redesign addresses the current user-visible failures:
 
@@ -15,56 +15,59 @@ This redesign addresses the current user-visible failures:
 
 ## Goals
 
-- Rebuild the workspace chat page around an assistant-ui-style thread layout.
-- Reuse as much of the existing `frontend` chat/runtime implementation as practical.
+- Rebuild the `apps/assistant-ui-web` workspace chat page around the assistant-ui thread layout already present in that app.
+- Reuse the existing `apps/assistant-ui-web` runtime and assistant-ui primitives as much as practical.
 - Make streaming updates feel continuous and stable.
 - Separate assistant body content, event cards, and artifact canvas payloads so they never bleed into each other.
 - Add a right-side canvas panel for artifact and file preview workflows.
-- Render markdown in a restrained, document-like style similar to `apps/assistant-ui-web`.
+- Render markdown in the restrained, document-like style expected from assistant-ui.
 - Keep compatibility with existing DeerFlow backend message and artifact protocols.
 
 ## Non-Goals
 
 - No backend protocol redesign.
-- No unrelated refactor of the whole frontend app.
+- No unrelated refactor outside `apps/assistant-ui-web`.
 - No visual re-theme of the entire product outside the workspace chat surface.
-- No migration of the whole app to `@assistant-ui/react` primitives if that would require replacing working DeerFlow runtime logic wholesale.
+- No visual redesign that departs from assistant-ui's shadcn template language.
 
 ## References
 
 - `apps/assistant-ui-web/src/components/thread-screen.tsx`
 - `apps/assistant-ui-web/src/components/assistant-ui/thread.tsx`
-- `frontend/src/app/workspace/chats/[thread_id]/page.tsx`
-- `frontend/src/components/workspace/messages/message-list.tsx`
-- `frontend/src/components/workspace/messages/message-list-item.tsx`
+- `apps/assistant-ui-web/src/components/assistant-ui-thread.tsx`
+- `apps/assistant-ui-web/src/components/assistant-ui/markdown-text.tsx`
+- `apps/assistant-ui-web/src/components/tool-ui/index.tsx`
+- `apps/assistant-ui-web/src/lib/runtime/message-converter.ts`
+- `apps/assistant-ui-web/src/lib/runtime/deerflow-runtime.ts`
+- `apps/assistant-ui-web/src/lib/runtime/chat-stream.ts`
 - assistant-ui Thread docs: `https://www.assistant-ui.com/docs/ui/thread`
 - assistant-ui Thread primitives docs: `https://www.assistant-ui.com/docs/api-reference/primitives/thread`
 - shadcn resizable docs: `https://ui.shadcn.com/docs/components/resizable`
 
 ## Current Problems and Root Causes
 
-### 1. Page structure diverges from assistant-ui
+### 1. The app is using assistant-ui, but key rendering paths bypass its intended patterns
 
-The current workspace page uses absolute-positioned header and composer regions layered over a centered message area. This causes the interface to feel assembled from incompatible patterns instead of following a coherent thread layout.
+`apps/assistant-ui-web/src/components/thread-screen.tsx` and `apps/assistant-ui-web/src/components/assistant-ui/thread.tsx` already establish an assistant-ui-style shell. However, `apps/assistant-ui-web/src/components/assistant-ui-thread.tsx` overrides message rendering with a custom `MessageRenderer` that falls back to manual `details`, `div`, and `p` output. That custom layer breaks visual consistency with the assistant-ui shadcn template.
 
 ### 2. Streaming feels unstable
 
-The current rendering path groups messages in a way that makes streamed assistant output feel delayed or visually discontinuous. Thinking, tool events, subtasks, and final assistant body content do not have a stable presentation model during streaming.
+The live assistant message assembly in `apps/assistant-ui-web/src/components/assistant-ui-thread.tsx` appends parts opportunistically, but the custom renderer does not preserve strong presentation boundaries between body text, reasoning, and tool activity. The result feels less like a stable streaming thread and more like ad hoc content accumulation.
 
-### 3. Title hierarchy is weak
+### 3. Title hierarchy is weak in practice
 
-The thread title exists in logic, but the page hierarchy does not present it as the primary thread identifier in a clean top bar.
+`apps/assistant-ui-web/src/components/thread-screen.tsx` has a header title slot, but the overall page hierarchy still feels incomplete because the main thread view and right-side workspace are not structured as a mature assistant-ui workspace. Fixing title visibility requires fixing the surrounding layout, not only the text node.
 
 ### 4. Collapsed content has mixed responsibilities
 
-Thinking, tool activity, tool results, and task progress are mixed through message grouping and conditional rendering. This causes two failures:
+`apps/assistant-ui-web/src/lib/runtime/message-converter.ts` merges assistant parts aggressively, and `apps/assistant-ui-web/src/components/assistant-ui-thread.tsx` then renders reasoning, tool calls, tool results, and final body text through a simplified split. This causes two failures:
 
-- live tool and reasoning activity is not shown clearly as it streams
-- content that belongs inside a card can render outside the card as plain text below it
+- live tool and reasoning activity is not shown clearly or consistently as it streams
+- content that belongs inside an operational card can render outside the card as plain text below it
 
 ### 5. Artifact preview has no dedicated workspace
 
-Artifacts and present-files output are partially shown in the main message stream, but there is no persistent right-side workspace for reviewing generated files and previews.
+The current `apps/assistant-ui-web` thread screen is essentially single-column. There is no proper right-side canvas matching the expected assistant workspace model for artifacts and file previews.
 
 ### 6. Markdown lacks document-quality presentation
 
@@ -72,14 +75,14 @@ The assistant body uses markdown rendering, but the spacing, hierarchy, code tre
 
 ## Proposed Approach
 
-Use `apps/assistant-ui-web` as the visual and structural baseline, but adapt it onto the existing DeerFlow `frontend` runtime instead of replacing the current runtime with the separate assistant-ui demo app.
+Use the existing `apps/assistant-ui-web` application as both the visual and structural baseline. Fix the experience by staying inside its assistant-ui/shadcn composition model rather than introducing a parallel custom UI system.
 
 This means:
 
-- reuse the assistant-ui-web layout ideas
-- reuse existing DeerFlow thread/message/artifact data flow
-- replace the current workspace chat composition and message rendering boundaries
-- add a proper right-side canvas using a mature split-pane layout
+- keep the assistant-ui thread shell in `thread-screen.tsx` and `assistant-ui/thread.tsx`
+- fix the custom runtime bridge and message renderer in `assistant-ui-thread.tsx`
+- refine the message conversion boundaries in `message-converter.ts`
+- add a proper right-side canvas using the existing shadcn resizable primitives already present in the app
 
 ## UX Design
 
@@ -101,7 +104,7 @@ The right panel is resizable and persists as the dedicated place for generated a
 
 ### Visual Direction
 
-The page should match the restrained document-like feel of `apps/assistant-ui-web`:
+The page should match the restrained document-like feel of assistant-ui's shadcn template already used in this app:
 
 - minimal chrome
 - low border density
@@ -135,7 +138,7 @@ The desired feel is "restrained document" rather than "marketing page" or "chat 
 
 ## Message Model
 
-To prevent mixed rendering, the chat UI should treat streamed output as three distinct presentation channels.
+To prevent mixed rendering, the `apps/assistant-ui-web` chat UI should treat streamed output as three distinct presentation channels.
 
 ### 1. Assistant Body
 
@@ -202,7 +205,7 @@ Streaming behavior is a core acceptance criterion.
 
 ## Right Canvas
 
-The right canvas is a required part of the redesign.
+The right canvas is a required part of the redesign inside `apps/assistant-ui-web`.
 
 ### Behavior
 
@@ -221,14 +224,16 @@ The right canvas is a required part of the redesign.
 
 ### Reuse Strategy
 
-Prefer reusing these existing frontend systems:
+Prefer reusing these existing `apps/assistant-ui-web` systems:
 
-- thread streaming hooks
-- message parsing utilities
-- artifact loader and preview helpers
-- existing workspace sidebar and thread context
+- thread screen shell
+- assistant-ui thread primitives
+- DeerFlow runtime bridge
+- stream event parser
+- message conversion utilities
+- existing shadcn sidebar/sheet/resizable primitives
 
-Avoid replacing working backend integration if the same effect can be achieved by changing view composition and message-to-UI transformation.
+Avoid replacing working backend integration if the same effect can be achieved by changing the runtime bridge, message-to-UI transformation, and thread workspace composition.
 
 ### New View Boundary
 
@@ -242,7 +247,7 @@ This transformation layer should be tested directly so rendering bugs can be cau
 
 ### Layout Components
 
-Expected component responsibilities:
+Expected component responsibilities inside `apps/assistant-ui-web`:
 
 - page shell / split layout
 - thread header
@@ -295,8 +300,9 @@ The redesign is complete when all of the following are true:
 
 - Use a git worktree before implementation.
 - Subagent use is explicitly approved by the user for the implementation phase.
-- Prefer `apps/assistant-ui-web` as the reference for layout, spacing, and interaction decisions.
-- Prefer existing `frontend` runtime/data flow over porting the entire assistant-ui-web demo implementation.
+- Match assistant-ui's shadcn template structure and spacing closely.
+- Do not introduce custom visual language that conflicts with assistant-ui.
+- Treat `frontend/` only as a legacy reference if needed; it is not the primary implementation target.
 
 ## Scope Check
 
