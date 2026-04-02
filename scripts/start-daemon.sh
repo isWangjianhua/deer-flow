@@ -12,6 +12,13 @@ set -e
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
+# ── Load environment variables from .env ──────────────────────────────────────
+if [ -f "$REPO_ROOT/.env" ]; then
+    set -a
+    source "$REPO_ROOT/.env"
+    set +a
+fi
+
 FRONTEND_VARIANT="legacy"
 for arg in "$@"; do
     case "$arg" in
@@ -66,7 +73,7 @@ fi
 
 # ── Qdrant preflight for mem0 ─────────────────────────────────────────────
 
-python3 "$REPO_ROOT/scripts/ensure_qdrant.py" || exit 1
+(cd backend && PYTHONPATH=. uv run ../scripts/ensure_qdrant.py) || exit 1
 
 # ── Cleanup on failure ───────────────────────────────────────────────────────
 

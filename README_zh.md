@@ -152,14 +152,32 @@ https://github.com/user-attachments/assets/a8bcadc4-e040-4cf2-8fda-dd768b999c18
 
 #### 方式一：Docker（推荐）
 
+前提：先完成上面的“配置”步骤（至少准备好 `config.yaml` / `.env` 中的模型配置和 API key），并确保 Docker daemon 可用。
+
 **开发模式**（支持热更新，挂载源码）：
 
 ```bash
-make docker-init    # 拉取 sandbox 镜像（首次运行或镜像更新时执行）
-make docker-start   # 启动服务（会根据 config.yaml 自动判断 sandbox 模式）
+make docker-init    # 可选：预拉取 sandbox 镜像（首次运行或镜像更新时执行）
+make docker-start   # 构建并启动 Docker 开发环境
 ```
 
-如果 `config.yaml` 使用的是 provisioner 模式（`sandbox.use: deerflow.community.aio_sandbox:AioSandboxProvider` 且配置了 `provisioner_url`），`make docker-start` 才会启动 `provisioner`。
+实际行为：
+- `make docker-start` 会读取项目根目录的 `config.yaml`，自动判断当前 sandbox 模式。
+- 只有在 provisioner 模式下（`sandbox.use: deerflow.community.aio_sandbox:AioSandboxProvider` 且配置了 `provisioner_url`）才会额外启动 `provisioner`。
+- 如果缺少 `extensions_config.json`，会自动从 `extensions_config.example.json` 创建。
+- Docker 开发环境默认启动：
+  - `frontend`
+  - `gateway`
+  - `langgraph`
+  - `nginx`
+  - `provisioner`（仅 provisioner 模式）
+
+常用命令：
+
+```bash
+make docker-stop    # 停止 Docker 开发环境
+make docker-logs    # 查看全部日志
+```
 
 **生产模式**（本地构建镜像，并挂载运行期配置与数据）：
 
@@ -177,9 +195,9 @@ make down   # 停止并移除容器
 
 #### 方式二：本地开发
 
-如果你更希望直接在本地启动各个服务：
+如果你更希望直接在本地启动各个服务，推荐先执行：
 
-前提：先完成上面的“配置”步骤（`make config` 和模型 API key 配置）。`make dev` 需要有效配置文件，默认读取项目根目录下的 `config.yaml`，也可以通过 `DEER_FLOW_CONFIG_PATH` 覆盖。
+前提：先完成上面的“配置”步骤（`make config` 和模型 API key 配置）。本地启动默认读取项目根目录下的 `config.yaml`，也可以通过 `DEER_FLOW_CONFIG_PATH` 覆盖。
 
 1. **检查依赖环境**：
    ```bash
@@ -199,10 +217,44 @@ make down   # 停止并移除容器
 
 4. **启动服务**：
    ```bash
-   make dev
+   make dev         # 开发模式：热更新
+   # 或
+   make start       # 本地生产模式：无热更新
+   # 或
+   make dev-daemon  # 后台运行
    ```
 
-5. **访问地址**：http://localhost:2026
+本地启动时的实际行为：
+- `make dev` / `make start` / `make dev-daemon` 都会先自动执行 `scripts/config-upgrade.sh`
+- 如果当前 `config.yaml` 使用 `memory.provider: mem0` 且向量库是本地 Qdrant，会先检查 `http://localhost:6333/healthz`
+- 如果本地已有 `deerflow-qdrant` 容器但未启动，会尝试自动拉起；如果没有该容器，会打印对应的 `docker pull` / `docker run` 提示
+- `make dev` / `make start` / `make dev-daemon` 都会自动加载项目根目录的 `.env`
+- 默认会启动这 4 个服务：
+  - LangGraph（`localhost:2024`）
+  - Gateway（`localhost:8001`）
+  - Frontend（`localhost:3000`）
+  - Nginx（`localhost:2026`）
+
+常用命令：
+
+```bash
+make stop  # 停止本地开发服务
+```
+
+日志位置：
+- `logs/langgraph.log`
+- `logs/gateway.log`
+- `logs/frontend.log`
+- `logs/nginx.log`
+
+默认情况下 `make dev` 启动的是 legacy frontend。  
+如果你要启动 Assistant UI 前端，可以直接使用：
+
+```bash
+./scripts/serve.sh --dev --assistant-ui
+```
+
+访问地址：http://localhost:2026
 
 ### 进阶配置
 #### Sandbox 模式

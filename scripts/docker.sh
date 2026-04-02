@@ -84,6 +84,23 @@ docker_available() {
     return 0
 }
 
+ensure_frontend_env_file() {
+    local frontend_env="$PROJECT_ROOT/frontend/.env"
+    local frontend_env_example="$PROJECT_ROOT/frontend/.env.example"
+
+    if [ -f "$frontend_env" ]; then
+        return 0
+    fi
+
+    if [ -f "$frontend_env_example" ]; then
+        cp "$frontend_env_example" "$frontend_env"
+        echo -e "${BLUE}Created frontend/.env from example${NC}"
+    else
+        : > "$frontend_env"
+        echo -e "${BLUE}Created empty frontend/.env${NC}"
+    fi
+}
+
 # Initialize: pre-pull the sandbox image so first Pod startup is fast
 init() {
     echo "=========================================="
@@ -213,6 +230,8 @@ start() {
         fi
     fi
 
+    ensure_frontend_env_file
+
     echo "Building and starting containers..."
     cd "$DOCKER_DIR" && $COMPOSE_CMD up --build -d --remove-orphans $services
     echo ""
@@ -270,6 +289,7 @@ stop() {
     if [ -z "$DEER_FLOW_ROOT" ]; then
         export DEER_FLOW_ROOT="$PROJECT_ROOT"
     fi
+    ensure_frontend_env_file
     echo "Stopping Docker development services..."
     cd "$DOCKER_DIR" && $COMPOSE_CMD down
     echo "Cleaning up sandbox containers..."

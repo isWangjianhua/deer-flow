@@ -104,3 +104,27 @@ sandbox:
 """.strip()
 
     assert _detect_mode_with_config(config) == "local"
+
+
+def test_ensure_frontend_env_file_copies_example_when_missing():
+    """Docker helper should create frontend/.env from .env.example when absent."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp_root = Path(tmpdir)
+        frontend_dir = tmp_root / "frontend"
+        frontend_dir.mkdir()
+        (frontend_dir / ".env.example").write_text("NEXT_PUBLIC_API_BASE=/api\n", encoding="utf-8")
+
+        command = (
+            f"source '{SCRIPT_PATH}' && "
+            f"PROJECT_ROOT='{tmp_root}' && "
+            "ensure_frontend_env_file >/dev/null && "
+            f"cat '{frontend_dir / '.env'}'"
+        )
+
+        output = subprocess.check_output(
+            [BASH_EXECUTABLE, "-lc", command],
+            text=True,
+            encoding="utf-8",
+        )
+
+        assert output == "NEXT_PUBLIC_API_BASE=/api\n"
