@@ -2,9 +2,10 @@ import json
 import logging
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
+from app.gateway.deps import get_current_user, require_owned_thread
 from app.gateway.path_utils import resolve_thread_virtual_path
 from deerflow.config.extensions_config import ExtensionsConfig, SkillStateConfig, get_extensions_config, reload_extensions_config
 from deerflow.skills import Skill, load_skills
@@ -155,8 +156,9 @@ async def update_skill(skill_name: str, request: SkillUpdateRequest) -> SkillRes
     summary="Install Skill",
     description="Install a skill from a .skill file (ZIP archive) located in the thread's user-data directory.",
 )
-async def install_skill(request: SkillInstallRequest) -> SkillInstallResponse:
+async def install_skill(request: SkillInstallRequest, user=Depends(get_current_user)) -> SkillInstallResponse:
     try:
+        require_owned_thread(request.thread_id, user.id)
         skill_file_path = resolve_thread_virtual_path(request.thread_id, request.path)
         result = install_skill_from_archive(skill_file_path)
         return SkillInstallResponse(**result)

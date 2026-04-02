@@ -9,7 +9,7 @@ from fastapi import HTTPException
 from fastapi import UploadFile
 from starlette.requests import Request
 
-from app.gateway.routers import artifacts, thread_runs, uploads
+from app.gateway.routers import artifacts, suggestions, thread_runs, uploads
 from app.gateway.thread_ownership import create_owned_thread, list_owned_threads
 
 
@@ -170,6 +170,35 @@ async def test_stateless_runs_reject_foreign_thread_when_thread_id_supplied(tmp_
         await runs_router.stateless_stream(
             thread_runs.RunCreateRequest(config={"configurable": {"thread_id": "thread_a"}}),
             SimpleNamespace(),
+            user=SimpleNamespace(id="user_b"),
+        )
+
+    assert exc_info.value.status_code == 404
+    assert exc_info.value.detail == "Thread thread_a not found"
+    assert called is False
+
+
+@pytest.mark.anyio
+async def test_suggestions_reject_foreign_thread_owner(tmp_path, monkeypatch):
+    monkeypatch.setenv("DEER_FLOW_AUTH_DB_PATH", str(tmp_path / "auth.db"))
+    create_owned_thread(user_id="user_a", biz_thread_id="thread_a")
+
+    called = False
+
+    fake_model = SimpleNamespace()
+
+    def fake_invoke(prompt):
+        nonlocal called
+        called = True
+        return SimpleNamespace(content='["Q1"]')
+
+    fake_model.invoke = fake_invoke
+    monkeypatch.setattr(suggestions, "create_chat_model", lambda **kwargs: fake_model)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await suggestions.generate_suggestions(
+            "thread_a",
+            suggestions.SuggestionsRequest(messages=[suggestions.SuggestionMessage(role="user", content="Hi")]),
             user=SimpleNamespace(id="user_b"),
         )
 

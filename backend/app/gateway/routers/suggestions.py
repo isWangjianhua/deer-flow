@@ -1,9 +1,10 @@
 import json
 import logging
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
+from app.gateway.deps import get_current_user, require_owned_thread
 from deerflow.models import create_chat_model
 
 logger = logging.getLogger(__name__)
@@ -97,7 +98,13 @@ def _format_conversation(messages: list[SuggestionMessage]) -> str:
     summary="Generate Follow-up Questions",
     description="Generate short follow-up questions a user might ask next, based on recent conversation context.",
 )
-async def generate_suggestions(thread_id: str, request: SuggestionsRequest) -> SuggestionsResponse:
+async def generate_suggestions(
+    thread_id: str,
+    request: SuggestionsRequest,
+    user=Depends(get_current_user),
+) -> SuggestionsResponse:
+    require_owned_thread(thread_id, user.id)
+
     if not request.messages:
         return SuggestionsResponse(suggestions=[])
 
