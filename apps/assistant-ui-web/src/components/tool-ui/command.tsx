@@ -1,35 +1,31 @@
+import {
+  ToolCodeBlock,
+  ToolEmptyState,
+  ToolMetaRow,
+  ToolStack,
+} from "./common";
+import { extractCommandText } from "@/lib/tool-ui";
+
 type CommandToolProps = Readonly<{
   args?: Record<string, unknown>;
   content?: string;
 }>;
 
 export function CommandToolUI({ args, content }: CommandToolProps) {
-  const command =
-    typeof args?.command === "string"
-      ? args.command
-      : typeof args?.cmd === "string"
-        ? args.cmd
-        : "";
+  const command = extractCommandText(args);
 
   return (
-    <div className="space-y-2 text-sm text-foreground">
-      <div className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
-        Execute Command
-      </div>
+    <ToolStack>
       {command ? (
-        <pre className="rounded-lg border border-border/70 bg-background/60 p-2 text-xs leading-tight text-muted-foreground">
-          {command}
-        </pre>
+        <ToolMetaRow label="Command" value={command} />
       ) : (
-        <p className="text-xs text-muted-foreground">No command provided</p>
+        <ToolEmptyState>No command provided.</ToolEmptyState>
       )}
       {content ? (
-        <pre className="rounded-lg border border-border/70 bg-background/70 p-2 text-xs leading-tight text-muted-foreground">
-          {content}
-        </pre>
+        <ToolCodeBlock>{content}</ToolCodeBlock>
       ) : (
-        <p className="text-xs text-muted-foreground">Waiting for execution result…</p>
+        <ToolEmptyState>Waiting for execution result…</ToolEmptyState>
       )}
-    </div>
+    </ToolStack>
   );
 }

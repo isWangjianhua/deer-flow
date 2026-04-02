@@ -7,6 +7,8 @@ import { MarkdownText } from "@/components/assistant-ui/markdown-text";
 import { ToolCard } from "@/components/tool-ui";
 import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
 import { Button } from "@/components/ui/button";
+import { EventCard } from "@/components/workspace/event-card";
+import { getReasoningSummary } from "@/lib/event-cards";
 import { cn } from "@/lib/utils";
 import {
   ActionBarMorePrimitive,
@@ -238,51 +240,47 @@ const AssistantMessageEventDetails: FC = () => {
   }
 
   return (
-    <details className="group mb-4 overflow-hidden rounded-2xl border border-border bg-card/60">
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm text-muted-foreground marker:hidden">
-        <span className="font-medium">Hidden steps</span>
-        <ChevronRightIcon className="size-4 transition-transform group-open:rotate-90" />
-      </summary>
-
-      <div className="space-y-3 border-t border-border px-4 py-4">
-        <MessagePrimitive.Parts>
-          {({ part }) => {
-            if (part.type === "reasoning") {
-              return (
-                <div
-                  className="rounded-xl border border-border bg-muted/30 px-4 py-3"
-                  key={part.text}
-                >
-                  <strong className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                    Reasoning
-                  </strong>
-                  <p className="mt-2 whitespace-pre-wrap text-sm leading-7 text-foreground/80">
-                    {part.text}
-                  </p>
-                </div>
-              );
-            }
-
-            if (part.type === "tool-call") {
-              return (
-                <ToolCard
-                  key={part.toolCallId ?? part.toolName}
-                  args={part.args as Record<string, unknown>}
-                  content={
-                    typeof part.result === "string"
-                      ? part.result
-                      : JSON.stringify(part.result ?? "", null, 2)
-                  }
-                  toolName={part.toolName}
-                />
-              );
-            }
-
-            return null;
-          }}
-        </MessagePrimitive.Parts>
+    <div className="mb-4 space-y-3">
+      <div className="px-1 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+        Steps
       </div>
-    </details>
+      <MessagePrimitive.Parts>
+        {({ part }) => {
+          if (part.type === "reasoning") {
+            return (
+              <EventCard
+                defaultOpen={false}
+                key={part.text}
+                status="Done"
+                summary={getReasoningSummary(part.text)}
+                title="Reasoning"
+              >
+                <p className="whitespace-pre-wrap text-sm leading-7 text-foreground/80">
+                  {part.text}
+                </p>
+              </EventCard>
+            );
+          }
+
+          if (part.type === "tool-call") {
+            return (
+              <ToolCard
+                key={part.toolCallId ?? part.toolName}
+                args={part.args as Record<string, unknown>}
+                content={
+                  typeof part.result === "string"
+                    ? part.result
+                    : JSON.stringify(part.result ?? "", null, 2)
+                }
+                toolName={part.toolName}
+              />
+            );
+          }
+
+          return null;
+        }}
+      </MessagePrimitive.Parts>
+    </div>
   );
 };
 

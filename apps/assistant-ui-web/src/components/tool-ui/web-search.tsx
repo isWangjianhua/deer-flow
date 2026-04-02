@@ -1,50 +1,48 @@
+import {
+  ToolEmptyState,
+  ToolMetaRow,
+  ToolStack,
+} from "./common";
+import { parseSearchResults, truncateToolText } from "@/lib/tool-ui";
+
 type WebSearchToolProps = Readonly<{
   args?: Record<string, unknown>;
   content?: string;
 }>;
-
-type SearchResult = {
-  title?: string;
-  url?: string;
-};
-
-function parseSearchResults(content?: string): SearchResult[] {
-  if (!content) return [];
-  try {
-    const parsed = JSON.parse(content) as { results?: SearchResult[] };
-    return Array.isArray(parsed.results) ? parsed.results.slice(0, 5) : [];
-  } catch {
-    return [];
-  }
-}
 
 export function WebSearchToolUI({ args, content }: WebSearchToolProps) {
   const query = typeof args?.query === "string" ? args.query : "";
   const results = parseSearchResults(content);
 
   return (
-    <div className="space-y-3">
-      {query ? (
-        <p className="text-sm font-medium text-foreground">Query: {query}</p>
-      ) : null}
+    <ToolStack>
+      {query ? <ToolMetaRow label="Query" value={query} /> : null}
       <div className="space-y-2">
         {results.length > 0 ? (
           results.map((result, index) => (
-            <div key={`${result.url ?? result.title ?? "result"}-${index}`}>
-              <p className="text-sm font-semibold text-foreground">
+            <div
+              className="space-y-1 rounded-xl border border-border/60 bg-background/60 px-3 py-2.5"
+              key={`${result.url ?? result.title ?? "result"}-${index}`}
+            >
+              <p className="text-sm font-medium text-foreground">
                 {result.title ?? "Untitled result"}
               </p>
               {result.url ? (
-                <a href={result.url} className="text-xs text-primary underline" target="_blank" rel="noreferrer">
-                  {result.url}
+                <a
+                  className="block text-xs text-primary underline underline-offset-2"
+                  href={result.url}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  {truncateToolText(result.url, 96)}
                 </a>
               ) : null}
             </div>
           ))
         ) : (
-          <p className="text-xs text-muted-foreground">Waiting for search results…</p>
+          <ToolEmptyState>Waiting for search results…</ToolEmptyState>
         )}
       </div>
-    </div>
+    </ToolStack>
   );
 }

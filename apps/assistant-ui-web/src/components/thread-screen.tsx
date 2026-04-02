@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Share2Icon } from "lucide-react";
+import { LayoutPanelTopIcon, Share2Icon } from "lucide-react";
 
 import { AuthDialog } from "@/components/auth-dialog";
 import {
@@ -10,7 +10,15 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { SidebarTrigger } from "@/components/ui/sidebar";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { getCurrentUser, type CurrentUser } from "@/lib/auth";
 import { isUnauthorizedError } from "@/lib/auth-errors";
 import {
@@ -30,6 +38,7 @@ type ThreadScreenProps = Readonly<{
 
 export function ThreadScreen({ initialConversationId = null }: ThreadScreenProps) {
   const router = useRouter();
+  const isMobile = useIsMobile();
   const threadListRuntime = useMemo(() => createThreadListRuntime(), []);
   const [threads, setThreads] = useState<ThreadListItem[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(
@@ -40,6 +49,7 @@ export function ThreadScreen({ initialConversationId = null }: ThreadScreenProps
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [authDialogOpen, setAuthDialogOpen] = useState(false);
+  const [canvasOpen, setCanvasOpen] = useState(false);
   const authResolverRef = useRef<((authenticated: boolean) => void) | null>(null);
 
   const ensureAuthenticated = useCallback(async () => {
@@ -119,6 +129,37 @@ export function ThreadScreen({ initialConversationId = null }: ThreadScreenProps
     };
   }, [initialConversationId, threadListRuntime]);
 
+  const threadPane = (
+    <div className="flex h-full min-h-0 flex-col">
+      {loading ? (
+        <p className="px-6 py-8 text-sm text-muted-foreground md:px-10">Loading...</p>
+      ) : null}
+      {error ? <p className="px-6 py-8 text-sm text-red-300 md:px-10">{error}</p> : null}
+      {!loading ? (
+        <AssistantUiThread
+          ensureAuthenticated={ensureAuthenticated}
+          initialState={runtimeState}
+          onStateChange={(nextState) => {
+            setRuntimeState(nextState);
+            if (nextState.conversationId && nextState.conversationId !== conversationId) {
+              setConversationId(nextState.conversationId);
+              router.replace(`/workspace/${nextState.conversationId}`);
+            }
+            void threadListRuntime.load().then(setThreads).catch(() => {});
+          }}
+        />
+      ) : null}
+    </div>
+  );
+
+  const canvasPane = (
+    <CanvasPanel
+      artifacts={runtimeState?.artifacts ?? []}
+      conversationId={conversationId}
+      title={runtimeState?.title ?? "New Thread"}
+    />
+  );
+
   return (
     <AppShell activeThreadId={conversationId} threads={threads}>
       <section className="flex h-full min-h-0 flex-col bg-background">
@@ -131,6 +172,19 @@ export function ThreadScreen({ initialConversationId = null }: ThreadScreenProps
           </div>
 
           <div className="flex items-center gap-2">
+            {isMobile ? (
+              <Button
+                className="size-8 md:hidden"
+                onClick={() => {
+                  setCanvasOpen(true);
+                }}
+                size="icon"
+                variant="ghost"
+              >
+                <LayoutPanelTopIcon className="size-4" />
+                <span className="sr-only">Open canvas</span>
+              </Button>
+            ) : null}
             {currentUser ? (
               <div className="hidden text-right text-xs text-muted-foreground md:block">
                 <div className="font-medium text-foreground">{currentUser.username}</div>
@@ -143,40 +197,32 @@ export function ThreadScreen({ initialConversationId = null }: ThreadScreenProps
           </div>
         </div>
 
-        <ResizablePanelGroup className="min-h-0 flex-1" direction="horizontal">
-          <ResizablePanel defaultSize={64} minSize={45}>
-            <div className="flex h-full min-h-0 flex-col">
-              {loading ? (
-                <p className="px-6 py-8 text-sm text-muted-foreground md:px-10">Loading...</p>
-              ) : null}
-              {error ? <p className="px-6 py-8 text-sm text-red-300 md:px-10">{error}</p> : null}
-              {!loading ? (
-                <AssistantUiThread
-                  ensureAuthenticated={ensureAuthenticated}
-                  initialState={runtimeState}
-                  onStateChange={(nextState) => {
-                    setRuntimeState(nextState);
-                    if (
-                      nextState.conversationId &&
-                      nextState.conversationId !== conversationId
-                    ) {
-                      setConversationId(nextState.conversationId);
-                      router.replace(`/workspace/${nextState.conversationId}`);
-                    }
-                    void threadListRuntime.load().then(setThreads).catch(() => {});
-                  }}
-                />
-              ) : null}
-            </div>
-          </ResizablePanel>
-          <ResizableHandle withHandle />
-          <ResizablePanel defaultSize={36} minSize={24}>
-            <CanvasPanel
-              artifacts={runtimeState?.artifacts ?? []}
-              title={runtimeState?.title ?? "New Thread"}
-            />
-          </ResizablePanel>
-        </ResizablePanelGroup>
+        {isMobile ? (
+          <>
+            <div className="min-h-0 flex-1">{threadPane}</div>
+            <Sheet onOpenChange={setCanvasOpen} open={canvasOpen}>
+              <SheetContent className="w-[92vw] p-0 sm:max-w-xl" side="right">
+                <SheetHeader className="sr-only">
+                  <SheetTitle>Canvas</SheetTitle>
+                  <SheetDescription>
+                    Preview generated files without leaving the conversation.
+                  </SheetDescription>
+                </SheetHeader>
+                {canvasPane}
+              </SheetContent>
+            </Sheet>
+          </>
+        ) : (
+          <ResizablePanelGroup className="min-h-0 flex-1" direction="horizontal">
+            <ResizablePanel defaultSize={64} minSize={45}>
+              {threadPane}
+            </ResizablePanel>
+            <ResizableHandle withHandle />
+            <ResizablePanel defaultSize={36} minSize={24}>
+              {canvasPane}
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        )}
         <AuthDialog
           onOpenChange={(open) => {
             setAuthDialogOpen(open);

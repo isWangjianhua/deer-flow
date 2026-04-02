@@ -3,6 +3,11 @@ import { CommandToolUI } from "./command";
 import { ReadFileToolUI } from "./read-file";
 import { WebSearchToolUI } from "./web-search";
 import { EventCard } from "@/components/workspace/event-card";
+import {
+  getToolDisplayName,
+  getToolStatusLabel,
+  getToolSummary,
+} from "@/lib/event-cards";
 
 type ToolRendererProps = Readonly<{
   toolName: string;
@@ -31,8 +36,10 @@ export function ToolCard({ toolName, args, content }: ToolRendererProps) {
 
   return (
     <EventCard
-      title={toolName ?? "tool"}
-      summary={content ? "Completed" : "In progress"}
+      defaultOpen={!content}
+      status={getToolStatusLabel(content)}
+      summary={getToolSummary(toolName, args, content)}
+      title={getToolDisplayName(toolName ?? "tool")}
     >
       {renderBody()}
     </EventCard>

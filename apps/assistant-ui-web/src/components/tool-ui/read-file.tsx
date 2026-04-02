@@ -1,25 +1,31 @@
+import {
+  ToolCodeBlock,
+  ToolEmptyState,
+  ToolMetaRow,
+  ToolStack,
+} from "./common";
+import { extractReadPath } from "@/lib/tool-ui";
+
 type ReadFileToolProps = Readonly<{
   args?: Record<string, unknown>;
   content?: string;
 }>;
 
 export function ReadFileToolUI({ args, content }: ReadFileToolProps) {
-  const path = typeof args?.file_path === "string" ? args.file_path : typeof args?.path === "string" ? args.path : "";
+  const path = extractReadPath(args);
 
   return (
-    <div className="space-y-2 text-sm text-foreground">
+    <ToolStack>
       {path ? (
-        <p className="font-medium">File: {path}</p>
+        <ToolMetaRow label="File" value={path} />
       ) : (
-        <p className="text-muted-foreground">No path provided</p>
+        <ToolEmptyState>No file path provided.</ToolEmptyState>
       )}
       {content ? (
-        <pre className="max-h-48 overflow-y-auto rounded-lg border border-border/70 bg-background/70 p-2 text-xs leading-tight text-muted-foreground">
-          {content}
-        </pre>
+        <ToolCodeBlock>{content}</ToolCodeBlock>
       ) : (
-        <p className="text-xs text-muted-foreground">Waiting for file content…</p>
+        <ToolEmptyState>Waiting for file content…</ToolEmptyState>
       )}
-    </div>
+    </ToolStack>
   );
 }

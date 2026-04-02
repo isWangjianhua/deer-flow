@@ -1,20 +1,25 @@
+import {
+  ToolEmptyState,
+  ToolMetaRow,
+  ToolStack,
+} from "./common";
+import { extractQuestionText } from "@/lib/tool-ui";
+
 type ClarificationToolProps = Readonly<{
   args?: Record<string, unknown>;
   content?: string;
 }>;
 
 export function ClarificationToolUI({ args, content }: ClarificationToolProps) {
-  const question =
-    typeof args?.question === "string"
-      ? args.question
-      : typeof content === "string"
-        ? content
-        : "";
+  const question = extractQuestionText(args, content);
 
   return (
-    <div>
-      <strong>需要补充信息</strong>
-      {question ? <p>{question}</p> : <p>代理请求用户补充更多上下文。</p>}
-    </div>
+    <ToolStack>
+      {question ? (
+        <ToolMetaRow label="Question" value={question} />
+      ) : (
+        <ToolEmptyState>The agent requested more context from the user.</ToolEmptyState>
+      )}
+    </ToolStack>
   );
 }
