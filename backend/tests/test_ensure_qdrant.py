@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
+import tomllib
 
 
 SCRIPT_PATH = (
     Path(__file__).resolve().parents[2] / "scripts" / "ensure_qdrant.py"
 )
+PYPROJECT_PATH = Path(__file__).resolve().parents[1] / "pyproject.toml"
 
 
 def load_module():
@@ -21,6 +23,13 @@ def write_config(tmp_path: Path, content: str) -> Path:
     path = tmp_path / "config.yaml"
     path.write_text(content)
     return path
+
+
+def test_backend_dependencies_include_pyyaml_for_ensure_qdrant_script():
+    project = tomllib.loads(PYPROJECT_PATH.read_text())
+    dependencies = project["project"]["dependencies"]
+
+    assert any(dep.startswith("PyYAML") for dep in dependencies)
 
 
 def test_main_noops_when_mem0_qdrant_not_enabled(tmp_path, monkeypatch, capsys):
@@ -121,6 +130,7 @@ memory:
     assert module.main() == 1
     out = capsys.readouterr().out
     assert "Qdrant is required" in out
+    assert "podman pull qdrant/qdrant" in out
     assert "podman run -d" in out
 
 

@@ -106,7 +106,7 @@ fi
 
 # ── Qdrant preflight for mem0 ─────────────────────────────────────────────
 
-python3 "$REPO_ROOT/scripts/ensure_qdrant.py" || exit 1
+(cd backend && PYTHONPATH=. uv run ../scripts/ensure_qdrant.py) || exit 1
 
 # ── Cleanup trap ─────────────────────────────────────────────────────────────
 
