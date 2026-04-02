@@ -1,10 +1,9 @@
 import asyncio
 import zipfile
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
 from starlette.requests import Request
 from starlette.responses import FileResponse
 
@@ -34,9 +33,10 @@ def test_get_artifact_reads_utf8_text_file_on_windows_locale(tmp_path, monkeypat
 
     monkeypatch.setattr(Path, "read_text", read_text_with_gbk_default)
     monkeypatch.setattr(artifacts_router, "resolve_thread_virtual_path", lambda _thread_id, _path: artifact_path)
+    monkeypatch.setattr(artifacts_router, "require_owned_thread", lambda _thread_id, _user_id: None)
 
     request = _make_request()
-    response = asyncio.run(artifacts_router.get_artifact("thread-1", "mnt/user-data/outputs/note.txt", request))
+    response = asyncio.run(artifacts_router.get_artifact("thread-1", "mnt/user-data/outputs/note.txt", request, user=SimpleNamespace(id="user_a")))
 
     assert bytes(response.body).decode("utf-8") == text
     assert response.media_type == "text/plain"
@@ -48,8 +48,16 @@ def test_get_artifact_forces_download_for_active_content(tmp_path, monkeypatch, 
     artifact_path.write_text(content, encoding="utf-8")
 
     monkeypatch.setattr(artifacts_router, "resolve_thread_virtual_path", lambda _thread_id, _path: artifact_path)
+    monkeypatch.setattr(artifacts_router, "require_owned_thread", lambda _thread_id, _user_id: None)
 
-    response = asyncio.run(artifacts_router.get_artifact("thread-1", f"mnt/user-data/outputs/{filename}", _make_request()))
+    response = asyncio.run(
+        artifacts_router.get_artifact(
+            "thread-1",
+            f"mnt/user-data/outputs/{filename}",
+            _make_request(),
+            user=SimpleNamespace(id="user_a"),
+        )
+    )
 
     assert isinstance(response, FileResponse)
     assert response.headers.get("content-disposition", "").startswith("attachment;")
@@ -62,8 +70,16 @@ def test_get_artifact_forces_download_for_active_content_in_skill_archive(tmp_pa
         zip_ref.writestr(filename, content)
 
     monkeypatch.setattr(artifacts_router, "resolve_thread_virtual_path", lambda _thread_id, _path: skill_path)
+    monkeypatch.setattr(artifacts_router, "require_owned_thread", lambda _thread_id, _user_id: None)
 
-    response = asyncio.run(artifacts_router.get_artifact("thread-1", f"mnt/user-data/outputs/sample.skill/{filename}", _make_request()))
+    response = asyncio.run(
+        artifacts_router.get_artifact(
+            "thread-1",
+            f"mnt/user-data/outputs/sample.skill/{filename}",
+            _make_request(),
+            user=SimpleNamespace(id="user_a"),
+        )
+    )
 
     assert response.headers.get("content-disposition", "").startswith("attachment;")
     assert bytes(response.body) == content.encode("utf-8")
@@ -74,15 +90,19 @@ def test_get_artifact_download_false_does_not_force_attachment(tmp_path, monkeyp
     artifact_path.write_text("hello", encoding="utf-8")
 
     monkeypatch.setattr(artifacts_router, "resolve_thread_virtual_path", lambda _thread_id, _path: artifact_path)
+    monkeypatch.setattr(artifacts_router, "require_owned_thread", lambda _thread_id, _user_id: None)
 
-    app = FastAPI()
-    app.include_router(artifacts_router.router)
+    response = asyncio.run(
+        artifacts_router.get_artifact(
+            "thread-1",
+            "mnt/user-data/outputs/note.txt",
+            _make_request(b"download=false"),
+            download=False,
+            user=SimpleNamespace(id="user_a"),
+        )
+    )
 
-    with TestClient(app) as client:
-        response = client.get("/api/threads/thread-1/artifacts/mnt/user-data/outputs/note.txt?download=false")
-
-    assert response.status_code == 200
-    assert response.text == "hello"
+    assert bytes(response.body).decode("utf-8") == "hello"
     assert "content-disposition" not in response.headers
 
 
@@ -92,13 +112,17 @@ def test_get_artifact_download_true_forces_attachment_for_skill_archive(tmp_path
         zip_ref.writestr("notes.txt", "hello")
 
     monkeypatch.setattr(artifacts_router, "resolve_thread_virtual_path", lambda _thread_id, _path: skill_path)
+    monkeypatch.setattr(artifacts_router, "require_owned_thread", lambda _thread_id, _user_id: None)
 
-    app = FastAPI()
-    app.include_router(artifacts_router.router)
+    response = asyncio.run(
+        artifacts_router.get_artifact(
+            "thread-1",
+            "mnt/user-data/outputs/sample.skill/notes.txt",
+            _make_request(b"download=true"),
+            download=True,
+            user=SimpleNamespace(id="user_a"),
+        )
+    )
 
-    with TestClient(app) as client:
-        response = client.get("/api/threads/thread-1/artifacts/mnt/user-data/outputs/sample.skill/notes.txt?download=true")
-
-    assert response.status_code == 200
-    assert response.text == "hello"
+    assert bytes(response.body).decode("utf-8") == "hello"
     assert response.headers.get("content-disposition", "").startswith("attachment;")

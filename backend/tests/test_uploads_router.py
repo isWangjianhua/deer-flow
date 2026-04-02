@@ -1,12 +1,19 @@
 import asyncio
 import stat
-from io import BytesIO
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from fastapi import UploadFile
-
 from app.gateway.routers import uploads
+
+
+class StubUploadFile:
+    def __init__(self, filename: str, content: bytes):
+        self.filename = filename
+        self._content = content
+
+    async def read(self) -> bytes:
+        return self._content
 
 
 def test_upload_files_writes_thread_storage_and_skips_local_sandbox_sync(tmp_path):
@@ -22,9 +29,10 @@ def test_upload_files_writes_thread_storage_and_skips_local_sandbox_sync(tmp_pat
         patch.object(uploads, "get_uploads_dir", return_value=thread_uploads_dir),
         patch.object(uploads, "ensure_uploads_dir", return_value=thread_uploads_dir),
         patch.object(uploads, "get_sandbox_provider", return_value=provider),
+        patch.object(uploads, "require_owned_thread", return_value=None),
     ):
-        file = UploadFile(filename="notes.txt", file=BytesIO(b"hello uploads"))
-        result = asyncio.run(uploads.upload_files("thread-local", files=[file]))
+        file = StubUploadFile(filename="notes.txt", content=b"hello uploads")
+        result = asyncio.run(uploads.upload_files("thread-local", files=[file], user=SimpleNamespace(id="user_a")))
 
     assert result.success is True
     assert len(result.files) == 1
@@ -53,9 +61,10 @@ def test_upload_files_syncs_non_local_sandbox_and_marks_markdown_file(tmp_path):
         patch.object(uploads, "ensure_uploads_dir", return_value=thread_uploads_dir),
         patch.object(uploads, "get_sandbox_provider", return_value=provider),
         patch.object(uploads, "convert_file_to_markdown", AsyncMock(side_effect=fake_convert)),
+        patch.object(uploads, "require_owned_thread", return_value=None),
     ):
-        file = UploadFile(filename="report.pdf", file=BytesIO(b"pdf-bytes"))
-        result = asyncio.run(uploads.upload_files("thread-aio", files=[file]))
+        file = StubUploadFile(filename="report.pdf", content=b"pdf-bytes")
+        result = asyncio.run(uploads.upload_files("thread-aio", files=[file], user=SimpleNamespace(id="user_a")))
 
     assert result.success is True
     assert len(result.files) == 1
@@ -90,9 +99,10 @@ def test_upload_files_makes_non_local_files_sandbox_writable(tmp_path):
         patch.object(uploads, "get_sandbox_provider", return_value=provider),
         patch.object(uploads, "convert_file_to_markdown", AsyncMock(side_effect=fake_convert)),
         patch.object(uploads, "_make_file_sandbox_writable") as make_writable,
+        patch.object(uploads, "require_owned_thread", return_value=None),
     ):
-        file = UploadFile(filename="report.pdf", file=BytesIO(b"pdf-bytes"))
-        result = asyncio.run(uploads.upload_files("thread-aio", files=[file]))
+        file = StubUploadFile(filename="report.pdf", content=b"pdf-bytes")
+        result = asyncio.run(uploads.upload_files("thread-aio", files=[file], user=SimpleNamespace(id="user_a")))
 
     assert result.success is True
     make_writable.assert_any_call(thread_uploads_dir / "report.pdf")
@@ -113,9 +123,10 @@ def test_upload_files_does_not_adjust_permissions_for_local_sandbox(tmp_path):
         patch.object(uploads, "ensure_uploads_dir", return_value=thread_uploads_dir),
         patch.object(uploads, "get_sandbox_provider", return_value=provider),
         patch.object(uploads, "_make_file_sandbox_writable") as make_writable,
+        patch.object(uploads, "require_owned_thread", return_value=None),
     ):
-        file = UploadFile(filename="notes.txt", file=BytesIO(b"hello uploads"))
-        result = asyncio.run(uploads.upload_files("thread-local", files=[file]))
+        file = StubUploadFile(filename="notes.txt", content=b"hello uploads")
+        result = asyncio.run(uploads.upload_files("thread-local", files=[file], user=SimpleNamespace(id="user_a")))
 
     assert result.success is True
     make_writable.assert_not_called()
@@ -162,17 +173,18 @@ def test_upload_files_rejects_dotdot_and_dot_filenames(tmp_path):
         patch.object(uploads, "get_uploads_dir", return_value=thread_uploads_dir),
         patch.object(uploads, "ensure_uploads_dir", return_value=thread_uploads_dir),
         patch.object(uploads, "get_sandbox_provider", return_value=provider),
+        patch.object(uploads, "require_owned_thread", return_value=None),
     ):
         # These filenames must be rejected outright
         for bad_name in ["..", "."]:
-            file = UploadFile(filename=bad_name, file=BytesIO(b"data"))
-            result = asyncio.run(uploads.upload_files("thread-local", files=[file]))
+            file = StubUploadFile(filename=bad_name, content=b"data")
+            result = asyncio.run(uploads.upload_files("thread-local", files=[file], user=SimpleNamespace(id="user_a")))
             assert result.success is True
             assert result.files == [], f"Expected no files for unsafe filename {bad_name!r}"
 
         # Path-traversal prefixes are stripped to the basename and accepted safely
-        file = UploadFile(filename="../etc/passwd", file=BytesIO(b"data"))
-        result = asyncio.run(uploads.upload_files("thread-local", files=[file]))
+        file = StubUploadFile(filename="../etc/passwd", content=b"data")
+        result = asyncio.run(uploads.upload_files("thread-local", files=[file], user=SimpleNamespace(id="user_a")))
         assert result.success is True
         assert len(result.files) == 1
         assert result.files[0]["filename"] == "passwd"
@@ -187,8 +199,11 @@ def test_delete_uploaded_file_removes_generated_markdown_companion(tmp_path):
     (thread_uploads_dir / "report.pdf").write_bytes(b"pdf-bytes")
     (thread_uploads_dir / "report.md").write_text("converted", encoding="utf-8")
 
-    with patch.object(uploads, "get_uploads_dir", return_value=thread_uploads_dir):
-        result = asyncio.run(uploads.delete_uploaded_file("thread-aio", "report.pdf"))
+    with (
+        patch.object(uploads, "get_uploads_dir", return_value=thread_uploads_dir),
+        patch.object(uploads, "require_owned_thread", return_value=None),
+    ):
+        result = asyncio.run(uploads.delete_uploaded_file("thread-aio", "report.pdf", user=SimpleNamespace(id="user_a")))
 
     assert result == {"success": True, "message": "Deleted report.pdf"}
     assert not (thread_uploads_dir / "report.pdf").exists()

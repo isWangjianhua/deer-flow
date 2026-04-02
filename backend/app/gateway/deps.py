@@ -14,6 +14,7 @@ from contextlib import AsyncExitStack, asynccontextmanager
 from fastapi import FastAPI, HTTPException, Request
 
 from app.gateway.auth.session import SESSION_COOKIE_NAME, get_session_by_token, get_user_by_id
+from app.gateway.thread_ownership import ensure_thread_belongs_to_user
 from deerflow.runtime import RunManager, StreamBridge
 
 
@@ -90,3 +91,11 @@ def get_current_user(request: Request):
     if user is None:
         raise HTTPException(status_code=401, detail="Authentication required")
     return user
+
+
+def require_owned_thread(thread_id: str, user_id: str):
+    """Return the owned thread record or raise a stable 404."""
+    try:
+        return ensure_thread_belongs_to_user(biz_thread_id=thread_id, user_id=user_id)
+    except PermissionError as exc:
+        raise HTTPException(status_code=404, detail=f"Thread {thread_id} not found") from exc
