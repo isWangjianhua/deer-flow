@@ -59,3 +59,4 @@ config.yaml.bak
 .playwright-cli/*
 .tmp/*
 .codex
+.agents/*

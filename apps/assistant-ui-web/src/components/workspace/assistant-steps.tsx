@@ -13,6 +13,7 @@ import {
   ChevronDownIcon,
   LightbulbIcon,
   LoaderCircleIcon,
+  TerminalIcon,
 } from "lucide-react";
 import {
   useEffect,
@@ -100,10 +101,9 @@ function parseToolArgs(
 function AssistantProcessGroup({
   children,
   isStreaming,
-  summary,
 }: PropsWithChildren<{
   isStreaming: boolean;
-  summary: string;
+  summary?: string;
 }>) {
   const aui = useAui();
   const collapsed = useAuiState((s) => s.chainOfThought.collapsed);
@@ -123,152 +123,87 @@ function AssistantProcessGroup({
   }, [aui, isStreaming]);
 
   return (
-    <ChainOfThoughtPrimitive.Root className="mb-3 overflow-hidden rounded-xl border border-border/40 bg-card/25">
-      <ChainOfThoughtPrimitive.AccordionTrigger className="group flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-accent/10">
-        <div
-          className={cn(
-            "flex size-7 shrink-0 items-center justify-center rounded-full border",
-            isStreaming
-              ? "border-primary/40 bg-primary/10 text-primary"
-              : "border-border/60 bg-background/70 text-muted-foreground",
-          )}
-        >
+    <ChainOfThoughtPrimitive.Root className="my-1">
+      <ChainOfThoughtPrimitive.AccordionTrigger className="group flex w-fit items-center gap-2 py-1.5 text-left text-muted-foreground transition-colors hover:text-foreground">
+        <div className="flex items-center justify-center">
           {isStreaming ? (
-            <LoaderCircleIcon className="size-3.5 animate-spin" />
+            <LoaderCircleIcon className="size-4 animate-spin text-primary" />
           ) : (
-            <CheckIcon className="size-3.5" />
+            <LightbulbIcon className="size-4" />
           )}
         </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-foreground">
-              {isStreaming ? "Working through the answer" : "Thought process"}
-            </span>
-            <span
-              className={cn(
-                "inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.14em]",
-                isStreaming
-                  ? "border-primary/30 bg-primary/10 text-primary"
-                  : "border-border/70 bg-background text-muted-foreground",
-              )}
-            >
-              {isStreaming ? "Live" : "Done"}
-            </span>
-          </div>
-          <p className="mt-1 truncate text-xs text-muted-foreground">
-            {summary}
-          </p>
-        </div>
+        <span className="text-[14px] font-medium selection:bg-transparent">
+          {isStreaming ? "思考中..." : "隐藏步骤"}
+        </span>
         <ChevronDownIcon
           className={cn(
-            "size-4 shrink-0 text-muted-foreground transition-transform duration-200",
+            "ml-1 size-4 shrink-0 transition-transform duration-200",
             collapsed ? "-rotate-90" : "rotate-0",
           )}
         />
       </ChainOfThoughtPrimitive.AccordionTrigger>
 
       {!collapsed ? (
-        <div className="border-t border-border/50 px-3 py-3">
-          <div className="space-y-2.5">{children}</div>
+        <div className="mb-4 mt-1 ms-2 border-l-2 border-border/50 py-1 pl-4">
+          <div className="space-y-4">{children}</div>
         </div>
       ) : null}
     </ChainOfThoughtPrimitive.Root>
   );
 }
 
-const AssistantReasoning: ReasoningMessagePartComponent = ({ text, status }) => {
-  const running = status.type === "running";
+const AssistantReasoning: any = (props: any) => {
+  const text = props.text || props.part?.text || "";
+
+  if (!text || text.trim().length === 0) {
+    return (
+      <span className="animate-pulse text-[14px] text-muted-foreground/60">
+        正在准备思考链路...
+      </span>
+    );
+  }
 
   return (
-    <div className="rounded-xl border border-border/40 bg-background/35 px-3 py-3">
-      <div className="flex items-center gap-2">
-        <div
-          className={cn(
-            "flex size-6 shrink-0 items-center justify-center rounded-full border",
-            running
-              ? "border-primary/40 bg-primary/10 text-primary"
-              : "border-border/60 bg-background text-muted-foreground",
-          )}
-        >
-          {running ? (
-            <LoaderCircleIcon className="size-3 animate-spin" />
-          ) : (
-            <LightbulbIcon className="size-3" />
-          )}
-        </div>
-        <div className="min-w-0">
-          <p className="text-sm font-medium text-foreground">Thinking</p>
-          <p className="truncate text-xs text-muted-foreground">
-            {getReasoningSummary(text)}
-          </p>
-        </div>
-      </div>
-      <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-foreground/85">
-        {text}
-      </p>
+    <div className="whitespace-pre-wrap text-[14px] leading-relaxed text-muted-foreground/90">
+      {text}
     </div>
   );
 };
 
-const AssistantProcessTool: ToolCallMessagePartComponent = ({
-  toolName,
-  args,
-  argsText,
-  result,
-  status,
-}) => {
+const AssistantProcessTool: any = (props: any) => {
+  const toolName = props.toolName || props.part?.toolName;
+  const args = props.args || props.part?.args;
+  const argsText = props.argsText || props.part?.argsText;
+  const result = props.result || props.part?.result;
+  const status = props.status || props.part?.status || { type: "running" };
+
   const running = status.type === "running";
   const parsedArgs = parseToolArgs(args, argsText);
   const content = stringifyToolResult(result);
-  const summary = getToolSummary(toolName, parsedArgs, content);
 
   return (
-    <ToolFallback.Root className="group/process-tool rounded-xl border border-border/40 bg-background/35 py-0">
-      <CollapsibleTrigger className="flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-accent/10">
-        <div
-          className={cn(
-            "flex size-6 shrink-0 items-center justify-center rounded-full border",
-            running
-              ? "border-primary/40 bg-primary/10 text-primary"
-              : "border-border/60 bg-background text-muted-foreground",
-          )}
-        >
+    <ToolFallback.Root className="group/process-tool overflow-hidden rounded-xl border border-border/60 bg-background shadow-sm">
+      <CollapsibleTrigger className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors hover:bg-muted/40">
+        <div className="flex items-center justify-center text-muted-foreground">
           {running ? (
-            <LoaderCircleIcon className="size-3 animate-spin" />
+            <LoaderCircleIcon className="size-3.5 animate-spin text-primary" />
           ) : (
-            <CheckIcon className="size-3" />
+            <CheckIcon className="size-3.5" />
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-foreground">
-              {getToolDisplayName(toolName)}
-            </span>
-            <span
-              className={cn(
-                "inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.14em]",
-                running
-                  ? "border-primary/30 bg-primary/10 text-primary"
-                  : "border-border/70 bg-background text-muted-foreground",
-              )}
-            >
-              {running ? "Live" : "Done"}
-            </span>
-          </div>
-          <p className="mt-1 truncate text-xs text-muted-foreground">
-            {summary}
-          </p>
+          <span className="font-medium text-foreground/80">
+            {getToolDisplayName(toolName)}
+          </span>
         </div>
         <ChevronDownIcon className="size-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=closed]/process-tool:-rotate-90 group-data-[state=open]/process-tool:rotate-0" />
       </CollapsibleTrigger>
-      <ToolFallback.Content className="border-t border-border/50 px-3 py-3">
-        <div className="rounded-xl border border-border/50 bg-background/40 p-3">
-          <ToolContent
-            args={parsedArgs}
-            content={content}
-            toolName={toolName}
-          />
-        </div>
+      <ToolFallback.Content className="border-t border-border/50 bg-muted/10 px-3 py-3">
+        <ToolContent
+          args={parsedArgs}
+          content={content}
+          toolName={toolName}
+        />
       </ToolFallback.Content>
     </ToolFallback.Root>
   );
@@ -280,10 +215,18 @@ export function AssistantSteps() {
     (s) => s.thread.isRunning && s.message.isLast && s.message.role === "assistant",
   );
 
+  const validContent = useMemo(() => {
+    return (content as AssistantMessageContentPart[]).filter((part) => {
+      if (part.type === "reasoning") {
+        return part.text.trim().length > 0 || isStreaming;
+      }
+      return true;
+    });
+  }, [content, isStreaming]);
+
   const steps = useMemo(
-    () =>
-      collectAssistantProcessSteps(content as AssistantMessageContentPart[]),
-    [content],
+    () => collectAssistantProcessSteps(validContent),
+    [validContent],
   );
 
   const summary = useMemo(
