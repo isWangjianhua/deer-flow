@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Share2Icon } from "lucide-react";
+import { FileTextIcon, DownloadIcon, LogOutIcon, UserCircleIcon } from "lucide-react";
 
 import { AuthDialog } from "@/components/auth-dialog";
 import {
@@ -38,6 +38,7 @@ import { AppShell } from "./app-shell";
 import { Button } from "./ui/button";
 import { CanvasProvider } from "./workspace/canvas-context";
 import { CanvasPanel } from "./workspace/canvas-panel";
+import { ThreadContextProvider } from "./workspace/thread-context";
 
 type ThreadScreenProps = Readonly<{
   initialConversationId?: string | null;
@@ -210,27 +211,104 @@ export function ThreadScreen({ initialConversationId = null }: ThreadScreenProps
     ],
   );
 
+  const handleExportMarkdown = useCallback(() => {
+    if (!runtimeState) return;
+    const lines: string[] = [];
+    if (runtimeState.title) lines.push(`# ${runtimeState.title}\n`);
+    for (const msg of runtimeState.messages) {
+      const role = (msg as { role?: string }).role ?? "unknown";
+      const content = (msg as { content?: unknown }).content;
+      let text = "";
+      if (typeof content === "string") {
+        text = content;
+      } else if (Array.isArray(content)) {
+        text = (content as { text?: string }[]).map((c) => c.text ?? "").join("");
+      }
+      if (text.trim()) {
+        lines.push(`**${role === "user" ? "用户" : "助手"}**: ${text.trim()}\n`);
+      }
+    }
+    const blob = new Blob([lines.join("\n")], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${runtimeState.title || "conversation"}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [runtimeState]);
+
+  const handleExportJson = useCallback(() => {
+    if (!runtimeState) return;
+    const blob = new Blob([JSON.stringify(runtimeState, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${runtimeState.title || "conversation"}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [runtimeState]);
+
   const threadPane = (
     <div className="flex h-full min-h-0 flex-col">
-      {loading ? (
-        <p className="px-6 py-8 text-sm text-muted-foreground md:px-10">Loading...</p>
-      ) : null}
-      {error ? <p className="px-6 py-8 text-sm text-red-300 md:px-10">{error}</p> : null}
-      {!loading ? (
-        <AssistantUiThread
-          ensureAuthenticated={ensureAuthenticated}
-          initialState={runtimeState}
-          modelName={selectedModel || undefined}
-          onStateChange={(nextState) => {
-            setRuntimeState(nextState);
-            if (nextState.conversationId && nextState.conversationId !== conversationId) {
-              setConversationId(nextState.conversationId);
-              router.replace(`/workspace/${nextState.conversationId}`);
-            }
-            void threadListRuntime.load().then(setThreads).catch(() => {});
-          }}
-        />
-      ) : null}
+      <div className="flex shrink-0 h-14 items-center justify-between px-4 md:px-6">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="min-w-0">
+            <div className="truncate text-sm font-semibold md:text-base">{runtimeState?.title || "DeerFlow 2.0 问候"}</div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1 md:gap-3">
+          <div className="group relative">
+            <Button className="h-8 gap-2 text-muted-foreground hover:text-foreground" variant="ghost">
+              <DownloadIcon className="size-4" />
+              <span className="hidden md:inline">导出</span>
+            </Button>
+            <div className="invisible absolute right-0 top-full pt-1 opacity-0 transition-all group-hover:visible group-hover:opacity-100 z-50">
+              <div className="w-40 rounded-md border border-border/60 bg-popover p-1 shadow-md">
+              <button
+                  className="flex w-full items-center px-2 py-1.5 text-sm hover:bg-muted rounded-sm"
+                  onClick={handleExportMarkdown}
+                >
+                  导出为 Markdown
+                </button>
+                <button
+                  className="flex w-full items-center px-2 py-1.5 text-sm hover:bg-muted rounded-sm"
+                  onClick={handleExportJson}
+                >
+                  导出为 JSON
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <Button className="h-8 gap-2 text-muted-foreground hover:text-foreground" variant="ghost" onClick={openCanvas}>
+            <FileTextIcon className="size-4" />
+            <span className="hidden md:inline">文件</span>
+          </Button>
+        </div>
+      </div>
+
+      <div className="flex-1 min-h-0 relative flex flex-col">
+        {loading ? (
+          <p className="px-6 py-8 text-sm text-muted-foreground md:px-10">Loading...</p>
+        ) : null}
+        {error ? <p className="px-6 py-8 text-sm text-red-300 md:px-10">{error}</p> : null}
+        {!loading ? (
+          <AssistantUiThread
+            ensureAuthenticated={ensureAuthenticated}
+            initialState={runtimeState}
+            modelName={selectedModel || undefined}
+            onStateChange={(nextState) => {
+              setRuntimeState(nextState);
+              if (nextState.conversationId && nextState.conversationId !== conversationId) {
+                setConversationId(nextState.conversationId);
+                router.replace(`/workspace/${nextState.conversationId}`);
+              }
+              void threadListRuntime.load().then(setThreads).catch(() => {});
+            }}
+          />
+        ) : null}
+      </div>
     </div>
   );
 
@@ -245,49 +323,15 @@ export function ThreadScreen({ initialConversationId = null }: ThreadScreenProps
     />
   );
 
-  return (
-    <AppShell activeThreadId={conversationId} threads={threads}>
-      <section className="flex h-full min-h-0 flex-col bg-background">
-        <div className="flex h-14 items-center justify-between border-b border-border px-4 md:px-6">
-          <div className="flex min-w-0 items-center gap-3">
-            <SidebarTrigger className="-ml-1" />
-            <div className="min-w-0">
-              <div className="truncate text-sm font-semibold md:text-base">DeerFlow Workspace</div>
-              <div className="truncate text-xs text-muted-foreground">assistant-ui shell</div>
-            </div>
-          </div>
+  const threadContextValue = useMemo(
+    () => ({ models, selectedModel, setSelectedModel, runtimeState }),
+    [models, selectedModel, runtimeState],
+  );
 
-          <div className="flex items-center gap-3">
-            <label className="hidden items-center gap-2 md:flex">
-              <span className="text-xs font-medium text-muted-foreground">Model</span>
-              <select
-                className="h-9 min-w-44 rounded-md border border-border bg-background px-3 text-sm text-foreground outline-none transition-colors focus:border-ring"
-                onChange={(event) => {
-                  setSelectedModel(event.target.value);
-                }}
-                value={selectedModel}
-              >
-                {models.length === 0 ? (
-                  <option value="">Default model</option>
-                ) : null}
-                {models.map((model) => (
-                  <option key={model.name} value={model.name}>
-                    {model.display_name || model.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {currentUser ? (
-              <div className="hidden text-right text-xs text-muted-foreground md:block">
-                <div className="font-medium text-foreground">{currentUser.username}</div>
-                <div>Connected</div>
-              </div>
-            ) : null}
-            <Button className="size-8" size="icon" variant="ghost">
-              <Share2Icon className="size-4" />
-            </Button>
-          </div>
-        </div>
+  return (
+    <AppShell activeThreadId={conversationId} threads={threads} currentUser={currentUser}>
+      <ThreadContextProvider value={threadContextValue}>
+      <section className="flex h-full min-h-0 flex-col bg-background">
 
         <CanvasProvider value={canvasControls}>
           {isMobile ? (
@@ -310,17 +354,17 @@ export function ThreadScreen({ initialConversationId = null }: ThreadScreenProps
                       Preview generated files without leaving the conversation.
                     </SheetDescription>
                   </SheetHeader>
-                  {canvasPane}
+                  <div className="h-full bg-background border-l border-border">{canvasPane}</div>
                 </SheetContent>
               </Sheet>
             </>
           ) : canvasState.open ? (
             <ResizablePanelGroup className="min-h-0 flex-1" direction="horizontal">
-              <ResizablePanel defaultSize={64} minSize={45}>
+              <ResizablePanel defaultSize={50} minSize={25}>
                 {threadPane}
               </ResizablePanel>
-              <ResizableHandle withHandle />
-              <ResizablePanel defaultSize={36} minSize={24}>
+              <ResizableHandle className="w-1.5 opacity-50 hover:bg-muted transition-colors" />
+              <ResizablePanel defaultSize={50} minSize={25}>
                 {canvasPane}
               </ResizablePanel>
             </ResizablePanelGroup>
@@ -345,6 +389,7 @@ export function ThreadScreen({ initialConversationId = null }: ThreadScreenProps
           open={authDialogOpen}
         />
       </section>
+      </ThreadContextProvider>
     </AppShell>
   );
 }

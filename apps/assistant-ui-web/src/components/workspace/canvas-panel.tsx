@@ -126,19 +126,42 @@ export function CanvasPanel({
   return (
     <aside
       className={cn(
-        "flex h-full min-h-0 flex-col border-l border-border/70 bg-muted/20",
+        "flex h-full min-h-0 flex-col border-l border-border/70 bg-background",
         className,
       )}
     >
-      <div className="border-b border-border/70 px-4 py-4 md:px-5">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
-            <LayoutPanelTopIcon className="size-3.5" />
-            Canvas
-          </div>
+      <div className="flex items-center justify-between border-b border-border/70 px-4 py-3 bg-muted/20">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-foreground truncate max-w-[250px] md:max-w-[400px]">
+            {activeArtifact ? getArtifactName(activeArtifact) : "No document"}
+          </span>
+        </div>
+        <div className="flex items-center gap-1 text-muted-foreground">
+          {activeUrl ? (
+            <Button size="icon" variant="ghost" className="size-8" asChild>
+              <a href={activeUrl} rel="noreferrer" target="_blank">
+                <ExternalLinkIcon className="size-4" />
+              </a>
+            </Button>
+          ) : (
+            <Button size="icon" variant="ghost" className="size-8" disabled>
+              <ExternalLinkIcon className="size-4" />
+            </Button>
+          )}
+          {activeDownloadUrl ? (
+            <Button size="icon" variant="ghost" className="size-8" asChild>
+              <a href={activeDownloadUrl} rel="noreferrer" target="_blank">
+                <DownloadIcon className="size-4" />
+              </a>
+            </Button>
+          ) : (
+            <Button size="icon" variant="ghost" className="size-8" disabled>
+              <DownloadIcon className="size-4" />
+            </Button>
+          )}
           <Button
             aria-label="Close canvas"
-            className="size-8 shrink-0"
+            className="size-8 shrink-0 hover:bg-red-500/10 hover:text-red-500 transition-colors"
             onClick={onClose}
             size="icon"
             variant="ghost"
@@ -146,235 +169,78 @@ export function CanvasPanel({
             <XIcon className="size-4" />
           </Button>
         </div>
-        <h2 className="mt-3 line-clamp-2 text-sm font-semibold text-foreground md:text-base">
-          {title || "New Thread"}
-        </h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {artifacts.length === 0
-            ? "Artifacts generated during the conversation will appear here."
-            : `${artifacts.length} artifact${artifacts.length === 1 ? "" : "s"} available`}
-        </p>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        {artifacts.length === 0 ? (
-          <div className="p-4 md:p-5">
-            <Card className="border-dashed bg-background/80">
-              <CardHeader className="gap-3">
-                <CardTitle className="text-base">Canvas is empty</CardTitle>
-                <CardDescription>
-                  Ask DeerFlow to create a file or report to populate this panel.
-                </CardDescription>
-              </CardHeader>
-            </Card>
+      <div className="flex min-h-0 flex-1 flex-col overflow-auto bg-background p-4 md:p-8">
+        {!activeArtifact || !activeUrl ? (
+          <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
+            <FileTextIcon className="size-10 text-muted-foreground/30" />
+            <p className="text-sm font-medium text-foreground">
+              {artifacts.length === 0 ? "Document generation pending..." : "Select an artifact"}
+            </p>
           </div>
+        ) : activePreview === "image" ? (
+          <div className="flex flex-1 items-center justify-center">
+            <img
+              alt={getArtifactName(activeArtifact)}
+              className="max-h-full max-w-full rounded-md object-contain"
+              src={activeUrl}
+            />
+          </div>
+        ) : activePreview === "pdf" ? (
+          <iframe
+            className="h-full w-full flex-1"
+            src={activeUrl}
+            title={getArtifactName(activeArtifact)}
+          />
+        ) : activePreview === "html" ? (
+          <iframe
+            className="h-full w-full flex-1"
+            sandbox="allow-forms allow-same-origin allow-scripts"
+            src={activeUrl}
+            title={getArtifactName(activeArtifact)}
+          />
+        ) : activePreview === "markdown" ? (
+          previewLoading ? (
+            <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground animate-pulse">
+              Loading document...
+            </div>
+          ) : previewError ? (
+            <div className="flex flex-1 items-center justify-center text-center">
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-red-400">Failed to load markdown.</p>
+                <p className="text-xs text-muted-foreground">{previewError}</p>
+              </div>
+            </div>
+          ) : (
+            <CanvasMarkdownPreview content={previewContent} />
+          )
+        ) : activePreview === "text" ? (
+          previewLoading ? (
+            <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground animate-pulse">
+              Loading text...
+            </div>
+          ) : previewError ? (
+            <div className="flex flex-1 items-center justify-center text-center">
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-red-400">Failed to load text.</p>
+                <p className="text-xs text-muted-foreground">{previewError}</p>
+              </div>
+            </div>
+          ) : (
+            <pre className="flex-1 overflow-auto bg-background text-sm leading-relaxed text-foreground/90 whitespace-pre-wrap">
+              {previewContent}
+            </pre>
+          )
         ) : (
-          <>
-            <div className="border-b border-border/70 px-4 py-4 md:px-5">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                    Preview
-                  </p>
-                  <h3 className="mt-2 truncate text-sm font-semibold text-foreground md:text-base">
-                    {activeArtifact ? getArtifactName(activeArtifact) : "No artifact selected"}
-                  </h3>
-                  {activeArtifact ? (
-                    <p className="mt-1 line-clamp-2 break-all font-mono text-xs text-muted-foreground">
-                      {activeArtifact}
-                    </p>
-                  ) : null}
-                </div>
-                {activeArtifact ? (
-                  <span className="inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-                    {getArtifactKindLabel(activeArtifact)}
-                  </span>
-                ) : null}
-              </div>
-
-              <div className="mt-4 flex items-center gap-2">
-                {activeUrl ? (
-                  <Button asChild size="sm" variant="secondary">
-                    <a href={activeUrl} rel="noreferrer" target="_blank">
-                      <ExternalLinkIcon className="size-4" />
-                      Open
-                    </a>
-                  </Button>
-                ) : (
-                  <Button disabled size="sm" variant="secondary">
-                    <ExternalLinkIcon className="size-4" />
-                    Open
-                  </Button>
-                )}
-                {activeDownloadUrl ? (
-                  <Button asChild size="sm" variant="ghost">
-                    <a href={activeDownloadUrl} rel="noreferrer" target="_blank">
-                      <DownloadIcon className="size-4" />
-                      Download
-                    </a>
-                  </Button>
-                ) : (
-                  <Button disabled size="sm" variant="ghost">
-                    <DownloadIcon className="size-4" />
-                    Download
-                  </Button>
-                )}
-              </div>
+          <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
+            <FileTextIcon className="size-8 text-muted-foreground" />
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-foreground">
+                Preview not supported
+              </p>
             </div>
-
-            <div className="min-h-0 flex-1 overflow-y-auto p-4 md:p-5">
-              <Card className="flex min-h-[18rem] flex-col overflow-hidden bg-background/90">
-                <CardContent className="flex min-h-0 flex-1 flex-col p-0">
-                  {activeArtifact && activeUrl ? (
-                    activePreview === "image" ? (
-                      <div className="flex flex-1 items-center justify-center bg-muted/20 p-4">
-                        <img
-                          alt={getArtifactName(activeArtifact)}
-                          className="max-h-full max-w-full rounded-md border border-border/60 object-contain shadow-xs"
-                          src={activeUrl}
-                        />
-                      </div>
-                    ) : activePreview === "pdf" ? (
-                      <iframe
-                        className="min-h-[24rem] w-full flex-1 bg-background"
-                        src={activeUrl}
-                        title={getArtifactName(activeArtifact)}
-                      />
-                    ) : activePreview === "html" ? (
-                      <iframe
-                        className="min-h-[24rem] w-full flex-1 bg-background"
-                        sandbox="allow-forms allow-same-origin allow-scripts"
-                        src={activeUrl}
-                        title={getArtifactName(activeArtifact)}
-                      />
-                    ) : activePreview === "markdown" ? (
-                      previewLoading ? (
-                        <div className="flex flex-1 items-center justify-center p-6 text-sm text-muted-foreground">
-                          Loading preview…
-                        </div>
-                      ) : previewError ? (
-                        <div className="flex flex-1 items-center justify-center p-6 text-center">
-                          <div className="space-y-1">
-                            <p className="text-sm font-medium text-foreground">
-                              Markdown preview is unavailable.
-                            </p>
-                            <p className="text-sm text-muted-foreground">{previewError}</p>
-                          </div>
-                        </div>
-                      ) : (
-                        <CanvasMarkdownPreview content={previewContent} />
-                      )
-                    ) : activePreview === "text" ? (
-                      previewLoading ? (
-                        <div className="flex flex-1 items-center justify-center p-6 text-sm text-muted-foreground">
-                          Loading preview…
-                        </div>
-                      ) : previewError ? (
-                        <div className="flex flex-1 items-center justify-center p-6 text-center">
-                          <div className="space-y-1">
-                            <p className="text-sm font-medium text-foreground">
-                              Text preview is unavailable.
-                            </p>
-                            <p className="text-sm text-muted-foreground">{previewError}</p>
-                          </div>
-                        </div>
-                      ) : (
-                        <pre className="min-h-[24rem] flex-1 overflow-auto bg-background p-4 text-xs leading-relaxed text-foreground/85">
-                          {previewContent}
-                        </pre>
-                      )
-                    ) : (
-                      <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
-                        <FileTextIcon className="size-8 text-muted-foreground" />
-                        <div className="space-y-1">
-                          <p className="text-sm font-medium text-foreground">
-                            Preview is not available for this file type.
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            Open or download the artifact to inspect its contents.
-                          </p>
-                        </div>
-                      </div>
-                    )
-                  ) : (
-                    <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
-                      <FileTextIcon className="size-8 text-muted-foreground" />
-                      <div className="space-y-1">
-                        <p className="text-sm font-medium text-foreground">
-                          Select an artifact to preview it.
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          Generated files stay in the canvas instead of crowding the message thread.
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-
-            <div className="max-h-80 shrink-0 overflow-y-auto border-t border-border/70 p-4 md:p-5">
-              <div className="mb-3 text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                Artifacts
-              </div>
-              <div className="space-y-3">
-                {artifacts.map((artifactPath) => {
-                  const isSelected = artifactPath === activeArtifact;
-                  return (
-                    <Card
-                      className={cn(
-                        "gap-4 bg-background/90 transition-colors",
-                        isSelected && "border-foreground/20 bg-accent/30",
-                      )}
-                      key={artifactPath}
-                    >
-                      <CardHeader className="gap-3">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <CardTitle className="flex items-center gap-2 text-sm">
-                              <FileTextIcon className="size-4 text-muted-foreground" />
-                              <span className="truncate">{getArtifactName(artifactPath)}</span>
-                            </CardTitle>
-                            <CardDescription className="mt-1 break-all font-mono text-xs">
-                              {artifactPath}
-                            </CardDescription>
-                          </div>
-                          <span className="inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-                            {getArtifactKindLabel(artifactPath)}
-                          </span>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="flex items-center justify-between gap-3 pt-0">
-                        <Button
-                          className="px-0 text-sm"
-                          onClick={() => {
-                            onSelectArtifact(artifactPath);
-                          }}
-                          variant="link"
-                        >
-                          {isSelected ? "Previewing" : "Preview"}
-                        </Button>
-                        {conversationId ? (
-                          <a
-                            className="inline-flex items-center gap-2 text-sm font-medium text-foreground underline-offset-4 hover:underline"
-                            href={resolveArtifactUrl({
-                              artifactPath,
-                              conversationId,
-                            })}
-                            rel="noreferrer"
-                            target="_blank"
-                          >
-                            Open
-                            <ExternalLinkIcon className="size-3.5" />
-                          </a>
-                        ) : null}
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
-            </div>
-          </>
+          </div>
         )}
       </div>
     </aside>

@@ -60,6 +60,8 @@ function useSidebar() {
   return context
 }
 
+let globalSidebarState: boolean | null = null
+
 function SidebarProvider({
   defaultOpen = true,
   defaultWidth = 256,
@@ -81,8 +83,15 @@ function SidebarProvider({
 
   // This is the internal state of the sidebar.
   // We use openProp and setOpenProp for control from outside the component.
-  const [_open, _setOpen] = React.useState(defaultOpen)
+  // NOTE: We initialize from globalSidebarState (in-memory, client-only) to avoid
+  // flicker on soft-nav, but we deliberately do NOT read document.cookie here
+  // because that would cause SSR/client hydration mismatches (server has no window).
+  const [_open, _setOpen] = React.useState(() => {
+    if (globalSidebarState !== null) return globalSidebarState
+    return defaultOpen
+  })
   const open = openProp ?? _open
+
   const setOpen = React.useCallback(
     (value: boolean | ((value: boolean) => boolean)) => {
       const openState = typeof value === "function" ? value(open) : value
@@ -92,11 +101,27 @@ function SidebarProvider({
         _setOpen(openState)
       }
 
+      globalSidebarState = openState
       // This sets the cookie to keep the sidebar state.
       document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`
     },
     [setOpenProp, open]
   )
+
+  // After hydration, read cookie once and sync if this is a fresh page load
+  // (globalSidebarState would be null on a hard refresh / first visit).
+  React.useEffect(() => {
+    if (globalSidebarState !== null) return // soft-nav: already in-sync
+    const match = document.cookie.match(new RegExp("(^| )" + SIDEBAR_COOKIE_NAME + "=([^;]+)"))
+    if (match) {
+      const cookieValue = match[2] === "true"
+      if (cookieValue !== _open) {
+        globalSidebarState = cookieValue
+        _setOpen(cookieValue)
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally only on mount
+  }, [])
 
   // Helper to toggle the sidebar.
   const toggleSidebar = React.useCallback(() => {

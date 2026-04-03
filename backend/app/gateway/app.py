@@ -1,4 +1,5 @@
 import logging
+import warnings
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
@@ -33,6 +34,17 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
+)
+
+# Suppress Pydantic serialization UserWarning that fires when langgraph's
+# Runtime.context (typed as None by default due to Generic[ContextT]) receives
+# a dict at runtime. This is a langgraph library typing limitation — context
+# works correctly at runtime but Pydantic cannot infer the concrete type.
+warnings.filterwarnings(
+    "ignore",
+    message=".*PydanticSerializationUnexpectedValue.*Expected `none`.*field_name='context'.*",
+    category=UserWarning,
+    module="pydantic",
 )
 
 logger = logging.getLogger(__name__)
