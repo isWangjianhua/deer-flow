@@ -1,16 +1,11 @@
 "use client";
 
 import {
-  ChainOfThoughtPrimitive,
-  MessagePrimitive,
-  useAui,
   useAuiState,
-  type ReasoningMessagePartComponent,
-  type ToolCallMessagePartComponent,
+  type PropsWithChildren,
 } from "@assistant-ui/react";
 import {
   BookOpenTextIcon,
-  CheckIcon,
   ChevronDownIcon,
   FolderOpenIcon,
   GlobeIcon,
@@ -22,30 +17,23 @@ import {
   NotebookPenIcon,
   SearchIcon,
   SquareTerminalIcon,
-  TerminalIcon,
   WrenchIcon,
 } from "lucide-react";
 import {
   useEffect,
   useMemo,
   useRef,
-  type ComponentProps,
-  type PropsWithChildren,
+  useState,
 } from "react";
 
-import { ToolFallback } from "@/components/assistant-ui/tool-fallback";
-import { ToolContent } from "@/components/tool-ui";
 import {
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import {
+  collectAssistantProcessEntries,
   buildAssistantProcessSummary,
   collectAssistantProcessSteps,
 } from "@/lib/assistant-process";
+import { summarizeToolResult } from "@/lib/assistant-step-summaries";
 import {
-  getReasoningSummary,
   getToolDisplayName,
-  getToolSummary,
 } from "@/lib/event-cards";
 import { cn } from "@/lib/utils";
 
@@ -63,10 +51,6 @@ type AssistantMessageContentPart =
   | { type: "text" }
   | AssistantReasoningPart
   | AssistantToolCallPart;
-
-type MessagePartsComponents = NonNullable<
-  ComponentProps<typeof MessagePrimitive.Parts>["components"]
->;
 
 function getToolIcon(toolName: string) {
   switch (toolName) {
@@ -95,78 +79,59 @@ function getToolIcon(toolName: string) {
   }
 }
 
-function extractTitleFromMarkdown(markdown: string) {
-  const match = markdown.match(/^#\s+(.+)$/m);
-  return match ? match[1] : null;
-}
-
-function ProcessToolResult({ toolName, args, result, content }: { toolName: string; args: any; result: any; content: string | undefined }) {
-  const Pill = ({ children, href }: { children: React.ReactNode, href?: string }) => (
+function ProcessToolResult({
+  toolName,
+  args,
+  result,
+  content,
+  isRunning,
+}: {
+  toolName: string;
+  args: any;
+  result: any;
+  content: string | undefined;
+  isRunning: boolean;
+}) {
+  const Pill = ({ children }: { children: React.ReactNode }) => (
     <span className="inline-flex items-center gap-1 rounded-md border border-border/80 bg-secondary/80 px-2.5 py-0.5 text-xs font-medium text-secondary-foreground transition-colors hover:bg-secondary">
-      {href ? (
-        <a href={href} target="_blank" rel="noreferrer" className="block max-w-[400px] truncate underline-offset-4 hover:underline">
-          {children}
-        </a>
-      ) : (
-        <span className="block max-w-[400px] truncate">{children}</span>
-      )}
+      <span className="block max-w-[400px] truncate">{children}</span>
     </span>
   );
 
-  let parsedResult = result;
-  if (typeof result === "string") {
-    try {
-      parsedResult = JSON.parse(result);
-    } catch {
-      // ignore
-    }
-  } else if (!parsedResult && typeof content === "string") {
-    try {
-      parsedResult = JSON.parse(content);
-    } catch {
-      // ignore
-    }
+  const summary = summarizeToolResult(toolName, args, result, content, isRunning);
+
+  if (summary.mode === "hidden") {
+    return null;
   }
 
-  const pills: React.ReactElement[] = [];
-
-  if (toolName === "web_search") {
-    const results = Array.isArray(parsedResult) ? parsedResult : Array.isArray(parsedResult?.results) ? parsedResult.results : [];
-    results.forEach((item: any) => {
-      if (item && typeof item === "object" && item.url && item.title) {
-        pills.push(<Pill key={item.url} href={item.url}>{item.title}</Pill>);
-      }
-    });
-  } else if (toolName === "web_fetch") {
-    const url = typeof args?.url === "string" ? args.url : null;
-    if (url) {
-      let title = url;
-      if (typeof content === "string") {
-        const extracted = extractTitleFromMarkdown(content);
-        if (extracted) title = extracted;
-      }
-      pills.push(<Pill key={url} href={url}>{title}</Pill>);
-    }
-  } else if (toolName === "ls" || toolName === "read_file" || toolName === "write_file" || toolName === "str_replace") {
-    const path = typeof args?.path === "string" ? args.path : null;
-    if (path) {
-      pills.push(<Pill key={path}>{path}</Pill>);
-    }
-  } else if (toolName === "bash" || toolName === "run_command") {
-    const command = typeof args?.command === "string" ? args.command : null;
-    if (command) {
-      pills.push(<Pill key={command}>{command}</Pill>);
-    }
+  if (summary.mode === "pills") {
+    return (
+      <div className="flex flex-wrap gap-2">
+        {summary.items.map((item, index) => (
+          <Pill key={`${item.label}-${index}`}>{item.label}</Pill>
+        ))}
+      </div>
+    );
   }
 
-  if (pills.length > 0) {
-    return <div className="flex flex-wrap gap-2">{pills}</div>;
+  const textItems = summary.text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+
+  if (textItems.length > 0) {
+    return (
+      <div className="flex flex-wrap gap-2">
+        {textItems.map((item, index) => (
+          <Pill key={`${item}-${index}`}>{item}</Pill>
+        ))}
+      </div>
+    );
   }
 
-  const fallbackText = content || JSON.stringify(args || {}, null, 2);
   return (
-    <div className="line-clamp-3 text-xs text-muted-foreground whitespace-pre-wrap font-mono bg-muted/30 p-2 rounded-md">
-      {fallbackText.slice(0, 300)}{fallbackText.length > 300 ? "..." : ""}
+    <div className="text-[13px] leading-relaxed text-muted-foreground/90">
+      {summary.text}
     </div>
   );
 }
@@ -216,28 +181,30 @@ function AssistantProcessGroup({
   isStreaming,
 }: PropsWithChildren<{
   isStreaming: boolean;
-  summary?: string;
 }>) {
-  const aui = useAui();
-  const collapsed = useAuiState((s) => s.chainOfThought.collapsed);
+  const [collapsed, setCollapsed] = useState(!isStreaming);
   const wasStreamingRef = useRef(isStreaming);
 
   useEffect(() => {
     if (isStreaming) {
-      aui.chainOfThought().setCollapsed(false);
+      setCollapsed(false);
       wasStreamingRef.current = true;
       return;
     }
 
     if (wasStreamingRef.current) {
-      aui.chainOfThought().setCollapsed(true);
+      setCollapsed(true);
       wasStreamingRef.current = false;
     }
-  }, [aui, isStreaming]);
+  }, [isStreaming]);
 
   return (
-    <ChainOfThoughtPrimitive.Root className="my-1">
-      <ChainOfThoughtPrimitive.AccordionTrigger className="group flex w-fit items-center gap-2 py-1.5 text-left text-muted-foreground transition-colors hover:text-foreground">
+    <div className="my-1">
+      <button
+        type="button"
+        onClick={() => setCollapsed((prev) => !prev)}
+        className="group flex w-fit items-center gap-2 py-1.5 text-left text-muted-foreground transition-colors hover:text-foreground"
+      >
         <div className="flex items-center justify-center">
           {isStreaming ? (
             <LoaderCircleIcon className="size-4 animate-spin text-primary" />
@@ -254,18 +221,18 @@ function AssistantProcessGroup({
             collapsed ? "-rotate-90" : "rotate-0",
           )}
         />
-      </ChainOfThoughtPrimitive.AccordionTrigger>
+      </button>
 
       {!collapsed ? (
         <div className="mb-4 mt-1 ms-2 border-l-2 border-border/50 py-1 pl-4">
           <div className="space-y-4">{children}</div>
         </div>
       ) : null}
-    </ChainOfThoughtPrimitive.Root>
+    </div>
   );
 }
 
-const AssistantReasoning: any = (props: any) => {
+const AssistantReasoning = (props: any) => {
   const text = props.text || props.part?.text || "";
 
   if (!text || text.trim().length === 0) {
@@ -302,14 +269,21 @@ function getToolLabel(toolName: string, args: any) {
   return getToolDisplayName(toolName);
 }
 
-const AssistantProcessTool: any = (props: any) => {
+const AssistantProcessTool = (props: any) => {
   const toolName = props.toolName || props.part?.toolName;
   const args = props.args || props.part?.args;
   const argsText = props.argsText || props.part?.argsText;
   const result = props.result || props.part?.result;
-  const status = props.status || props.part?.status || { type: "running" };
+  const status = props.status || props.part?.status;
+  const isStreaming = Boolean(props.isStreaming);
 
-  const running = status.type === "running";
+  const statusType = typeof status === "string" ? status : status?.type;
+  const hasResult = result !== undefined && result !== null && result !== "";
+  const running =
+    statusType === "running" ||
+    statusType === "pending" ||
+    statusType === "in_progress" ||
+    (isStreaming && !hasResult);
   const parsedArgs = parseToolArgs(args, argsText);
   const content = stringifyToolResult(result);
   const ToolIcon = getToolIcon(toolName);
@@ -329,13 +303,14 @@ const AssistantProcessTool: any = (props: any) => {
           {toolLabel}
         </span>
       </div>
-      {(parsedArgs || result || content) && (
+      {(parsedArgs || result || content || running) && (
         <div className="pl-6">
           <ProcessToolResult
             toolName={toolName}
             args={parsedArgs}
             result={result}
             content={content}
+            isRunning={running}
           />
         </div>
       )}
@@ -352,15 +327,20 @@ export function AssistantSteps() {
   const validContent = useMemo(() => {
     return (content as AssistantMessageContentPart[]).filter((part) => {
       if (part.type === "reasoning") {
-        return part.text.trim().length > 0 || isStreaming;
+        return part.text?.trim().length > 0 || isStreaming;
       }
       return true;
     });
   }, [content, isStreaming]);
 
+  const entries = useMemo(
+    () => collectAssistantProcessEntries(validContent, isStreaming),
+    [validContent, isStreaming],
+  );
+
   const steps = useMemo(
-    () => collectAssistantProcessSteps(validContent),
-    [validContent],
+    () => collectAssistantProcessSteps(validContent, isStreaming),
+    [validContent, isStreaming],
   );
 
   const summary = useMemo(
@@ -368,29 +348,29 @@ export function AssistantSteps() {
     [isStreaming, steps],
   );
 
-  const components = useMemo(
-    () =>
-      ({
-        Text: () => null,
-        ChainOfThought: () => (
-          <AssistantProcessGroup isStreaming={isStreaming} summary={summary}>
-            <ChainOfThoughtPrimitive.Parts
-              components={{
-                Reasoning: AssistantReasoning,
-                tools: {
-                  Fallback: AssistantProcessTool,
-                },
-              }}
-            />
-          </AssistantProcessGroup>
-        ),
-      }) as unknown as MessagePartsComponents,
-    [isStreaming, summary],
-  );
-
-  if (steps.length === 0) {
+  if (entries.length === 0 || steps.length === 0) {
     return null;
   }
 
-  return <MessagePrimitive.Parts components={components} />;
+  return (
+    <AssistantProcessGroup isStreaming={isStreaming}>
+      {entries.map((entry, index) => {
+        if (entry.kind === "reasoning") {
+          return <AssistantReasoning key={`reasoning-${index}`} text={entry.text} />;
+        }
+
+        return (
+          <AssistantProcessTool
+            key={`tool-${index}`}
+            toolName={entry.toolName}
+            args={entry.args}
+            argsText={entry.argsText}
+            result={entry.result}
+            status={entry.status}
+            isStreaming={isStreaming}
+          />
+        );
+      })}
+    </AssistantProcessGroup>
+  );
 }

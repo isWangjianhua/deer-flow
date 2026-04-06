@@ -61,7 +61,7 @@ def _iter_langgraph_payloads(chunk: str) -> list[Any]:
     return payloads
 
 
-def _extract_text_from_langgraph_chunk(chunk: str) -> str:
+def _extract_text_event_from_langgraph_chunk(chunk: str) -> tuple[str, str | None]:
     for payload in _iter_langgraph_payloads(chunk):
         if isinstance(payload, list) and payload:
             first = payload[0]
@@ -71,21 +71,24 @@ def _extract_text_from_langgraph_chunk(chunk: str) -> str:
                     continue
                 content = first.get("content")
                 if isinstance(content, str) and content:
-                    return content
+                    message_id = first.get("id")
+                    return content, message_id if isinstance(message_id, str) else None
             continue
         if not isinstance(payload, dict):
             continue
         if str(payload.get("type", "")).lower() in ("ai", "aimessagechunk"):
             content = payload.get("content")
             if isinstance(content, str) and content:
-                return content
+                message_id = payload.get("id")
+                return content, message_id if isinstance(message_id, str) else None
         if str(payload.get("type", "")).lower() != "tool":
             text = payload.get("text")
         else:
             text = None
         if isinstance(text, str):
-            return text
-    return ""
+            message_id = payload.get("id")
+            return text, message_id if isinstance(message_id, str) else None
+    return "", None
 
 
 def _extract_reasoning_content(payload: dict[str, Any]) -> str | None:
@@ -198,6 +201,7 @@ async def usechat_stream_from_langgraph(
     text_id = f"text_{uuid.uuid4().hex}"
     text_started = False
     latest_reasoning_by_message: dict[str, str] = {}
+    latest_text_by_message: dict[str, str] = {}
 
     yield encode_usechat_data_part(
         "data-conversation",
@@ -253,9 +257,13 @@ async def usechat_stream_from_langgraph(
                         transient=True,
                         part_id=event["tool_call_id"],
                     )
-            text = _extract_text_from_langgraph_chunk(chunk)
+            text, upstream_message_id = _extract_text_event_from_langgraph_chunk(chunk)
             if not text:
                 continue
+            if upstream_message_id and latest_text_by_message.get(upstream_message_id) == text:
+                continue
+            if upstream_message_id:
+                latest_text_by_message[upstream_message_id] = text
             if not text_started:
                 yield _encode_data({"type": "text-start", "id": text_id})
                 text_started = True

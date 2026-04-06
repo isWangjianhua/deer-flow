@@ -29,6 +29,7 @@ function toToolCallPart(event: Extract<ThreadEventCard, { kind: "tool" }>) {
     args: event.args as any,
     argsText: JSON.stringify(event.args ?? {}),
     result: event.content,
+    status: { type: event.status === "pending" ? "running" : "complete" },
   };
 }
 

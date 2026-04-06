@@ -5,32 +5,90 @@ export type AssistantProcessStep = {
   title: string;
 };
 
+export type AssistantProcessEntry =
+  | {
+      kind: "reasoning";
+      text: string;
+    }
+  | {
+      kind: "tool";
+      toolName: string;
+      args?: Record<string, unknown>;
+      argsText?: string;
+      result?: unknown;
+      status?: { type?: string; [key: string]: unknown };
+    };
+
 type AssistantProcessContentPart =
   | { type: "text" }
-  | { type: "reasoning" }
-  | { type: "tool-call"; toolName: string };
+  | { type: "reasoning"; text?: string }
+  | {
+      type: "tool-call";
+      toolName: string;
+      args?: Record<string, unknown>;
+      argsText?: string;
+      result?: unknown;
+      status?: { type?: string; [key: string]: unknown };
+    };
 
-export function collectAssistantProcessSteps(
+export function collectAssistantProcessEntries(
   content: AssistantProcessContentPart[],
-): AssistantProcessStep[] {
-  return content.reduce<AssistantProcessStep[]>((steps, part) => {
+  isStreaming: boolean,
+): AssistantProcessEntry[] {
+  return content.flatMap<AssistantProcessEntry>((part) => {
     if (part.type === "reasoning") {
-      steps.push({
-        kind: "reasoning",
-        title: "Thinking",
-      });
-      return steps;
+      const text = part.text?.trim() ?? "";
+      if (!text && !isStreaming) {
+        return [];
+      }
+
+      return [
+        {
+          kind: "reasoning",
+          text,
+        },
+      ];
     }
 
     if (part.type === "tool-call") {
+      return [
+        {
+          kind: "tool",
+          toolName: part.toolName,
+          args: part.args,
+          argsText: part.argsText,
+          result: part.result,
+          status: part.status,
+        },
+      ];
+    }
+
+    return [];
+  });
+}
+
+export function collectAssistantProcessSteps(
+  content: AssistantProcessContentPart[],
+  isStreaming = false,
+): AssistantProcessStep[] {
+  return collectAssistantProcessEntries(content, isStreaming).reduce<AssistantProcessStep[]>(
+    (steps, part) => {
+      if (part.kind === "reasoning") {
+        steps.push({
+          kind: "reasoning",
+          title: "Thinking",
+        });
+        return steps;
+      }
+
       steps.push({
         kind: "tool",
         title: getToolDisplayName(part.toolName),
       });
-    }
-
-    return steps;
-  }, []);
+      return steps;
+    },
+    [],
+  );
 }
 
 export function buildAssistantProcessSummary(

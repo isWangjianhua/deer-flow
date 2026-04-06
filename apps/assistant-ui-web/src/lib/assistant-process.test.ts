@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { buildAssistantProcessSummary } from "./assistant-process";
+import {
+  buildAssistantProcessSummary,
+  collectAssistantProcessEntries,
+} from "./assistant-process";
 
 describe("assistant process summary", () => {
   it("uses the latest live step while streaming", () => {
@@ -40,5 +43,39 @@ describe("assistant process summary", () => {
         false,
       ),
     ).toBe("2 thought steps");
+  });
+
+  it("preserves reasoning and tool order for rendering", () => {
+    expect(
+      collectAssistantProcessEntries(
+        [
+          { type: "reasoning", text: "先检查需求" },
+          { type: "tool-call", toolName: "web_search" },
+          { type: "reasoning", text: "比较结果" },
+          { type: "tool-call", toolName: "web_fetch" },
+          { type: "text" },
+        ],
+        false,
+      ),
+    ).toEqual([
+      { kind: "reasoning", text: "先检查需求" },
+      { kind: "tool", toolName: "web_search", args: undefined, argsText: undefined, result: undefined, status: undefined },
+      { kind: "reasoning", text: "比较结果" },
+      { kind: "tool", toolName: "web_fetch", args: undefined, argsText: undefined, result: undefined, status: undefined },
+    ]);
+  });
+
+  it("drops empty finished reasoning entries", () => {
+    expect(
+      collectAssistantProcessEntries(
+        [
+          { type: "reasoning", text: "   " },
+          { type: "tool-call", toolName: "web_search" },
+        ],
+        false,
+      ),
+    ).toEqual([
+      { kind: "tool", toolName: "web_search", args: undefined, argsText: undefined, result: undefined, status: undefined },
+    ]);
   });
 });

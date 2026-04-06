@@ -99,6 +99,21 @@ async def test_usechat_stream_from_langgraph_parses_real_messages_event_tuple():
 
 
 @pytest.mark.anyio
+async def test_usechat_stream_from_langgraph_deduplicates_repeated_text_from_multiple_event_types():
+    async def upstream():
+        yield 'event: messages-tuple\ndata: {"type":"ai","content":"Hello","id":"ai_1"}\n\n'
+        yield 'event: messages\ndata: [{"id":"ai_1","content":"Hello","type":"AIMessageChunk"},{"langgraph_node":"agent"}]\n\n'
+
+    frames = []
+    async for frame in usechat_stream_from_langgraph(upstream(), conversation_id="conv_1"):
+        frames.append(frame)
+
+    joined = "".join(frames)
+    assert joined.count('"type": "text-delta"') == 1
+    assert joined.count('"delta": "Hello"') == 1
+
+
+@pytest.mark.anyio
 async def test_usechat_stream_from_langgraph_ignores_tool_messages():
     async def upstream():
         yield 'event: messages\ndata: [{"id":"tool-1","content":"{\\"results\\": []}","type":"tool"},{"langgraph_node":"tools"}]\n\n'
