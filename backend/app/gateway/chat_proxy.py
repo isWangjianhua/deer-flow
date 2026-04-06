@@ -273,14 +273,20 @@ async def usechat_stream_from_langgraph(
             text, upstream_message_id = _extract_text_event_from_langgraph_chunk(chunk)
             if not text:
                 continue
-            if upstream_message_id and latest_text_by_message.get(upstream_message_id) == text:
-                continue
+            text_delta = text
             if upstream_message_id:
+                previous_text = latest_text_by_message.get(upstream_message_id, "")
+                if previous_text == text:
+                    continue
+                if previous_text and text.startswith(previous_text):
+                    text_delta = text[len(previous_text) :]
                 latest_text_by_message[upstream_message_id] = text
+            if not text_delta:
+                continue
             if not text_started:
                 yield _encode_data({"type": "text-start", "id": text_id})
                 text_started = True
-            yield encode_usechat_text_delta(text_id, text)
+            yield encode_usechat_text_delta(text_id, text_delta)
             continue
         if "event: error" in chunk:
             yield _encode_data({"type": "error", "errorText": chunk})

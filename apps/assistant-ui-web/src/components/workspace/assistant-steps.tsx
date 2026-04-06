@@ -93,9 +93,20 @@ function ProcessToolResult({
   content: string | undefined;
   isRunning: boolean;
 }) {
-  const Pill = ({ children }: { children: React.ReactNode }) => (
+  const Pill = ({ children, href }: { children: React.ReactNode; href?: string }) => (
     <span className="inline-flex items-center gap-1 rounded-md border border-border/80 bg-secondary/80 px-2.5 py-0.5 text-xs font-medium text-secondary-foreground transition-colors hover:bg-secondary">
-      <span className="block max-w-[400px] truncate">{children}</span>
+      {href ? (
+        <a
+          href={href}
+          target="_blank"
+          rel="noreferrer"
+          className="block max-w-[400px] truncate underline-offset-4 hover:underline"
+        >
+          {children}
+        </a>
+      ) : (
+        <span className="block max-w-[400px] truncate">{children}</span>
+      )}
     </span>
   );
 
@@ -109,7 +120,7 @@ function ProcessToolResult({
     return (
       <div className="flex flex-wrap gap-2">
         {summary.items.map((item, index) => (
-          <Pill key={`${item.label}-${index}`}>{item.label}</Pill>
+          <Pill key={`${item.label}-${index}`} href={item.href}>{item.label}</Pill>
         ))}
       </div>
     );
@@ -213,7 +224,7 @@ function AssistantProcessGroup({
             <LightbulbIcon className="size-4" />
           )}
         </div>
-        <span className="text-[14px] font-medium selection:bg-transparent">
+        <span className="text-[14px] font-medium">
           {isStreaming ? "思考中..." : "隐藏步骤"}
         </span>
         <ChevronDownIcon
@@ -300,7 +311,7 @@ const AssistantProcessTool = (props: any) => {
             <ToolIcon className="size-4" />
           )}
         </div>
-        <span className="text-[14px] font-medium selection:bg-transparent">
+        <span className="text-[14px] font-medium">
           {toolLabel}
         </span>
       </div>

@@ -65,4 +65,73 @@ describe("deerflow runtime stream", () => {
     expect(state.messages).toHaveLength(1);
     expect(state.liveEvents).toEqual([]);
   });
+
+  it("hydrates missing tool-result parts from streamed tool events", async () => {
+    const streamedEvents: ChatStreamEvent[] = [
+      { type: "data-conversation", data: { conversationId: "thread_1" } },
+      {
+        type: "data-tool-call",
+        data: {
+          toolCallId: "call_1",
+          name: "web_search",
+          args: { query: "北京天气" },
+        },
+      },
+      {
+        type: "data-tool-result",
+        data: {
+          toolCallId: "call_1",
+          name: "web_search",
+          content: '{"results":[{"title":"北京天气预报"}]}',
+        },
+      },
+      { type: "finish" },
+    ];
+
+    streamChatMock.mockResolvedValue(toStream(streamedEvents));
+    getThreadStateMock.mockResolvedValue({
+      thread_id: "thread_1",
+      title: "Chat",
+      messages: [
+        {
+          id: "assistant_1",
+          role: "assistant",
+          parts: [
+            {
+              type: "tool-call",
+              toolCallId: "call_1",
+              toolName: "web_search",
+              args: { query: "北京天气" },
+            },
+            { type: "text", text: "北京明天多云。" },
+          ],
+        },
+      ],
+      artifacts: [],
+      todos: [],
+    });
+
+    const state = await runConversationStream({
+      messages: [{ role: "user", content: "北京天气" }],
+    });
+
+    const assistantMessage = state.messages[0];
+    expect(assistantMessage?.role).toBe("assistant");
+    expect(assistantMessage?.parts).toEqual([
+      {
+        type: "tool-call",
+        toolCallId: "call_1",
+        toolName: "web_search",
+        args: { query: "北京天气" },
+      },
+      {
+        type: "tool-result",
+        toolCallId: "call_1",
+        toolName: "web_search",
+        content: '{"results":[{"title":"北京天气预报"}]}',
+      },
+      { type: "text", text: "北京明天多云。" },
+    ]);
+    expect(state.liveEvents).toEqual([]);
+  });
 });

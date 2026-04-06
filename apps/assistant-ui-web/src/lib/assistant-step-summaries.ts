@@ -49,21 +49,32 @@ function summarizeWebSearch(structured: unknown, content: string | undefined): T
       ? (structured as { results: unknown[] }).results
       : [];
 
-  const titles = results
+  const items = results
     .map((item) => {
       if (!item || typeof item !== "object") {
-        return "";
+        return null;
       }
       const title = (item as { title?: unknown }).title;
-      return typeof title === "string" ? title.trim() : "";
+      const label = typeof title === "string" ? title.trim() : "";
+      if (!label) {
+        return null;
+      }
+      const rawHref = (item as { url?: unknown; href?: unknown; link?: unknown }).url
+        ?? (item as { href?: unknown }).href
+        ?? (item as { link?: unknown }).link;
+      const href = typeof rawHref === "string" ? rawHref.trim() : undefined;
+      return {
+        label: truncate(label),
+        ...(href ? { href } : {}),
+      };
     })
-    .filter((title) => title.length > 0)
+    .filter((item): item is { label: string; href?: string } => Boolean(item))
     .slice(0, 5);
 
-  if (titles.length > 0) {
+  if (items.length > 0) {
     return {
-      mode: "text",
-      text: titles.join("\n"),
+      mode: "pills",
+      items,
     };
   }
 
@@ -86,19 +97,24 @@ function summarizeWebSearch(structured: unknown, content: string | undefined): T
 }
 
 function summarizeWebFetch(args: Record<string, unknown> | undefined, content: string | undefined): ToolResultSummary {
+  const url = typeof args?.url === "string" ? args.url : "";
   const title = content ? extractTitleFromMarkdown(content) || firstMeaningfulLine(content) : "";
   if (title) {
     return {
-      mode: "text",
-      text: truncate(title),
+      mode: "pills",
+      items: [
+        {
+          label: truncate(title),
+          ...(url ? { href: url } : {}),
+        },
+      ],
     };
   }
 
-  const url = typeof args?.url === "string" ? args.url : "";
   if (url) {
     return {
-      mode: "text",
-      text: truncate(url),
+      mode: "pills",
+      items: [{ label: truncate(url), href: url }],
     };
   }
 

@@ -10,8 +10,8 @@ describe("assistant step summaries", () => {
 晴转多云，最高气温 18C`);
 
     expect(summary).toEqual({
-      mode: "text",
-      text: "Beijing Weather",
+      mode: "pills",
+      items: [{ label: "Beijing Weather", href: "https://example.com" }],
     });
   });
 
@@ -21,21 +21,21 @@ describe("assistant step summaries", () => {
       { query: "北京天气" },
       {
         results: [
-          { title: "北京天气预报,北京7天天气预报,北京15天天气预报,北京天气查询" },
-          { title: "北京天气历史记录 www.ip138.com" },
-          { title: "北京市天气预报24小时 - 北京天气预报未来15天" },
+          { title: "北京天气预报,北京7天天气预报,北京15天天气预报,北京天气查询", url: "https://example.com/1" },
+          { title: "北京天气历史记录 www.ip138.com", url: "https://example.com/2" },
+          { title: "北京市天气预报24小时 - 北京天气预报未来15天", url: "https://example.com/3" },
         ],
       },
       undefined,
     );
 
     expect(summary).toEqual({
-      mode: "text",
-      text: [
-        "北京天气预报,北京7天天气预报,北京15天天气预报,北京天气查询",
-        "北京天气历史记录 www.ip138.com",
-        "北京市天气预报24小时 - 北京天气预报未来15天",
-      ].join("\n"),
+      mode: "pills",
+      items: [
+        { label: "北京天气预报,北京7天天气预报,北京15天天气预报,北京天气查询", href: "https://example.com/1" },
+        { label: "北京天气历史记录 www.ip138.com", href: "https://example.com/2" },
+        { label: "北京市天气预报24小时 - 北京天气预报未来15天", href: "https://example.com/3" },
+      ],
     });
   });
 
@@ -60,8 +60,13 @@ describe("assistant step summaries", () => {
     );
 
     expect(summary).toEqual({
-      mode: "text",
-      text: "北京天气预报,北京7天天气预报,北京15天天气预报,北京天气查询",
+      mode: "pills",
+      items: [
+        {
+          label: "北京天气预报,北京7天天气预报,北京15天天气预报,北京天气查询",
+          href: "https://weather.com/beijing",
+        },
+      ],
     });
   });
 });
