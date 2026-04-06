@@ -146,6 +146,19 @@ def _extract_reasoning_events_from_langgraph_chunk(chunk: str) -> list[dict[str,
 
 def _extract_tool_events_from_langgraph_chunk(chunk: str) -> list[dict[str, Any]]:
     events: list[dict[str, Any]] = []
+
+    def normalize_tool_content(value: Any) -> str:
+        if isinstance(value, str):
+            return value
+        if value is None:
+            return ""
+        if isinstance(value, (dict, list)):
+            try:
+                return json.dumps(value, ensure_ascii=False)
+            except TypeError:
+                return str(value)
+        return str(value)
+
     for payload in _iter_langgraph_payloads(chunk):
         if isinstance(payload, list) and payload:
             first = payload[0]
@@ -185,7 +198,7 @@ def _extract_tool_events_from_langgraph_chunk(chunk: str) -> list[dict[str, Any]
                     "message_id": payload.get("id"),
                     "tool_call_id": tool_call_id,
                     "name": payload.get("name"),
-                    "content": payload.get("content") if isinstance(payload.get("content"), str) else "",
+                    "content": normalize_tool_content(payload.get("content")),
                 }
             )
     return events

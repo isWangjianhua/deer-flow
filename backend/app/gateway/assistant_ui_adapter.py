@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import Any, Literal, TypedDict
 
 
@@ -84,6 +85,27 @@ def _normalize_id(message: dict[str, Any], fallback: str) -> str:
     return message_id if isinstance(message_id, str) and message_id else fallback
 
 
+def _extract_tool_result_content(message: dict[str, Any]) -> str:
+    content = message.get("content")
+    if isinstance(content, str):
+        return content.strip()
+
+    text_content = _extract_text_content(message)
+    if text_content:
+        return text_content
+
+    if isinstance(content, (dict, list)):
+        try:
+            return json.dumps(content, ensure_ascii=False)
+        except TypeError:
+            return str(content)
+
+    if content is None:
+        return ""
+
+    return str(content)
+
+
 def _extract_assistant_parts(message: dict[str, Any], fallback_id: str) -> list[AssistantUiPart]:
     if message.get("type") == "tool":
         return [
@@ -91,7 +113,7 @@ def _extract_assistant_parts(message: dict[str, Any], fallback_id: str) -> list[
                 "type": "tool-result",
                 "toolCallId": message.get("tool_call_id") or fallback_id,
                 "toolName": message.get("name") or "tool",
-                "content": _extract_text_content(message),
+                "content": _extract_tool_result_content(message),
             }
         ]
 

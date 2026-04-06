@@ -12,6 +12,7 @@ export type AssistantProcessEntry =
     }
   | {
       kind: "tool";
+      toolCallId?: string;
       toolName: string;
       args?: Record<string, unknown>;
       argsText?: string;
@@ -24,6 +25,7 @@ type AssistantProcessContentPart =
   | { type: "reasoning"; text?: string }
   | {
       type: "tool-call";
+      toolCallId?: string;
       toolName: string;
       args?: Record<string, unknown>;
       argsText?: string;
@@ -54,6 +56,7 @@ export function collectAssistantProcessEntries(
       return [
         {
           kind: "tool",
+          ...(part.toolCallId ? { toolCallId: part.toolCallId } : {}),
           toolName: part.toolName,
           args: part.args,
           argsText: part.argsText,

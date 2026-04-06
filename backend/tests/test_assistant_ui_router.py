@@ -122,6 +122,32 @@ def test_assistant_ui_thread_endpoint_returns_assistant_ui_messages(monkeypatch)
     }
 
 
+def test_convert_deerflow_messages_to_assistant_ui_serializes_object_tool_result_content():
+    messages = [
+        {"id": "u1", "type": "human", "content": "北京天气"},
+        {
+            "id": "a1",
+            "type": "ai",
+            "content": "",
+            "tool_calls": [{"id": "call_1", "name": "web_search", "args": {"query": "北京天气"}}],
+        },
+        {
+            "id": "tool_1",
+            "type": "tool",
+            "name": "web_search",
+            "tool_call_id": "call_1",
+            "content": {"results": [{"title": "北京天气预报"}]},
+        },
+    ]
+
+    converted = convert_deerflow_messages_to_assistant_ui(messages)
+    tool_result = converted[1]["parts"][1]
+
+    assert tool_result["type"] == "tool-result"
+    assert tool_result["toolCallId"] == "call_1"
+    assert '"title": "北京天气预报"' in tool_result["content"]
+
+
 def test_assistant_ui_list_threads_falls_back_to_state_title(monkeypatch):
     async def fake_list_conversations(user):
         return [

@@ -155,6 +155,28 @@ async def test_usechat_stream_from_langgraph_emits_tool_progress_parts():
 
 
 @pytest.mark.anyio
+async def test_usechat_stream_from_langgraph_serializes_object_tool_results():
+    async def upstream():
+        yield (
+            "event: messages-tuple\n"
+            'data: {"type":"ai","content":"","id":"ai_1","tool_calls":[{"name":"web_search","args":{"query":"北京天气"},"id":"call_1"}]}\n\n'
+        )
+        yield (
+            "event: messages-tuple\n"
+            'data: {"type":"tool","content":{"results":[{"title":"北京天气预报"}]},"name":"web_search","tool_call_id":"call_1","id":"tool_1"}\n\n'
+        )
+
+    frames = []
+    async for frame in usechat_stream_from_langgraph(upstream(), conversation_id="conv_1"):
+        frames.append(frame)
+
+    joined = "".join(frames)
+    assert '"type": "data-tool-result"' in joined
+    assert '"toolCallId": "call_1"' in joined
+    assert '\\"title\\": \\"北京天气预报\\"' in joined
+
+
+@pytest.mark.anyio
 async def test_usechat_stream_from_langgraph_emits_reasoning_parts_from_values():
     async def upstream():
         yield (

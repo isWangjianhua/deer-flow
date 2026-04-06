@@ -53,7 +53,6 @@ export async function runConversationStream(request: {
   onEvent?: (event: ChatStreamEvent) => void;
 }): Promise<DeerFlowRuntimeState> {
   let resolvedConversationId = request.conversationId ?? null;
-  const liveEvents: ChatStreamEvent[] = [];
   const stream = await streamChat({
     conversationId: request.conversationId,
     messages: request.messages,
@@ -61,7 +60,6 @@ export async function runConversationStream(request: {
   });
 
   for await (const event of stream) {
-    liveEvents.push(event);
     if (event.type === "data-conversation" && event.data.conversationId) {
       resolvedConversationId = event.data.conversationId;
     }
@@ -72,9 +70,5 @@ export async function runConversationStream(request: {
     throw new Error("Conversation id was not returned by the chat stream.");
   }
 
-  const canonicalState = await loadRuntimeState(resolvedConversationId);
-  return {
-    ...canonicalState,
-    liveEvents,
-  };
+  return loadRuntimeState(resolvedConversationId);
 }

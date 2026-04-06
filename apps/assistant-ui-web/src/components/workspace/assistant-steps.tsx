@@ -44,6 +44,7 @@ type AssistantReasoningPart = {
 
 type AssistantToolCallPart = {
   type: "tool-call";
+  toolCallId?: string;
   toolName: string;
 };
 
@@ -270,11 +271,11 @@ function getToolLabel(toolName: string, args: any) {
 }
 
 const AssistantProcessTool = (props: any) => {
-  const toolName = props.toolName || props.part?.toolName;
-  const args = props.args || props.part?.args;
-  const argsText = props.argsText || props.part?.argsText;
-  const result = props.result || props.part?.result;
-  const status = props.status || props.part?.status;
+  const toolName = props.toolName ?? props.part?.toolName;
+  const args = props.args ?? props.part?.args;
+  const argsText = props.argsText ?? props.part?.argsText;
+  const result = props.result ?? props.part?.result;
+  const status = props.status ?? props.part?.status;
   const isStreaming = Boolean(props.isStreaming);
 
   const statusType = typeof status === "string" ? status : status?.type;
@@ -361,7 +362,7 @@ export function AssistantSteps() {
 
         return (
           <AssistantProcessTool
-            key={`tool-${index}`}
+            key={`tool-${entry.toolCallId ?? index}`}
             toolName={entry.toolName}
             args={entry.args}
             argsText={entry.argsText}
