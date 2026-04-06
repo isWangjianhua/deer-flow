@@ -1,5 +1,6 @@
 import { buildGatewayUrl } from "./config";
 import { throwIfUnauthorized } from "./auth-errors";
+import { withGatewayAuthHeaders } from "./auth";
 
 export type AssistantUiThreadState = {
   thread_id: string;
@@ -13,6 +14,7 @@ export async function getThreadState(conversationId: string): Promise<AssistantU
   const response = await fetch(buildGatewayUrl(`/api/assistant-ui/threads/${conversationId}`), {
     credentials: "include",
     cache: "no-store",
+    headers: withGatewayAuthHeaders(),
   });
 
   const message = response.ok ? "" : await response.text();

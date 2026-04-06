@@ -29,6 +29,10 @@ class MeResponse(BaseModel):
     username: str
 
 
+class AuthResponse(MeResponse):
+    session_token: str
+
+
 def _set_session_cookie(response: Response, session_token: str) -> None:
     response.set_cookie(
         key=SESSION_COOKIE_NAME,
@@ -41,8 +45,8 @@ def _set_session_cookie(response: Response, session_token: str) -> None:
     )
 
 
-@router.post("/register", response_model=MeResponse, status_code=status.HTTP_201_CREATED)
-async def register(request: AuthRequest, response: Response) -> MeResponse:
+@router.post("/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
+async def register(request: AuthRequest, response: Response) -> AuthResponse:
     existing = get_user_by_username(request.username)
     if existing is not None:
         raise HTTPException(status_code=409, detail="Username already exists")
@@ -50,18 +54,18 @@ async def register(request: AuthRequest, response: Response) -> MeResponse:
     user = create_user(username=request.username, password_hash=hash_password(request.password))
     session = create_user_session(user_id=user.id)
     _set_session_cookie(response, session.session_token)
-    return MeResponse(id=user.id, username=user.username)
+    return AuthResponse(id=user.id, username=user.username, session_token=session.session_token)
 
 
-@router.post("/login", response_model=MeResponse)
-async def login(request: AuthRequest, response: Response) -> MeResponse:
+@router.post("/login", response_model=AuthResponse)
+async def login(request: AuthRequest, response: Response) -> AuthResponse:
     user = get_user_by_username(request.username)
     if user is None or not verify_password(request.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid username or password")
 
     session = create_user_session(user_id=user.id)
     _set_session_cookie(response, session.session_token)
-    return MeResponse(id=user.id, username=user.username)
+    return AuthResponse(id=user.id, username=user.username, session_token=session.session_token)
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)

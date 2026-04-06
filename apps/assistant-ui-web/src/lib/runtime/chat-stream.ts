@@ -1,5 +1,6 @@
 import { buildGatewayUrl } from "../config";
 import { throwIfUnauthorized } from "../auth-errors";
+import { withGatewayAuthHeaders } from "../auth";
 
 type BaseStreamEvent = {
   type: string;
@@ -151,9 +152,9 @@ export async function streamChat(request: {
   const response = await fetch(buildGatewayUrl("/api/chat"), {
     method: "POST",
     credentials: "include",
-    headers: {
+    headers: withGatewayAuthHeaders({
       "Content-Type": "application/json",
-    },
+    }),
     body: JSON.stringify({
       id: request.conversationId ?? null,
       messages: request.messages,

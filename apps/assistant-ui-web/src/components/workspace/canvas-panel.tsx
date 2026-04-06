@@ -25,6 +25,7 @@ import {
   resolveArtifactUrl,
   selectCanvasArtifact,
 } from "@/lib/artifacts";
+import { withGatewayAuthHeaders } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
 type CanvasPanelProps = Readonly<{
@@ -95,6 +96,7 @@ export function CanvasPanel({
     void fetch(activeUrl, {
       cache: "no-store",
       credentials: "include",
+      headers: withGatewayAuthHeaders(),
       signal: controller.signal,
     })
       .then(async (response) => {

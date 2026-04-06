@@ -13,7 +13,12 @@ from contextlib import AsyncExitStack, asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request
 
-from app.gateway.auth.session import SESSION_COOKIE_NAME, get_session_by_token, get_user_by_id
+from app.gateway.auth.session import (
+    SESSION_COOKIE_NAME,
+    SESSION_HEADER_NAME,
+    get_session_by_token,
+    get_user_by_id,
+)
 from app.gateway.thread_ownership import ensure_thread_belongs_to_user
 from deerflow.runtime import RunManager, StreamBridge
 
@@ -75,6 +80,8 @@ def get_store(request: Request):
 def get_current_user_optional(request: Request):
     """Return the current authenticated user, or ``None`` when unauthenticated."""
     session_token = request.cookies.get(SESSION_COOKIE_NAME)
+    if not session_token:
+        session_token = request.headers.get(SESSION_HEADER_NAME)
     if not session_token:
         return None
 

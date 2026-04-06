@@ -11,6 +11,7 @@ from app.gateway.db.models import UserAccount, UserSession
 from app.gateway.db.session import get_db_connection
 
 SESSION_COOKIE_NAME = "deerflow_session"
+SESSION_HEADER_NAME = "X-DeerFlow-Session"
 DEFAULT_SESSION_DAYS = 14
 
 

@@ -1,4 +1,5 @@
 import { buildGatewayUrl } from "./config";
+import { withGatewayAuthHeaders } from "./auth";
 
 export type GatewayModel = {
   name: string;
@@ -17,6 +18,7 @@ export async function listModels(): Promise<GatewayModel[]> {
   const response = await fetch(buildGatewayUrl("/api/models"), {
     credentials: "include",
     cache: "no-store",
+    headers: withGatewayAuthHeaders(),
   });
 
   if (!response.ok) {

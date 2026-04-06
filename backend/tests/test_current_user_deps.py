@@ -6,6 +6,7 @@ from starlette.requests import Request
 
 from app.gateway.auth.passwords import hash_password
 from app.gateway.auth.session import (
+    SESSION_HEADER_NAME,
     SESSION_COOKIE_NAME,
     create_user,
     create_user_session,
@@ -60,3 +61,17 @@ def test_invalid_session_cookie_returns_none(tmp_path, monkeypatch):
 
     assert response.status_code == 200
     assert response.json() == {"user": None}
+
+
+def test_current_user_from_valid_session_header(tmp_path, monkeypatch):
+    monkeypatch.setenv("DEER_FLOW_AUTH_DB_PATH", str(tmp_path / "auth.db"))
+
+    user = create_user(username="alice", password_hash=hash_password("secret"))
+    session = create_user_session(user_id=user.id)
+
+    app = _make_app()
+    with TestClient(app) as client:
+        response = client.get("/me", headers={SESSION_HEADER_NAME: session.session_token})
+
+    assert response.status_code == 200
+    assert response.json() == {"user": {"id": user.id, "username": "alice"}}

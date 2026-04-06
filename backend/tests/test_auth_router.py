@@ -26,6 +26,7 @@ def test_login_sets_session_cookie(tmp_path, monkeypatch):
 
     assert response.status_code == 200
     assert response.json()["username"] == "alice"
+    assert response.json()["session_token"]
     cookie_header = response.headers.get("set-cookie", "")
     assert SESSION_COOKIE_NAME in cookie_header
     assert "HttpOnly" in cookie_header
@@ -37,6 +38,7 @@ def test_me_returns_current_user(tmp_path, monkeypatch):
     with TestClient(_make_app()) as client:
         register = client.post("/api/auth/register", json={"username": "alice", "password": "secret123"})
         assert register.status_code == 201
+        assert register.json()["session_token"]
 
         response = client.get("/api/auth/me")
 
