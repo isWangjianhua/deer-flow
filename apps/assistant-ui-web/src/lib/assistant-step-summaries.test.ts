@@ -39,11 +39,67 @@ describe("assistant step summaries", () => {
     });
   });
 
+  it("extracts clickable items from markdown links when structured web search results are unavailable", () => {
+    const summary = summarizeToolResult(
+      "web_search",
+      { query: "上海天气" },
+      undefined,
+      `
+- [上海天气预报一周](https://example.com/shanghai-7d)
+- [上海天气15天](https://example.com/shanghai-15d)
+      `,
+    );
+
+    expect(summary).toEqual({
+      mode: "pills",
+      items: [
+        { label: "上海天气预报一周", href: "https://example.com/shanghai-7d" },
+        { label: "上海天气15天", href: "https://example.com/shanghai-15d" },
+      ],
+    });
+  });
+
+  it("hides unstructured web search plain text to avoid leaking reasoning into tool pills", () => {
+    const summary = summarizeToolResult(
+      "web_search",
+      { query: "上海天气" },
+      undefined,
+      `用户想要查询明天上海的天气，让我先搜索一下上海明天的天气情况。`,
+    );
+
+    expect(summary).toEqual({
+      mode: "hidden",
+    });
+  });
+
   it("returns hidden when a tool is still running without a result", () => {
     expect(
       summarizeToolResult("web_fetch", { url: "https://example.com" }, undefined, undefined, true),
     ).toEqual({
       mode: "hidden",
+    });
+  });
+
+  it("shows web search result pills during streaming once structured results are available", () => {
+    const summary = summarizeToolResult(
+      "web_search",
+      { query: "深圳天气" },
+      {
+        results: [
+          { title: "深圳天气预报", url: "https://example.com/shenzhen" },
+          { title: "深圳一周天气", url: "https://example.com/shenzhen-7d" },
+        ],
+      },
+      undefined,
+      true,
+    );
+
+    expect(summary).toEqual({
+      mode: "pills",
+      items: [
+        { label: "深圳天气预报", href: "https://example.com/shenzhen" },
+        { label: "深圳一周天气", href: "https://example.com/shenzhen-7d" },
+      ],
     });
   });
 

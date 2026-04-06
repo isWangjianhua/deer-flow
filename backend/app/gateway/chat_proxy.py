@@ -76,18 +76,13 @@ def _extract_text_event_from_langgraph_chunk(chunk: str) -> tuple[str, str | Non
             continue
         if not isinstance(payload, dict):
             continue
-        if str(payload.get("type", "")).lower() in ("ai", "aimessagechunk"):
+        payload_type = str(payload.get("type", "")).lower()
+        if payload_type in ("ai", "aimessagechunk"):
             content = payload.get("content")
             if isinstance(content, str) and content:
                 message_id = payload.get("id")
                 return content, message_id if isinstance(message_id, str) else None
-        if str(payload.get("type", "")).lower() != "tool":
-            text = payload.get("text")
-        else:
-            text = None
-        if isinstance(text, str):
-            message_id = payload.get("id")
-            return text, message_id if isinstance(message_id, str) else None
+        # Ignore non-AI payload text fields (e.g. progress markers like "2/2").
     return "", None
 
 
@@ -208,13 +203,17 @@ async def usechat_stream_from_langgraph(
     upstream: AsyncIterator[str],
     *,
     conversation_id: str,
+    historical_message_ids: set[str] | None = None,
 ) -> AsyncIterator[str]:
     """Translate internal LangGraph-compatible SSE chunks into AI SDK data frames."""
     message_id = f"msg_{uuid.uuid4().hex}"
     text_id = f"text_{uuid.uuid4().hex}"
     text_started = False
+    historical_ids = historical_message_ids or set()
     latest_reasoning_by_message: dict[str, str] = {}
     latest_text_by_message: dict[str, str] = {}
+    latest_tool_call_signature: dict[str, str] = {}
+    latest_tool_result_signature: dict[str, str] = {}
 
     yield encode_usechat_data_part(
         "data-conversation",
@@ -225,6 +224,8 @@ async def usechat_stream_from_langgraph(
 
     async for chunk in upstream:
         for reasoning in _extract_reasoning_events_from_langgraph_chunk(chunk):
+            if reasoning["message_id"] in historical_ids:
+                continue
             previous = latest_reasoning_by_message.get(reasoning["message_id"])
             if previous == reasoning["content"]:
                 continue
@@ -246,7 +247,22 @@ async def usechat_stream_from_langgraph(
             or "event: messages" in chunk
         ):
             for event in _extract_tool_events_from_langgraph_chunk(chunk):
+                event_message_id = event.get("message_id")
+                if isinstance(event_message_id, str) and event_message_id in historical_ids:
+                    continue
                 if event["kind"] == "tool-call":
+                    dedupe_key = f"{event.get('message_id') or ''}:{event['tool_call_id']}"
+                    signature = json.dumps(
+                        {
+                            "name": event["name"],
+                            "args": event["args"],
+                        },
+                        ensure_ascii=False,
+                        sort_keys=True,
+                    )
+                    if latest_tool_call_signature.get(dedupe_key) == signature:
+                        continue
+                    latest_tool_call_signature[dedupe_key] = signature
                     yield encode_usechat_data_part(
                         "data-tool-call",
                         {
@@ -259,6 +275,18 @@ async def usechat_stream_from_langgraph(
                         part_id=event["tool_call_id"],
                     )
                 elif event["kind"] == "tool-result":
+                    dedupe_key = f"{event.get('message_id') or ''}:{event['tool_call_id']}"
+                    signature = json.dumps(
+                        {
+                            "name": event.get("name"),
+                            "content": event["content"],
+                        },
+                        ensure_ascii=False,
+                        sort_keys=True,
+                    )
+                    if latest_tool_result_signature.get(dedupe_key) == signature:
+                        continue
+                    latest_tool_result_signature[dedupe_key] = signature
                     yield encode_usechat_data_part(
                         "data-tool-result",
                         {
@@ -272,6 +300,8 @@ async def usechat_stream_from_langgraph(
                     )
             text, upstream_message_id = _extract_text_event_from_langgraph_chunk(chunk)
             if not text:
+                continue
+            if upstream_message_id and upstream_message_id in historical_ids:
                 continue
             text_delta = text
             if upstream_message_id:

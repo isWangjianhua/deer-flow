@@ -134,4 +134,86 @@ describe("deerflow runtime stream", () => {
     ]);
     expect(state.liveEvents).toEqual([]);
   });
+
+  it("hydrates multiple tool calls in order even when toolCallId repeats", async () => {
+    const streamedEvents: ChatStreamEvent[] = [
+      { type: "data-conversation", data: { conversationId: "thread_1" } },
+      {
+        type: "data-tool-result",
+        data: {
+          toolCallId: "call_1",
+          name: "web_search",
+          content: '{"results":[{"title":"结果A"}]}',
+        },
+      },
+      {
+        type: "data-tool-result",
+        data: {
+          toolCallId: "call_1",
+          name: "web_search",
+          content: '{"results":[{"title":"结果B"}]}',
+        },
+      },
+      { type: "finish" },
+    ];
+
+    streamChatMock.mockResolvedValue(toStream(streamedEvents));
+    getThreadStateMock.mockResolvedValue({
+      thread_id: "thread_1",
+      title: "Chat",
+      messages: [
+        {
+          id: "assistant_1",
+          role: "assistant",
+          parts: [
+            {
+              type: "tool-call",
+              toolCallId: "call_1",
+              toolName: "web_search",
+              args: { query: "上海天气" },
+            },
+            {
+              type: "tool-call",
+              toolCallId: "call_1",
+              toolName: "web_search",
+              args: { query: "北京天气" },
+            },
+          ],
+        },
+      ],
+      artifacts: [],
+      todos: [],
+    });
+
+    const state = await runConversationStream({
+      messages: [{ role: "user", content: "天气" }],
+    });
+
+    expect(state.messages[0]?.parts).toEqual([
+      {
+        type: "tool-call",
+        toolCallId: "call_1",
+        toolName: "web_search",
+        args: { query: "上海天气" },
+      },
+      {
+        type: "tool-result",
+        toolCallId: "call_1",
+        toolName: "web_search",
+        content: '{"results":[{"title":"结果A"}]}',
+      },
+      {
+        type: "tool-call",
+        toolCallId: "call_1",
+        toolName: "web_search",
+        args: { query: "北京天气" },
+      },
+      {
+        type: "tool-result",
+        toolCallId: "call_1",
+        toolName: "web_search",
+        content: '{"results":[{"title":"结果B"}]}',
+      },
+    ]);
+  });
 });

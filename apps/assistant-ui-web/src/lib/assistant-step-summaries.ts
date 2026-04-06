@@ -42,6 +42,23 @@ function parseStructuredResult(result: unknown, content: string | undefined) {
   }
 }
 
+function extractMarkdownLinks(content: string): Array<{ label: string; href: string }> {
+  const links: Array<{ label: string; href: string }> = [];
+  const pattern = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g;
+  for (const match of content.matchAll(pattern)) {
+    const label = match[1]?.trim() ?? "";
+    const href = match[2]?.trim() ?? "";
+    if (!label || !href) {
+      continue;
+    }
+    links.push({
+      label: truncate(label),
+      href,
+    });
+  }
+  return links;
+}
+
 function summarizeWebSearch(structured: unknown, content: string | undefined): ToolResultSummary {
   const results = Array.isArray(structured)
     ? structured
@@ -78,19 +95,14 @@ function summarizeWebSearch(structured: unknown, content: string | undefined): T
     };
   }
 
-  const fallback = content
-    ?.split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0 && !line.startsWith("#") && !line.startsWith("["))
-    .slice(0, 5)
-    .map((line) => truncate(line))
-    .join("\n");
-
-  if (fallback) {
-    return {
-      mode: "text",
-      text: fallback,
-    };
+  if (content) {
+    const links = extractMarkdownLinks(content).slice(0, 5);
+    if (links.length > 0) {
+      return {
+        mode: "pills",
+        items: links,
+      };
+    }
   }
 
   return { mode: "hidden" };
@@ -128,18 +140,26 @@ export function summarizeToolResult(
   content: string | undefined,
   isRunning = false,
 ): ToolResultSummary {
-  if (isRunning) {
-    return { mode: "hidden" };
-  }
-
   const structured = parseStructuredResult(result, content);
 
   if (toolName === "web_search") {
-    return summarizeWebSearch(structured, content);
+    const summary = summarizeWebSearch(structured, content);
+    if (isRunning && summary.mode !== "pills") {
+      return { mode: "hidden" };
+    }
+    return summary;
   }
 
   if (toolName === "web_fetch") {
-    return summarizeWebFetch(args, content);
+    const summary = summarizeWebFetch(args, content);
+    if (isRunning && (!content?.trim() || summary.mode !== "pills")) {
+      return { mode: "hidden" };
+    }
+    return summary;
+  }
+
+  if (isRunning) {
+    return { mode: "hidden" };
   }
 
   if (toolName === "ls" || toolName === "read_file" || toolName === "write_file" || toolName === "str_replace") {

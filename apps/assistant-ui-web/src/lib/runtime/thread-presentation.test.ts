@@ -102,6 +102,95 @@ describe("thread presentation", () => {
     ]);
   });
 
+  it("keeps reasoning order interleaved with live tool calls", () => {
+    const events: ChatStreamEvent[] = [
+      {
+        type: "data-tool-call",
+        data: { toolCallId: "call_1", name: "web_search", args: { query: "上海天气" } },
+      },
+      {
+        type: "data-reasoning",
+        data: { messageId: "msg_live", content: "先看一眼搜索结果" },
+      },
+      {
+        type: "data-tool-call",
+        data: { toolCallId: "call_2", name: "web_fetch", args: { url: "https://example.com" } },
+      },
+    ];
+
+    const presentation = buildThreadPresentation([], events);
+
+    expect(presentation.liveBlock?.events.map((event) => event.id)).toEqual([
+      "call_1",
+      "msg_live:reasoning:live",
+      "call_2",
+    ]);
+  });
+
+  it("preserves separate tool cards when toolCallId repeats in live stream", () => {
+    const events: ChatStreamEvent[] = [
+      {
+        type: "data-tool-call",
+        data: { toolCallId: "call_1", name: "web_search", args: { query: "上海天气" } },
+      },
+      {
+        type: "data-tool-result",
+        data: { toolCallId: "call_1", name: "web_search", content: '{"results":[{"title":"结果A"}]}' },
+      },
+      {
+        type: "data-tool-call",
+        data: { toolCallId: "call_1", name: "web_search", args: { query: "北京天气" } },
+      },
+      {
+        type: "data-tool-result",
+        data: { toolCallId: "call_1", name: "web_search", content: '{"results":[{"title":"结果B"}]}' },
+      },
+    ];
+
+    const presentation = buildThreadPresentation([], events);
+    const toolCards = presentation.liveBlock?.events.filter((event) => event.kind === "tool") ?? [];
+
+    expect(toolCards.map((event) => event.id)).toEqual(["call_1", "call_1__2"]);
+    expect(toolCards.map((event) => event.content)).toEqual([
+      '{"results":[{"title":"结果A"}]}',
+      '{"results":[{"title":"结果B"}]}',
+    ]);
+  });
+
+  it("does not apply stale repeated tool result to a new pending call with same toolCallId", () => {
+    const events: ChatStreamEvent[] = [
+      {
+        type: "data-tool-call",
+        data: { toolCallId: "call_1", name: "web_search", args: { query: "上海天气" } },
+      },
+      {
+        type: "data-tool-result",
+        data: { toolCallId: "call_1", name: "web_search", content: '{"results":[{"title":"结果A"}]}' },
+      },
+      {
+        type: "data-tool-call",
+        data: { toolCallId: "call_1", name: "web_search", args: { query: "北京天气" } },
+      },
+      {
+        type: "data-tool-result",
+        data: { toolCallId: "call_1", name: "web_search", content: '{"results":[{"title":"结果A"}]}' },
+      },
+      {
+        type: "data-tool-result",
+        data: { toolCallId: "call_1", name: "web_search", content: '{"results":[{"title":"结果B"}]}' },
+      },
+    ];
+
+    const presentation = buildThreadPresentation([], events);
+    const toolCards = presentation.liveBlock?.events.filter((event) => event.kind === "tool") ?? [];
+
+    expect(toolCards.map((event) => event.id)).toEqual(["call_1", "call_1__2"]);
+    expect(toolCards.map((event) => event.content)).toEqual([
+      '{"results":[{"title":"结果A"}]}',
+      '{"results":[{"title":"结果B"}]}',
+    ]);
+  });
+
   it("exposes artifact paths for the right canvas", () => {
     const presentation = buildThreadPresentation([], [], ["/tmp/report.md"]);
 

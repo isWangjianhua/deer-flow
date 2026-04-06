@@ -47,10 +47,9 @@ export async function loadRuntimeState(conversationId: string): Promise<DeerFlow
 }
 
 type ToolResultPart = Extract<AssistantUiMessage["parts"][number], { type: "tool-result" }>;
-type ToolCallPart = Extract<AssistantUiMessage["parts"][number], { type: "tool-call" }>;
 
 function collectToolResultEvents(events: ChatStreamEvent[]) {
-  const toolResults = new Map<string, ToolResultPart>();
+  const toolResults = new Map<string, ToolResultPart[]>();
   for (const event of events) {
     if (event.type !== "data-tool-result") {
       continue;
@@ -63,12 +62,14 @@ function collectToolResultEvents(events: ChatStreamEvent[]) {
     if (!content) {
       continue;
     }
-    toolResults.set(toolCallId, {
+    const queue = toolResults.get(toolCallId) ?? [];
+    queue.push({
       type: "tool-result",
       toolCallId,
       toolName: event.data.name ?? "tool",
       content,
     });
+    toolResults.set(toolCallId, queue);
   }
   return toolResults;
 }
@@ -84,42 +85,62 @@ function mergeMissingToolResults(messages: AssistantUiMessage[], events: ChatStr
       return message;
     }
 
-    const parts = [...message.parts];
-    const resultIndexByCallId = new Map<string, number>();
-    for (const [index, part] of parts.entries()) {
-      if (part.type === "tool-result") {
-        resultIndexByCallId.set(part.toolCallId, index);
-      }
+    const localQueues = new Map<string, ToolResultPart[]>();
+    for (const [toolCallId, queue] of streamedToolResults.entries()) {
+      localQueues.set(toolCallId, [...queue]);
     }
 
-    let insertOffset = 0;
+    const parts: AssistantUiMessage["parts"] = [];
     for (const [index, part] of message.parts.entries()) {
-      if (part.type !== "tool-call") {
-        continue;
-      }
-
-      const toolCall = part as ToolCallPart;
-      const streamedResult = streamedToolResults.get(toolCall.toolCallId);
-      if (!streamedResult) {
-        continue;
-      }
-
-      const existingResultIndex = resultIndexByCallId.get(toolCall.toolCallId);
-      if (existingResultIndex !== undefined) {
-        const existing = parts[existingResultIndex] as ToolResultPart;
-        if (!existing.content && streamedResult.content) {
-          parts[existingResultIndex] = {
-            ...existing,
-            toolName: existing.toolName || streamedResult.toolName,
-            content: streamedResult.content,
-          };
+      if (part.type === "tool-result") {
+        const queue = localQueues.get(part.toolCallId) ?? [];
+        if (queue.length > 0) {
+          const streamedResult = queue.shift();
+          if (!streamedResult) {
+            parts.push(part);
+            continue;
+          }
+          parts.push(
+            part.content
+              ? part
+              : {
+                  ...part,
+                  toolName: part.toolName || streamedResult.toolName,
+                  content: streamedResult.content,
+                },
+          );
+        } else {
+          parts.push(part);
         }
         continue;
       }
 
-      parts.splice(index + 1 + insertOffset, 0, streamedResult);
-      insertOffset += 1;
-      resultIndexByCallId.set(toolCall.toolCallId, index + insertOffset);
+      parts.push(part);
+      if (part.type !== "tool-call") {
+        continue;
+      }
+
+      const queue = localQueues.get(part.toolCallId) ?? [];
+      if (queue.length === 0) {
+        continue;
+      }
+
+      const streamedResult = queue.shift();
+      if (!streamedResult) {
+        continue;
+      }
+      const nextPart = message.parts[index + 1];
+      const nextIsMatchingResult = Boolean(
+        nextPart
+          && nextPart.type === "tool-result"
+          && nextPart.toolCallId === part.toolCallId,
+      );
+      if (!nextIsMatchingResult) {
+        parts.push({
+          ...streamedResult,
+          toolName: streamedResult.toolName || part.toolName,
+        });
+      }
     }
 
     return {

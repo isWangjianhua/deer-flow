@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 
 from app.gateway.auth.passwords import hash_password
 from app.gateway.auth.session import (
+    SESSION_HEADER_NAME,
     SESSION_COOKIE_NAME,
     create_user,
 )
@@ -59,3 +60,26 @@ def test_logout_clears_cookie(tmp_path, monkeypatch):
     cookie_header = response.headers.get("set-cookie", "")
     assert SESSION_COOKIE_NAME in cookie_header
     assert "Max-Age=0" in cookie_header or "expires=" in cookie_header.lower()
+
+
+def test_logout_deletes_header_authenticated_session(tmp_path, monkeypatch):
+    monkeypatch.setenv("DEER_FLOW_AUTH_DB_PATH", str(tmp_path / "auth.db"))
+
+    with TestClient(_make_app()) as client:
+        register = client.post("/api/auth/register", json={"username": "alice", "password": "secret123"})
+        assert register.status_code == 201
+        session_token = register.json()["session_token"]
+
+    with TestClient(_make_app()) as client:
+        logout_response = client.post(
+            "/api/auth/logout",
+            headers={SESSION_HEADER_NAME: session_token},
+        )
+        assert logout_response.status_code == 204
+
+        me_response = client.get(
+            "/api/auth/me",
+            headers={SESSION_HEADER_NAME: session_token},
+        )
+
+    assert me_response.status_code == 401

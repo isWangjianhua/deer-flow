@@ -115,6 +115,21 @@ async def test_usechat_stream_from_langgraph_converts_snapshot_text_to_increment
 
 
 @pytest.mark.anyio
+async def test_usechat_stream_from_langgraph_ignores_non_ai_text_markers():
+    async def upstream():
+        yield 'event: messages\ndata: {"type":"status","text":"2/2"}\n\n'
+        yield 'event: messages\ndata: [{"id":"ai-1","content":"Final answer","type":"AIMessageChunk"},{"langgraph_node":"agent"}]\n\n'
+
+    frames = []
+    async for frame in usechat_stream_from_langgraph(upstream(), conversation_id="conv_1"):
+        frames.append(frame)
+
+    joined = "".join(frames)
+    assert '"delta": "2/2"' not in joined
+    assert '"delta": "Final answer"' in joined
+
+
+@pytest.mark.anyio
 async def test_usechat_stream_from_langgraph_deduplicates_repeated_text_from_multiple_event_types():
     async def upstream():
         yield 'event: messages-tuple\ndata: {"type":"ai","content":"Hello","id":"ai_1"}\n\n'
@@ -127,6 +142,35 @@ async def test_usechat_stream_from_langgraph_deduplicates_repeated_text_from_mul
     joined = "".join(frames)
     assert joined.count('"type": "text-delta"') == 1
     assert joined.count('"delta": "Hello"') == 1
+
+
+@pytest.mark.anyio
+async def test_usechat_stream_from_langgraph_deduplicates_repeated_tool_events_from_snapshots():
+    async def upstream():
+        yield (
+            'event: messages\n'
+            'data: [{"type":"ai","id":"ai_1","content":"","tool_calls":[{"id":"call_1","name":"web_search","args":{"query":"深圳天气"}}]},{"langgraph_node":"agent"}]\n\n'
+        )
+        yield (
+            'event: messages\n'
+            'data: [{"type":"ai","id":"ai_1","content":"","tool_calls":[{"id":"call_1","name":"web_search","args":{"query":"深圳天气"}}]},{"langgraph_node":"agent"}]\n\n'
+        )
+        yield (
+            'event: messages\n'
+            'data: [{"type":"tool","id":"tool_1","name":"web_search","tool_call_id":"call_1","content":"{\\"results\\":[{\\"title\\":\\"深圳天气预报\\"}]}"},{"langgraph_node":"tools"}]\n\n'
+        )
+        yield (
+            'event: messages\n'
+            'data: [{"type":"tool","id":"tool_1","name":"web_search","tool_call_id":"call_1","content":"{\\"results\\":[{\\"title\\":\\"深圳天气预报\\"}]}"},{"langgraph_node":"tools"}]\n\n'
+        )
+
+    frames = []
+    async for frame in usechat_stream_from_langgraph(upstream(), conversation_id="conv_1"):
+        frames.append(frame)
+
+    joined = "".join(frames)
+    assert joined.count('"type": "data-tool-call"') == 1
+    assert joined.count('"type": "data-tool-result"') == 1
 
 
 @pytest.mark.anyio
@@ -210,3 +254,48 @@ async def test_usechat_stream_from_langgraph_emits_reasoning_parts_from_values()
     assert '"messageId": "ai_1"' in joined
     assert '"content": "Need to inspect the request"' in joined
     assert '"delta": "Final answer"' in joined
+
+
+@pytest.mark.anyio
+async def test_usechat_stream_from_langgraph_ignores_historical_message_events():
+    async def upstream():
+        yield (
+            'event: values\n'
+            'data: {"messages":['
+            '{"type":"ai","id":"ai_old","content":"","tool_calls":[{"id":"call_old","name":"web_search","args":{"query":"旧天气"}}]},'
+            '{"type":"tool","id":"tool_old","name":"web_search","tool_call_id":"call_old","content":{"results":[{"title":"旧结果"}]}}'
+            ']}\n\n'
+        )
+        yield (
+            'event: messages\n'
+            'data: [{"type":"ai","id":"ai_old","content":"旧正文","tool_calls":[{"id":"call_old","name":"web_search","args":{"query":"旧天气"}}]},{"langgraph_node":"agent"}]\n\n'
+        )
+        yield (
+            'event: messages\n'
+            'data: [{"type":"tool","id":"tool_old","name":"web_search","tool_call_id":"call_old","content":{"results":[{"title":"旧结果"}]}},{"langgraph_node":"tools"}]\n\n'
+        )
+        yield (
+            'event: messages\n'
+            'data: [{"type":"ai","id":"ai_new","content":"","tool_calls":[{"id":"call_new","name":"web_search","args":{"query":"新天气"}}]},{"langgraph_node":"agent"}]\n\n'
+        )
+        yield (
+            'event: messages\n'
+            'data: [{"type":"tool","id":"tool_new","name":"web_search","tool_call_id":"call_new","content":{"results":[{"title":"新结果"}]}},{"langgraph_node":"tools"}]\n\n'
+        )
+        yield 'event: messages\ndata: [{"id":"ai_new","content":"新正文","type":"AIMessageChunk"},{"langgraph_node":"agent"}]\n\n'
+
+    frames = []
+    async for frame in usechat_stream_from_langgraph(
+        upstream(),
+        conversation_id="conv_1",
+        historical_message_ids={"ai_old", "tool_old"},
+    ):
+        frames.append(frame)
+
+    joined = "".join(frames)
+    assert "旧正文" not in joined
+    assert "旧结果" not in joined
+    assert '"toolCallId": "call_old"' not in joined
+    assert "新正文" in joined
+    assert "新结果" in joined
+    assert '"toolCallId": "call_new"' in joined

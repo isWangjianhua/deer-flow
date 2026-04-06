@@ -22,6 +22,7 @@ import { PanelLeftCloseIcon, SettingsIcon, SquarePenIcon, UserCircleIcon, LogOut
 
 import type { ThreadListItem } from "../lib/runtime/thread-list-runtime";
 import type { CurrentUser } from "@/lib/auth";
+import { performLogout } from "../lib/logout-action";
 
 type AppShellProps = Readonly<{
   threads?: ThreadListItem[];
@@ -88,7 +89,16 @@ export function AppShell({ threads = [], activeThreadId, currentUser, children }
                 </SidebarMenuButton>
                 <div className="invisible absolute left-0 bottom-full pb-1 opacity-0 transition-all group-hover/user:visible group-hover/user:opacity-100 z-50">
                   <div className="w-32 ml-1 rounded-md border border-border/60 bg-popover p-1 shadow-md">
-                    <button className="flex w-full items-center gap-2 px-2 py-1.5 text-sm hover:bg-muted text-red-500 rounded-sm" onClick={() => { window.location.href = "/"; }}>
+                    <button
+                      className="flex w-full items-center gap-2 px-2 py-1.5 text-sm hover:bg-muted text-red-500 rounded-sm"
+                      onClick={() => {
+                        void performLogout((href) => {
+                          window.location.href = href;
+                        }).catch((error) => {
+                          console.error("Failed to log out", error);
+                        });
+                      }}
+                    >
                       <LogOutIcon className="size-4 shrink-0" />
                       退出
                     </button>

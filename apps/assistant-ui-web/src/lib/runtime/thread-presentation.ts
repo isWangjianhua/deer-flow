@@ -54,9 +54,17 @@ function collectBody(parts: AssistantUiMessage["parts"]): string {
     .join("\n");
 }
 
+function createToolCardId(baseToolCallId: string, occurrence: number): string {
+  if (occurrence === 1) {
+    return baseToolCallId;
+  }
+  return `${baseToolCallId}__${occurrence}`;
+}
+
 function collectMessageEvents(messageId: string, parts: AssistantUiMessage["parts"]): ThreadEventCard[] {
   const events: ThreadEventCard[] = [];
-  const toolCards = new Map<string, Extract<ThreadEventCard, { kind: "tool" }>>();
+  const toolOccurrences = new Map<string, number>();
+  const pendingToolCards = new Map<string, Array<Extract<ThreadEventCard, { kind: "tool" }>>>();
 
   parts.forEach((part, index) => {
     if (part.type === "reasoning") {
@@ -75,8 +83,10 @@ function collectMessageEvents(messageId: string, parts: AssistantUiMessage["part
     }
 
     if (part.type === "tool-call") {
+      const occurrence = (toolOccurrences.get(part.toolCallId) ?? 0) + 1;
+      toolOccurrences.set(part.toolCallId, occurrence);
       const card: Extract<ThreadEventCard, { kind: "tool" }> = {
-        id: part.toolCallId,
+        id: createToolCardId(part.toolCallId, occurrence),
         source: {
           messageId,
           partIndex: index,
@@ -88,21 +98,26 @@ function collectMessageEvents(messageId: string, parts: AssistantUiMessage["part
         args: part.args,
         status: "pending",
       };
-      toolCards.set(part.toolCallId, card);
+      const pending = pendingToolCards.get(part.toolCallId) ?? [];
+      pending.push(card);
+      pendingToolCards.set(part.toolCallId, pending);
       events.push(card);
       return;
     }
 
     if (part.type === "tool-result") {
-      const existing = toolCards.get(part.toolCallId);
+      const pending = pendingToolCards.get(part.toolCallId) ?? [];
+      const existing = pending.shift();
       if (existing) {
         existing.content = part.content;
         existing.status = "done";
         return;
       }
 
+      const occurrence = (toolOccurrences.get(part.toolCallId) ?? 0) + 1;
+      toolOccurrences.set(part.toolCallId, occurrence);
       const card: Extract<ThreadEventCard, { kind: "tool" }> = {
-        id: part.toolCallId,
+        id: createToolCardId(part.toolCallId, occurrence),
         source: {
           messageId,
           partIndex: index,
@@ -115,7 +130,6 @@ function collectMessageEvents(messageId: string, parts: AssistantUiMessage["part
         content: part.content,
         status: "done",
       };
-      toolCards.set(part.toolCallId, card);
       events.push(card);
     }
   });
@@ -125,8 +139,11 @@ function collectMessageEvents(messageId: string, parts: AssistantUiMessage["part
 
 function buildLiveBlock(events: ChatStreamEvent[]): ThreadRenderBlock | null {
   const bodyParts: string[] = [];
+  const orderedEvents: ThreadEventCard[] = [];
   const reasoningCards = new Map<string, Extract<ThreadEventCard, { kind: "reasoning" }>>();
-  const cards = new Map<string, Extract<ThreadEventCard, { kind: "tool" }>>();
+  const toolOccurrences = new Map<string, number>();
+  const pendingToolCards = new Map<string, Array<Extract<ThreadEventCard, { kind: "tool" }>>>();
+  const lastDoneToolResultContent = new Map<string, string>();
   let id = "live";
   let sourceMessageId = "live";
 
@@ -157,7 +174,18 @@ function buildLiveBlock(events: ChatStreamEvent[]): ThreadRenderBlock | null {
         continue;
       }
 
-      reasoningCards.set(messageId, {
+      const existing = reasoningCards.get(messageId);
+      if (existing) {
+        existing.content = content;
+        const existingIndex = orderedEvents.indexOf(existing);
+        if (existingIndex >= 0) {
+          orderedEvents.splice(existingIndex, 1);
+        }
+        orderedEvents.push(existing);
+        continue;
+      }
+
+      const card: Extract<ThreadEventCard, { kind: "reasoning" }> = {
         id: `${messageId}:reasoning:live`,
         source: {
           messageId,
@@ -167,7 +195,9 @@ function buildLiveBlock(events: ChatStreamEvent[]): ThreadRenderBlock | null {
         title: "Reasoning",
         content,
         status: "streaming",
-      });
+      };
+      reasoningCards.set(messageId, card);
+      orderedEvents.push(card);
       continue;
     }
 
@@ -176,8 +206,10 @@ function buildLiveBlock(events: ChatStreamEvent[]): ThreadRenderBlock | null {
         continue;
       }
 
+      const occurrence = (toolOccurrences.get(event.data.toolCallId) ?? 0) + 1;
+      toolOccurrences.set(event.data.toolCallId, occurrence);
       const card: Extract<ThreadEventCard, { kind: "tool" }> = {
-        id: event.data.toolCallId,
+        id: createToolCardId(event.data.toolCallId, occurrence),
         source: {
           messageId: event.data.messageId ?? sourceMessageId,
           partIndex: -1,
@@ -189,7 +221,10 @@ function buildLiveBlock(events: ChatStreamEvent[]): ThreadRenderBlock | null {
         args: event.data.args ?? {},
         status: "pending",
       };
-      cards.set(event.data.toolCallId, card);
+      orderedEvents.push(card);
+      const pending = pendingToolCards.get(event.data.toolCallId) ?? [];
+      pending.push(card);
+      pendingToolCards.set(event.data.toolCallId, pending);
       continue;
     }
 
@@ -198,15 +233,31 @@ function buildLiveBlock(events: ChatStreamEvent[]): ThreadRenderBlock | null {
         continue;
       }
 
-      const existing = cards.get(event.data.toolCallId);
+      const incomingContent = event.data.content ?? "";
+      const lastDoneContent = lastDoneToolResultContent.get(event.data.toolCallId);
+      const pending = pendingToolCards.get(event.data.toolCallId) ?? [];
+      const existing = pending[0];
       if (existing) {
-        existing.content = event.data.content;
+        if (lastDoneContent !== undefined && lastDoneContent === incomingContent) {
+          // Ignore stale replayed result from a previous completed call cycle.
+          continue;
+        }
+        pending.shift();
+        existing.content = incomingContent;
         existing.status = "done";
+        lastDoneToolResultContent.set(event.data.toolCallId, incomingContent);
         continue;
       }
 
-      cards.set(event.data.toolCallId, {
-        id: event.data.toolCallId,
+      if (lastDoneContent !== undefined && lastDoneContent === incomingContent) {
+        // Duplicate replay when there is no pending call card.
+        continue;
+      }
+
+      const occurrence = (toolOccurrences.get(event.data.toolCallId) ?? 0) + 1;
+      toolOccurrences.set(event.data.toolCallId, occurrence);
+      orderedEvents.push({
+        id: createToolCardId(event.data.toolCallId, occurrence),
         source: {
           messageId: event.data.messageId ?? sourceMessageId,
           partIndex: -1,
@@ -216,13 +267,14 @@ function buildLiveBlock(events: ChatStreamEvent[]): ThreadRenderBlock | null {
         title: event.data.name,
         toolName: event.data.name,
         args: {},
-        content: event.data.content,
+        content: incomingContent,
         status: "done",
       });
+      lastDoneToolResultContent.set(event.data.toolCallId, incomingContent);
     }
   }
 
-  if (bodyParts.length === 0 && reasoningCards.size === 0 && cards.size === 0) {
+  if (bodyParts.length === 0 && orderedEvents.length === 0) {
     return null;
   }
 
@@ -233,7 +285,7 @@ function buildLiveBlock(events: ChatStreamEvent[]): ThreadRenderBlock | null {
     },
     role: "assistant",
     body: bodyParts.join(""),
-    events: [...reasoningCards.values(), ...cards.values()],
+    events: orderedEvents,
   };
 }
 

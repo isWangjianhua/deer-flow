@@ -9,6 +9,7 @@ from app.gateway.auth.passwords import hash_password, verify_password
 from app.gateway.auth.session import (
     DEFAULT_SESSION_DAYS,
     SESSION_COOKIE_NAME,
+    SESSION_HEADER_NAME,
     create_user,
     create_user_session,
     delete_session_by_token,
@@ -70,10 +71,10 @@ async def login(request: AuthRequest, response: Response) -> AuthResponse:
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 async def logout(request: Request, user=Depends(get_current_user)) -> Response:
-    # Clear all matching sessions for the cookie presented in this browser.
-    # The dependency already authenticated the request.
+    # Delete the same session token transport used by current auth resolution:
+    # cookie first, then header fallback.
     del user  # unused beyond authentication
-    session_token = request.cookies.get(SESSION_COOKIE_NAME)
+    session_token = request.cookies.get(SESSION_COOKIE_NAME) or request.headers.get(SESSION_HEADER_NAME)
     if session_token:
         delete_session_by_token(session_token)
     response = Response(status_code=status.HTTP_204_NO_CONTENT)

@@ -2,7 +2,6 @@
 
 import {
   useAuiState,
-  type PropsWithChildren,
 } from "@assistant-ui/react";
 import {
   BookOpenTextIcon,
@@ -22,6 +21,7 @@ import {
 import {
   useEffect,
   useMemo,
+  type PropsWithChildren,
   useRef,
   useState,
 } from "react";

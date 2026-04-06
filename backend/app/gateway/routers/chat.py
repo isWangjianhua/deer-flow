@@ -12,6 +12,7 @@ from app.gateway.chat_proxy import (
     usechat_stream_from_langgraph,
 )
 from app.gateway.deps import get_current_user, get_run_manager, get_stream_bridge
+from app.gateway.routers import threads
 from app.gateway.routers.thread_runs import RunCreateRequest
 from app.gateway.services import sse_consumer, start_run
 
@@ -58,6 +59,21 @@ def _build_run_messages(messages: list[ChatMessage]) -> list[dict[str, str]]:
     ]
 
 
+def _extract_historical_message_ids(values: dict[str, Any]) -> set[str]:
+    raw_messages = values.get("messages")
+    if not isinstance(raw_messages, list):
+        return set()
+
+    message_ids: set[str] = set()
+    for message in raw_messages:
+        if not isinstance(message, dict):
+            continue
+        message_id = message.get("id")
+        if isinstance(message_id, str) and message_id:
+            message_ids.add(message_id)
+    return message_ids
+
+
 @router.post("")
 async def chat(body: UseChatRequest, request: Request, user=Depends(get_current_user)) -> StreamingResponse:
     conversation_id = body.body.get("conversation_id")
@@ -70,6 +86,16 @@ async def chat(body: UseChatRequest, request: Request, user=Depends(get_current_
         )
     except PermissionError as exc:
         raise HTTPException(status_code=404, detail="Conversation not found") from exc
+
+    historical_message_ids: set[str] = set()
+    if not created:
+        try:
+            state = await threads.load_thread_state(thread_id=record.id, request=request)
+        except HTTPException as exc:
+            if exc.status_code != 404:
+                raise
+        else:
+            historical_message_ids = _extract_historical_message_ids(state.values)
 
     run_body = RunCreateRequest(
         assistant_id="lead_agent",
@@ -94,7 +120,11 @@ async def chat(body: UseChatRequest, request: Request, user=Depends(get_current_
     upstream = sse_consumer(bridge, run_record, request, run_mgr)
 
     return StreamingResponse(
-        usechat_stream_from_langgraph(upstream, conversation_id=record.id),
+        usechat_stream_from_langgraph(
+            upstream,
+            conversation_id=record.id,
+            historical_message_ids=historical_message_ids,
+        ),
         media_type="text/event-stream",
         headers=build_usechat_headers(),
     )
