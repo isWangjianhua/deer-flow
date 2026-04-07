@@ -127,6 +127,34 @@ describe("thread presentation", () => {
     ]);
   });
 
+  it("keeps an updated reasoning card before an already-rendered tool card", () => {
+    const events: ChatStreamEvent[] = [
+      {
+        type: "data-reasoning",
+        data: { messageId: "msg_live", content: "先分析一下" },
+      },
+      {
+        type: "data-tool-call",
+        data: { toolCallId: "call_1", name: "web_search", args: { query: "深圳天气" } },
+      },
+      {
+        type: "data-reasoning",
+        data: { messageId: "msg_live", content: "先分析一下\n然后搜索" },
+      },
+    ];
+
+    const presentation = buildThreadPresentation([], events);
+
+    expect(presentation.liveBlock?.events.map((event) => event.id)).toEqual([
+      "msg_live:reasoning:live",
+      "call_1",
+    ]);
+    expect(presentation.liveBlock?.events[0]).toMatchObject({
+      kind: "reasoning",
+      content: "先分析一下\n然后搜索",
+    });
+  });
+
   it("preserves separate tool cards when toolCallId repeats in live stream", () => {
     const events: ChatStreamEvent[] = [
       {
@@ -189,6 +217,38 @@ describe("thread presentation", () => {
       '{"results":[{"title":"结果A"}]}',
       '{"results":[{"title":"结果B"}]}',
     ]);
+  });
+
+  it("coalesces repeated live tool-call events for the same in-flight call", () => {
+    const events: ChatStreamEvent[] = [
+      {
+        type: "data-tool-call",
+        data: { toolCallId: "call_1", name: "web_search", args: {} },
+      },
+      {
+        type: "data-tool-call",
+        data: { toolCallId: "call_1", name: "web_search", args: { query: "成都明天天气预报 2026 年 4 月 8 日" } },
+      },
+      {
+        type: "data-tool-result",
+        data: {
+          toolCallId: "call_1",
+          name: "web_search",
+          content: '{"results":[{"title":"成都天气预报"}]}',
+        },
+      },
+    ];
+
+    const presentation = buildThreadPresentation([], events);
+    const toolCards = presentation.liveBlock?.events.filter((event) => event.kind === "tool") ?? [];
+
+    expect(toolCards).toHaveLength(1);
+    expect(toolCards[0]).toMatchObject({
+      id: "call_1",
+      args: { query: "成都明天天气预报 2026 年 4 月 8 日" },
+      content: '{"results":[{"title":"成都天气预报"}]}',
+      status: "done",
+    });
   });
 
   it("exposes artifact paths for the right canvas", () => {

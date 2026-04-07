@@ -103,6 +103,27 @@ describe("assistant step summaries", () => {
     });
   });
 
+  it("shows web search pills during streaming even if the tool status is still marked running once a result exists", () => {
+    const summary = summarizeToolResult(
+      "web_search",
+      { query: "深圳天气" },
+      {
+        results: [
+          { title: "深圳天气预报", url: "https://example.com/shenzhen" },
+        ],
+      },
+      undefined,
+      false,
+    );
+
+    expect(summary).toEqual({
+      mode: "pills",
+      items: [
+        { label: "深圳天气预报", href: "https://example.com/shenzhen" },
+      ],
+    });
+  });
+
   it("extracts web fetch summaries from markdown content strings", () => {
     const summary = summarizeToolResult(
       "web_fetch",

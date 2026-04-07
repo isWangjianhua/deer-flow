@@ -61,6 +61,16 @@ def _iter_langgraph_payloads(chunk: str) -> list[Any]:
     return payloads
 
 
+def _merge_stream_text(existing: str, chunk: str) -> str:
+    if not existing or chunk == existing:
+        return chunk or existing
+    if chunk.startswith(existing):
+        return chunk
+    if existing.endswith(chunk):
+        return existing
+    return existing + chunk
+
+
 def _extract_text_event_from_langgraph_chunk(chunk: str) -> tuple[str, str | None]:
     for payload in _iter_langgraph_payloads(chunk):
         if isinstance(payload, list) and payload:
@@ -154,18 +164,9 @@ def _extract_tool_events_from_langgraph_chunk(chunk: str) -> list[dict[str, Any]
                 return str(value)
         return str(value)
 
-    for payload in _iter_langgraph_payloads(chunk):
-        if isinstance(payload, list) and payload:
-            first = payload[0]
-            if isinstance(first, dict):
-                payload = first
-            else:
-                continue
-        if not isinstance(payload, dict):
-            continue
-
+    def append_tool_events(payload: dict[str, Any], *, include_calls: bool, include_results: bool) -> None:
         payload_type = str(payload.get("type", "")).lower()
-        if payload_type in ("ai", "aimessagechunk"):
+        if include_calls and payload_type in ("ai", "aimessagechunk"):
             for tool_call in payload.get("tool_calls") or []:
                 if not isinstance(tool_call, dict):
                     continue
@@ -183,10 +184,10 @@ def _extract_tool_events_from_langgraph_chunk(chunk: str) -> list[dict[str, Any]
                         "args": args if isinstance(args, dict) else {},
                     }
                 )
-        elif payload_type == "tool":
+        elif include_results and payload_type == "tool":
             tool_call_id = payload.get("tool_call_id")
             if not isinstance(tool_call_id, str):
-                continue
+                return
             events.append(
                 {
                     "kind": "tool-result",
@@ -196,6 +197,28 @@ def _extract_tool_events_from_langgraph_chunk(chunk: str) -> list[dict[str, Any]
                     "content": normalize_tool_content(payload.get("content")),
                 }
             )
+
+    for payload in _iter_langgraph_payloads(chunk):
+        if isinstance(payload, list) and payload:
+            first = payload[0]
+            if isinstance(first, dict):
+                append_tool_events(first, include_calls=True, include_results=True)
+            continue
+
+        if not isinstance(payload, dict):
+            continue
+
+        messages = payload.get("messages")
+        if isinstance(messages, list):
+            for message in messages:
+                if isinstance(message, dict):
+                    append_tool_events(message, include_calls=True, include_results=False)
+            for message in messages:
+                if isinstance(message, dict):
+                    append_tool_events(message, include_calls=False, include_results=True)
+            continue
+
+        append_tool_events(payload, include_calls=True, include_results=True)
     return events
 
 
@@ -226,22 +249,25 @@ async def usechat_stream_from_langgraph(
         for reasoning in _extract_reasoning_events_from_langgraph_chunk(chunk):
             if reasoning["message_id"] in historical_ids:
                 continue
-            previous = latest_reasoning_by_message.get(reasoning["message_id"])
-            if previous == reasoning["content"]:
+            previous = latest_reasoning_by_message.get(reasoning["message_id"], "")
+            merged_reasoning = _merge_stream_text(previous, reasoning["content"])
+            if previous == merged_reasoning:
                 continue
 
-            latest_reasoning_by_message[reasoning["message_id"]] = reasoning["content"]
+            latest_reasoning_by_message[reasoning["message_id"]] = merged_reasoning
             yield encode_usechat_data_part(
                 "data-reasoning",
                 {
                     "messageId": reasoning["message_id"],
-                    "content": reasoning["content"],
+                    "content": merged_reasoning,
                 },
                 transient=True,
                 part_id=f"reasoning_{reasoning['message_id']}",
             )
 
         if (
+            "event: values" in chunk
+            or
             "event: messages/partial" in chunk
             or "event: messages-tuple" in chunk
             or "event: messages" in chunk
@@ -251,7 +277,7 @@ async def usechat_stream_from_langgraph(
                 if isinstance(event_message_id, str) and event_message_id in historical_ids:
                     continue
                 if event["kind"] == "tool-call":
-                    dedupe_key = f"{event.get('message_id') or ''}:{event['tool_call_id']}"
+                    dedupe_key = str(event["tool_call_id"])
                     signature = json.dumps(
                         {
                             "name": event["name"],
@@ -275,7 +301,7 @@ async def usechat_stream_from_langgraph(
                         part_id=event["tool_call_id"],
                     )
                 elif event["kind"] == "tool-result":
-                    dedupe_key = f"{event.get('message_id') or ''}:{event['tool_call_id']}"
+                    dedupe_key = str(event["tool_call_id"])
                     signature = json.dumps(
                         {
                             "name": event.get("name"),

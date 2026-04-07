@@ -257,6 +257,91 @@ async def test_usechat_stream_from_langgraph_emits_reasoning_parts_from_values()
 
 
 @pytest.mark.anyio
+async def test_usechat_stream_from_langgraph_accumulates_reasoning_deltas_for_same_message():
+    async def upstream():
+        yield (
+            'event: messages-tuple\n'
+            'data: {"type":"ai","id":"ai_1","content":[{"type":"text","thinking":"先分析一下"}]}\n\n'
+        )
+        yield (
+            'event: messages-tuple\n'
+            'data: {"type":"ai","id":"ai_1","content":[{"type":"text","thinking":"，再去搜索"}]}\n\n'
+        )
+
+    frames = []
+    async for frame in usechat_stream_from_langgraph(upstream(), conversation_id="conv_1"):
+        frames.append(frame)
+
+    joined = "".join(frames)
+    assert '"type": "data-reasoning"' in joined
+    assert '"content": "先分析一下，再去搜索"' in joined
+
+
+@pytest.mark.anyio
+async def test_usechat_stream_from_langgraph_emits_tool_results_from_values_events():
+    async def upstream():
+        yield (
+            'event: values\n'
+            'data: {"messages":['
+            '{"type":"ai","id":"ai_1","content":"","tool_calls":[{"id":"call_1","name":"web_search","args":{"query":"深圳天气"}}]},'
+            '{"type":"tool","id":"tool_1","name":"web_search","tool_call_id":"call_1","content":{"results":[{"title":"深圳天气预报"}]}}'
+            ']}\n\n'
+        )
+
+    frames = []
+    async for frame in usechat_stream_from_langgraph(upstream(), conversation_id="conv_1"):
+        frames.append(frame)
+
+    joined = "".join(frames)
+    assert '"type": "data-tool-call"' in joined
+    assert '"type": "data-tool-result"' in joined
+    assert '\\"title\\": \\"深圳天气预报\\"' in joined
+
+
+@pytest.mark.anyio
+async def test_usechat_stream_from_langgraph_emits_tool_call_before_tool_result_from_values_events():
+    async def upstream():
+        yield (
+            'event: values\n'
+            'data: {"messages":['
+            '{"type":"tool","id":"tool_1","name":"web_search","tool_call_id":"call_1","content":{"results":[{"title":"深圳天气预报"}]}},'
+            '{"type":"ai","id":"ai_1","content":"","tool_calls":[{"id":"call_1","name":"web_search","args":{"query":"深圳天气"}}]}'
+            ']}\n\n'
+        )
+
+    frames = []
+    async for frame in usechat_stream_from_langgraph(upstream(), conversation_id="conv_1"):
+        frames.append(frame)
+
+    joined = "".join(frames)
+    assert joined.index('"type": "data-tool-call"') < joined.index('"type": "data-tool-result"')
+
+
+@pytest.mark.anyio
+async def test_usechat_stream_from_langgraph_ignores_replayed_tool_call_after_value_result():
+    async def upstream():
+        yield (
+            'event: values\n'
+            'data: {"messages":['
+            '{"type":"ai","id":"ai_1","content":"","tool_calls":[{"id":"call_1","name":"web_search","args":{"query":"成都明天天气"}}]},'
+            '{"type":"tool","id":"tool_1","name":"web_search","tool_call_id":"call_1","content":{"results":[{"title":"成都天气预报"}]}}'
+            ']}\n\n'
+        )
+        yield (
+            'event: messages\n'
+            'data: [{"type":"ai","id":"ai_2","content":"","tool_calls":[{"id":"call_1","name":"web_search","args":{"query":"成都明天天气"}}]},{"langgraph_node":"agent"}]\n\n'
+        )
+
+    frames = []
+    async for frame in usechat_stream_from_langgraph(upstream(), conversation_id="conv_1"):
+        frames.append(frame)
+
+    joined = "".join(frames)
+    assert joined.count('"type": "data-tool-call"') == 1
+    assert joined.count('"type": "data-tool-result"') == 1
+
+
+@pytest.mark.anyio
 async def test_usechat_stream_from_langgraph_ignores_historical_message_events():
     async def upstream():
         yield (

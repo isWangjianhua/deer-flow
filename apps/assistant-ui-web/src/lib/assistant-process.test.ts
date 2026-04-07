@@ -4,6 +4,7 @@ import {
   buildAssistantProcessSummary,
   collectAssistantProcessEntries,
 } from "./assistant-process";
+import { isToolResultStreaming } from "./assistant-tool-state";
 
 describe("assistant process summary", () => {
   it("uses the latest live step while streaming", () => {
@@ -77,5 +78,10 @@ describe("assistant process summary", () => {
     ).toEqual([
       { kind: "tool", toolName: "web_search", args: undefined, argsText: undefined, result: undefined, status: undefined },
     ]);
+  });
+
+  it("does not keep a tool in running state once a streamed result already exists", () => {
+    expect(isToolResultStreaming("running", true, true)).toBe(false);
+    expect(isToolResultStreaming("pending", true, true)).toBe(false);
   });
 });

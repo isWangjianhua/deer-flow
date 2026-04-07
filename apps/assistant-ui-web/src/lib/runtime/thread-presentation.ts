@@ -177,11 +177,6 @@ function buildLiveBlock(events: ChatStreamEvent[]): ThreadRenderBlock | null {
       const existing = reasoningCards.get(messageId);
       if (existing) {
         existing.content = content;
-        const existingIndex = orderedEvents.indexOf(existing);
-        if (existingIndex >= 0) {
-          orderedEvents.splice(existingIndex, 1);
-        }
-        orderedEvents.push(existing);
         continue;
       }
 
@@ -206,6 +201,21 @@ function buildLiveBlock(events: ChatStreamEvent[]): ThreadRenderBlock | null {
         continue;
       }
 
+      const pending = pendingToolCards.get(event.data.toolCallId) ?? [];
+      const existingPending = pending[pending.length - 1];
+      if (existingPending) {
+        existingPending.title = event.data.name;
+        existingPending.toolName = event.data.name;
+        const incomingArgs = event.data.args ?? {};
+        if (Object.keys(incomingArgs).length > 0 || Object.keys(existingPending.args).length === 0) {
+          existingPending.args = incomingArgs;
+        }
+        if (event.data.messageId) {
+          existingPending.source.messageId = event.data.messageId;
+        }
+        continue;
+      }
+
       const occurrence = (toolOccurrences.get(event.data.toolCallId) ?? 0) + 1;
       toolOccurrences.set(event.data.toolCallId, occurrence);
       const card: Extract<ThreadEventCard, { kind: "tool" }> = {
@@ -222,7 +232,6 @@ function buildLiveBlock(events: ChatStreamEvent[]): ThreadRenderBlock | null {
         status: "pending",
       };
       orderedEvents.push(card);
-      const pending = pendingToolCards.get(event.data.toolCallId) ?? [];
       pending.push(card);
       pendingToolCards.set(event.data.toolCallId, pending);
       continue;

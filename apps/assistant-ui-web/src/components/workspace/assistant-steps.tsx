@@ -32,6 +32,7 @@ import {
   collectAssistantProcessSteps,
 } from "@/lib/assistant-process";
 import { summarizeToolResult } from "@/lib/assistant-step-summaries";
+import { isToolResultStreaming } from "@/lib/assistant-tool-state";
 import {
   getToolDisplayName,
 } from "@/lib/event-cards";
@@ -291,11 +292,7 @@ const AssistantProcessTool = (props: any) => {
 
   const statusType = typeof status === "string" ? status : status?.type;
   const hasResult = result !== undefined && result !== null && result !== "";
-  const running =
-    statusType === "running" ||
-    statusType === "pending" ||
-    statusType === "in_progress" ||
-    (isStreaming && !hasResult);
+  const running = isToolResultStreaming(statusType, hasResult, isStreaming);
   const parsedArgs = parseToolArgs(args, argsText);
   const content = stringifyToolResult(result);
   const ToolIcon = getToolIcon(toolName);
