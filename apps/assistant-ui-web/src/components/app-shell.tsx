@@ -18,6 +18,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
+import { shouldShowUserControls } from "@/lib/app-shell-auth";
 import { PanelLeftCloseIcon, SettingsIcon, SquarePenIcon, UserCircleIcon, LogOutIcon } from "lucide-react";
 
 import type { ThreadListItem } from "../lib/runtime/thread-list-runtime";
@@ -32,6 +33,8 @@ type AppShellProps = Readonly<{
 }>;
 
 export function AppShell({ threads = [], activeThreadId, currentUser, children }: AppShellProps) {
+  const showUserControls = shouldShowUserControls(currentUser);
+
   return (
     <SidebarProvider defaultOpen>
       <Sidebar collapsible="icon">
@@ -79,33 +82,35 @@ export function AppShell({ threads = [], activeThreadId, currentUser, children }
 
         <SidebarFooter>
           <SidebarMenu>
-            <SidebarMenuItem>
-              <div className="group/user relative">
-                <SidebarMenuButton className="flex items-center gap-2 px-3 py-4 text-muted-foreground hover:text-foreground">
-                  <UserCircleIcon className="size-5 shrink-0" />
-                  <span className="text-sm font-medium truncate group-data-[collapsible=icon]:hidden">
-                    {currentUser?.username || "Guest"}
-                  </span>
-                </SidebarMenuButton>
-                <div className="invisible absolute left-0 bottom-full pb-1 opacity-0 transition-all group-hover/user:visible group-hover/user:opacity-100 z-50">
-                  <div className="w-32 ml-1 rounded-md border border-border/60 bg-popover p-1 shadow-md">
-                    <button
-                      className="flex w-full items-center gap-2 px-2 py-1.5 text-sm hover:bg-muted text-red-500 rounded-sm"
-                      onClick={() => {
-                        void performLogout((href) => {
-                          window.location.href = href;
-                        }).catch((error) => {
-                          console.error("Failed to log out", error);
-                        });
-                      }}
-                    >
-                      <LogOutIcon className="size-4 shrink-0" />
-                      退出
-                    </button>
+            {showUserControls ? (
+              <SidebarMenuItem>
+                <div className="group/user relative">
+                  <SidebarMenuButton className="flex items-center gap-2 px-3 py-4 text-muted-foreground hover:text-foreground">
+                    <UserCircleIcon className="size-5 shrink-0" />
+                    <span className="text-sm font-medium truncate group-data-[collapsible=icon]:hidden">
+                      {currentUser?.username}
+                    </span>
+                  </SidebarMenuButton>
+                  <div className="invisible absolute left-0 bottom-full z-50 pb-1 opacity-0 transition-all group-hover/user:visible group-hover/user:opacity-100">
+                    <div className="ml-1 w-32 rounded-md border border-border/60 bg-popover p-1 shadow-md">
+                      <button
+                        className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-red-500 hover:bg-muted"
+                        onClick={() => {
+                          void performLogout((href) => {
+                            window.location.href = href;
+                          }).catch((error) => {
+                            console.error("Failed to log out", error);
+                          });
+                        }}
+                      >
+                        <LogOutIcon className="size-4 shrink-0" />
+                        退出
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </SidebarMenuItem>
+              </SidebarMenuItem>
+            ) : null}
           </SidebarMenu>
         </SidebarFooter>
         <SidebarRail />
