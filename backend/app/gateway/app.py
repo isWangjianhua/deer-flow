@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.gateway.config import get_gateway_config
-from app.gateway.deps import langgraph_runtime
+from app.gateway.deps import runtime_client_lifespan
 from app.gateway.routers import (
     assistant_ui,
     agents,
@@ -65,9 +65,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     config = get_gateway_config()
     logger.info(f"Starting API Gateway on {config.host}:{config.port}")
 
-    # Initialize LangGraph runtime components (StreamBridge, RunManager, checkpointer, store)
-    async with langgraph_runtime(app):
-        logger.info("LangGraph runtime initialised")
+    # Initialize HTTP client for the external LangGraph runtime.
+    async with runtime_client_lifespan(app):
+        logger.info("LangGraph runtime client initialised")
 
         # Start IM channel service if any channels are configured
         try:

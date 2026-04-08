@@ -1,16 +1,11 @@
-"""Centralized accessors for singleton objects stored on ``app.state``.
-
-**Getters** (used by routers): raise 503 when a required dependency is
-missing, except ``get_store`` which returns ``None``.
-
-Initialization is handled directly in ``app.py`` via :class:`AsyncExitStack`.
-"""
+"""Gateway dependencies and lifespan-managed clients."""
 
 from __future__ import annotations
 
 from collections.abc import AsyncGenerator
-from contextlib import AsyncExitStack, asynccontextmanager
+from contextlib import asynccontextmanager
 
+import httpx
 from fastapi import FastAPI, HTTPException, Request
 
 from app.gateway.auth.session import (
@@ -19,62 +14,26 @@ from app.gateway.auth.session import (
     get_session_by_token,
     get_user_by_id,
 )
+from app.gateway.config import get_gateway_config
+from app.gateway.runtime_client import LangGraphRuntimeClient
 from app.gateway.thread_ownership import ensure_thread_belongs_to_user
-from deerflow.runtime import RunManager, StreamBridge
 
 
 @asynccontextmanager
-async def langgraph_runtime(app: FastAPI) -> AsyncGenerator[None, None]:
-    """Bootstrap and tear down all LangGraph runtime singletons.
-
-    Usage in ``app.py``::
-
-        async with langgraph_runtime(app):
-            yield
-    """
-    from deerflow.agents.checkpointer.async_provider import make_checkpointer
-    from deerflow.runtime import make_store, make_stream_bridge
-
-    async with AsyncExitStack() as stack:
-        app.state.stream_bridge = await stack.enter_async_context(make_stream_bridge())
-        app.state.checkpointer = await stack.enter_async_context(make_checkpointer())
-        app.state.store = await stack.enter_async_context(make_store())
-        app.state.run_manager = RunManager()
+async def runtime_client_lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    """Create the shared HTTP client used to talk to LangGraph runtime."""
+    config = get_gateway_config()
+    timeout = httpx.Timeout(connect=5.0, read=None, write=30.0, pool=30.0)
+    async with httpx.AsyncClient(base_url=config.langgraph_url.rstrip("/"), timeout=timeout) as http_client:
+        app.state.runtime_client = LangGraphRuntimeClient(http_client)
         yield
 
 
-# ---------------------------------------------------------------------------
-# Getters – called by routers per-request
-# ---------------------------------------------------------------------------
-
-
-def get_stream_bridge(request: Request) -> StreamBridge:
-    """Return the global :class:`StreamBridge`, or 503."""
-    bridge = getattr(request.app.state, "stream_bridge", None)
-    if bridge is None:
-        raise HTTPException(status_code=503, detail="Stream bridge not available")
-    return bridge
-
-
-def get_run_manager(request: Request) -> RunManager:
-    """Return the global :class:`RunManager`, or 503."""
-    mgr = getattr(request.app.state, "run_manager", None)
-    if mgr is None:
-        raise HTTPException(status_code=503, detail="Run manager not available")
-    return mgr
-
-
-def get_checkpointer(request: Request):
-    """Return the global checkpointer, or 503."""
-    cp = getattr(request.app.state, "checkpointer", None)
-    if cp is None:
-        raise HTTPException(status_code=503, detail="Checkpointer not available")
-    return cp
-
-
-def get_store(request: Request):
-    """Return the global store (may be ``None`` if not configured)."""
-    return getattr(request.app.state, "store", None)
+def get_runtime_client(request: Request) -> LangGraphRuntimeClient:
+    client = getattr(request.app.state, "runtime_client", None)
+    if client is None:
+        raise HTTPException(status_code=503, detail="LangGraph runtime client not available")
+    return client
 
 
 def get_current_user_optional(request: Request):

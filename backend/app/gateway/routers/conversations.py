@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel, Field
 
 from app.gateway.deps import get_current_user
+from app.gateway.routers import threads
 from app.gateway.thread_ownership import (
     create_owned_thread,
     delete_owned_thread,
@@ -44,8 +45,9 @@ async def list_conversations(user=Depends(get_current_user)) -> list[Conversatio
 
 
 @router.post("", response_model=ConversationResponse, status_code=status.HTTP_201_CREATED)
-async def create_conversation(body: ConversationCreateRequest, user=Depends(get_current_user)) -> ConversationResponse:
+async def create_conversation(body: ConversationCreateRequest, request: Request, user=Depends(get_current_user)) -> ConversationResponse:
     record = create_owned_thread(user_id=user.id, title=body.title)
+    await threads.ensure_runtime_thread(record=record, request=request)
     return ConversationResponse(
         conversation_id=record.id,
         title=record.title,

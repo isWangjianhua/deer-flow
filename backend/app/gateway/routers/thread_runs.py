@@ -1,35 +1,18 @@
-"""Runs endpoints — create, stream, wait, cancel.
-
-Implements the LangGraph Platform runs API on top of
-:class:`deerflow.agents.runs.RunManager` and
-:class:`deerflow.agents.stream_bridge.StreamBridge`.
-
-SSE format is aligned with the LangGraph Platform protocol so that
-the ``useStream`` React hook from ``@langchain/langgraph-sdk/react``
-works without modification.
-"""
+"""Run lifecycle endpoints proxied to the LangGraph runtime."""
 
 from __future__ import annotations
 
-import asyncio
-import logging
+from collections.abc import AsyncIterator
 from typing import Any, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field
 
-from app.gateway.deps import get_checkpointer, get_current_user, get_run_manager, get_stream_bridge, require_owned_thread
-from app.gateway.services import sse_consumer, start_run
-from deerflow.runtime import RunRecord, serialize_channel_values
+from app.gateway.deps import get_current_user, get_runtime_client, require_owned_thread
+from app.gateway.runtime_client import iter_sse_text
 
-logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/threads", tags=["runs"])
-
-
-# ---------------------------------------------------------------------------
-# Request / response models
-# ---------------------------------------------------------------------------
 
 
 class RunCreateRequest(BaseModel):
@@ -66,25 +49,6 @@ class RunResponse(BaseModel):
     updated_at: str = ""
 
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-
-def _record_to_response(record: RunRecord) -> RunResponse:
-    return RunResponse(
-        run_id=record.run_id,
-        thread_id=record.thread_id,
-        assistant_id=record.assistant_id,
-        status=record.status.value,
-        metadata=record.metadata,
-        kwargs=record.kwargs,
-        multitask_strategy=record.multitask_strategy,
-        created_at=record.created_at,
-        updated_at=record.updated_at,
-    )
-
-
 def _normalize_owned_run_request(body: RunCreateRequest, *, thread_id: str, user_id: str) -> RunCreateRequest:
     config = dict(body.config or {})
     configurable = dict(config.get("configurable", {}))
@@ -94,94 +58,82 @@ def _normalize_owned_run_request(body: RunCreateRequest, *, thread_id: str, user
     return body.model_copy(update={"config": config})
 
 
-# ---------------------------------------------------------------------------
-# Endpoints
-# ---------------------------------------------------------------------------
+async def create_thread_run(*, thread_id: str, payload: dict[str, Any], request: Request) -> dict[str, Any]:
+    client = get_runtime_client(request)
+    return await client.create_thread_run(thread_id, payload)
+
+
+async def _stream_from_runtime(upstream) -> AsyncIterator[str]:
+    async for chunk in iter_sse_text(upstream):
+        yield chunk
+
+
+def _stream_headers(thread_id: str, run_id: str | None = None) -> dict[str, str]:
+    headers = {
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+        "X-Accel-Buffering": "no",
+    }
+    if run_id:
+        headers["Content-Location"] = f"/api/threads/{thread_id}/runs/{run_id}/stream?thread_id={thread_id}&run_id={run_id}"
+    return headers
 
 
 @router.post("/{thread_id}/runs", response_model=RunResponse)
 async def create_run(thread_id: str, body: RunCreateRequest, request: Request, user=Depends(get_current_user)) -> RunResponse:
-    """Create a background run (returns immediately)."""
-    require_owned_thread(thread_id, user.id)
-    body = _normalize_owned_run_request(body, thread_id=thread_id, user_id=user.id)
-    record = await start_run(body, thread_id, request)
-    return _record_to_response(record)
+    owner_record = require_owned_thread(thread_id, user.id)
+    body = _normalize_owned_run_request(body, thread_id=owner_record.langgraph_thread_id, user_id=user.id)
+    payload = body.model_dump(exclude_none=True, exclude_defaults=True)
+    result = await create_thread_run(thread_id=owner_record.langgraph_thread_id, payload=payload, request=request)
+    result["thread_id"] = owner_record.id
+    return RunResponse.model_validate(result)
 
 
 @router.post("/{thread_id}/runs/stream")
 async def stream_run(thread_id: str, body: RunCreateRequest, request: Request, user=Depends(get_current_user)) -> StreamingResponse:
-    """Create a run and stream events via SSE.
-
-    The response includes a ``Content-Location`` header with the run's
-    resource URL, matching the LangGraph Platform protocol.  The
-    ``useStream`` React hook uses this to extract run metadata.
-    """
-    require_owned_thread(thread_id, user.id)
-    body = _normalize_owned_run_request(body, thread_id=thread_id, user_id=user.id)
-
-    bridge = get_stream_bridge(request)
-    run_mgr = get_run_manager(request)
-    record = await start_run(body, thread_id, request)
-
+    owner_record = require_owned_thread(thread_id, user.id)
+    body = _normalize_owned_run_request(body, thread_id=owner_record.langgraph_thread_id, user_id=user.id)
+    client = get_runtime_client(request)
+    upstream = await client.start_stream(
+        "POST",
+        f"/threads/{owner_record.langgraph_thread_id}/runs/stream",
+        json_body=body.model_dump(exclude_none=True, exclude_defaults=True),
+        default_error="Failed to stream run",
+    )
+    content_location = upstream.headers.get("Content-Location", "")
+    run_id = content_location.split("/runs/", 1)[1].split("/", 1)[0] if "/runs/" in content_location else None
     return StreamingResponse(
-        sse_consumer(bridge, record, request, run_mgr),
+        _stream_from_runtime(upstream),
         media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",
-            # LangGraph Platform includes run metadata in this header.
-            # The SDK's _get_run_metadata_from_response() parses it.
-            "Content-Location": (f"/api/threads/{thread_id}/runs/{record.run_id}/stream?thread_id={thread_id}&run_id={record.run_id}"),
-        },
+        headers=_stream_headers(thread_id, run_id),
     )
 
 
 @router.post("/{thread_id}/runs/wait", response_model=dict)
 async def wait_run(thread_id: str, body: RunCreateRequest, request: Request, user=Depends(get_current_user)) -> dict:
-    """Create a run and block until it completes, returning the final state."""
-    require_owned_thread(thread_id, user.id)
-    body = _normalize_owned_run_request(body, thread_id=thread_id, user_id=user.id)
-    record = await start_run(body, thread_id, request)
-
-    if record.task is not None:
-        try:
-            await record.task
-        except asyncio.CancelledError:
-            pass
-
-    checkpointer = get_checkpointer(request)
-    config = {"configurable": {"thread_id": thread_id}}
-    try:
-        checkpoint_tuple = await checkpointer.aget_tuple(config)
-        if checkpoint_tuple is not None:
-            checkpoint = getattr(checkpoint_tuple, "checkpoint", {}) or {}
-            channel_values = checkpoint.get("channel_values", {})
-            return serialize_channel_values(channel_values)
-    except Exception:
-        logger.exception("Failed to fetch final state for run %s", record.run_id)
-
-    return {"status": record.status.value, "error": record.error}
+    owner_record = require_owned_thread(thread_id, user.id)
+    body = _normalize_owned_run_request(body, thread_id=owner_record.langgraph_thread_id, user_id=user.id)
+    client = get_runtime_client(request)
+    return await client.wait_thread_run(owner_record.langgraph_thread_id, body.model_dump(exclude_none=True, exclude_defaults=True))
 
 
 @router.get("/{thread_id}/runs", response_model=list[RunResponse])
 async def list_runs(thread_id: str, request: Request, user=Depends(get_current_user)) -> list[RunResponse]:
-    """List all runs for a thread."""
-    require_owned_thread(thread_id, user.id)
-    run_mgr = get_run_manager(request)
-    records = await run_mgr.list_by_thread(thread_id)
-    return [_record_to_response(r) for r in records]
+    owner_record = require_owned_thread(thread_id, user.id)
+    client = get_runtime_client(request)
+    items = await client.list_thread_runs(owner_record.langgraph_thread_id)
+    for item in items:
+        item["thread_id"] = owner_record.id
+    return [RunResponse.model_validate(item) for item in items]
 
 
 @router.get("/{thread_id}/runs/{run_id}", response_model=RunResponse)
 async def get_run(thread_id: str, run_id: str, request: Request, user=Depends(get_current_user)) -> RunResponse:
-    """Get details of a specific run."""
-    require_owned_thread(thread_id, user.id)
-    run_mgr = get_run_manager(request)
-    record = run_mgr.get(run_id)
-    if record is None or record.thread_id != thread_id:
-        raise HTTPException(status_code=404, detail=f"Run {run_id} not found")
-    return _record_to_response(record)
+    owner_record = require_owned_thread(thread_id, user.id)
+    client = get_runtime_client(request)
+    result = await client.get_thread_run(owner_record.langgraph_thread_id, run_id)
+    result["thread_id"] = owner_record.id
+    return RunResponse.model_validate(result)
 
 
 @router.post("/{thread_id}/runs/{run_id}/cancel")
@@ -193,56 +145,17 @@ async def cancel_run(
     wait: bool = Query(default=False, description="Block until run completes after cancel"),
     action: Literal["interrupt", "rollback"] = Query(default="interrupt", description="Cancel action"),
 ) -> Response:
-    """Cancel a running or pending run.
-
-    - action=interrupt: Stop execution, keep current checkpoint (can be resumed)
-    - action=rollback: Stop execution, revert to pre-run checkpoint state
-    - wait=true: Block until the run fully stops, return 204
-    - wait=false: Return immediately with 202
-    """
-    require_owned_thread(thread_id, user.id)
-
-    run_mgr = get_run_manager(request)
-    record = run_mgr.get(run_id)
-    if record is None or record.thread_id != thread_id:
-        raise HTTPException(status_code=404, detail=f"Run {run_id} not found")
-
-    cancelled = await run_mgr.cancel(run_id, action=action)
-    if not cancelled:
-        raise HTTPException(
-            status_code=409,
-            detail=f"Run {run_id} is not cancellable (status: {record.status.value})",
-        )
-
-    if wait and record.task is not None:
-        try:
-            await record.task
-        except asyncio.CancelledError:
-            pass
-        return Response(status_code=204)
-
-    return Response(status_code=202)
+    owner_record = require_owned_thread(thread_id, user.id)
+    client = get_runtime_client(request)
+    return Response(status_code=await client.cancel_thread_run(owner_record.langgraph_thread_id, run_id, wait=wait, action=action))
 
 
 @router.get("/{thread_id}/runs/{run_id}/join")
 async def join_run(thread_id: str, run_id: str, request: Request, user=Depends(get_current_user)) -> StreamingResponse:
-    """Join an existing run's SSE stream."""
-    require_owned_thread(thread_id, user.id)
-    bridge = get_stream_bridge(request)
-    run_mgr = get_run_manager(request)
-    record = run_mgr.get(run_id)
-    if record is None or record.thread_id != thread_id:
-        raise HTTPException(status_code=404, detail=f"Run {run_id} not found")
-
-    return StreamingResponse(
-        sse_consumer(bridge, record, request, run_mgr),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",
-        },
-    )
+    owner_record = require_owned_thread(thread_id, user.id)
+    client = get_runtime_client(request)
+    upstream = await client.start_stream("GET", f"/threads/{owner_record.langgraph_thread_id}/runs/{run_id}/stream", default_error="Failed to join run stream")
+    return StreamingResponse(_stream_from_runtime(upstream), media_type="text/event-stream", headers=_stream_headers(thread_id))
 
 
 @router.api_route("/{thread_id}/runs/{run_id}/stream", methods=["GET", "POST"], response_model=None)
@@ -254,37 +167,13 @@ async def stream_existing_run(
     action: Literal["interrupt", "rollback"] | None = Query(default=None, description="Cancel action"),
     wait: int = Query(default=0, description="Block until cancelled (1) or return immediately (0)"),
 ):
-    """Join an existing run's SSE stream (GET), or cancel-then-stream (POST).
-
-    The LangGraph SDK's ``joinStream`` and ``useStream`` stop button both use
-    ``POST`` to this endpoint.  When ``action=interrupt`` or ``action=rollback``
-    is present the run is cancelled first; the response then streams any
-    remaining buffered events so the client observes a clean shutdown.
-    """
-    require_owned_thread(thread_id, user.id)
-
-    run_mgr = get_run_manager(request)
-    record = run_mgr.get(run_id)
-    if record is None or record.thread_id != thread_id:
-        raise HTTPException(status_code=404, detail=f"Run {run_id} not found")
-
-    # Cancel if an action was requested (stop-button / interrupt flow)
-    if action is not None:
-        cancelled = await run_mgr.cancel(run_id, action=action)
-        if cancelled and wait and record.task is not None:
-            try:
-                await record.task
-            except (asyncio.CancelledError, Exception):
-                pass
-            return Response(status_code=204)
-
-    bridge = get_stream_bridge(request)
-    return StreamingResponse(
-        sse_consumer(bridge, record, request, run_mgr),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",
-        },
+    owner_record = require_owned_thread(thread_id, user.id)
+    client = get_runtime_client(request)
+    params = {k: v for k, v in {"action": action, "wait": wait}.items() if v is not None}
+    upstream = await client.start_stream(
+        request.method,
+        f"/threads/{owner_record.langgraph_thread_id}/runs/{run_id}/stream",
+        params=params,
+        default_error="Failed to stream existing run",
     )
+    return StreamingResponse(_stream_from_runtime(upstream), media_type="text/event-stream", headers=_stream_headers(thread_id))

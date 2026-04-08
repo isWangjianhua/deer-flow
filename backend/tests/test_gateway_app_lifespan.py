@@ -15,7 +15,7 @@ def test_lifespan_flushes_memory_queue_on_shutdown(monkeypatch):
     monkeypatch.setattr(gateway_app, "get_gateway_config", lambda: SimpleNamespace(host="0.0.0.0", port=8001))
 
     @asynccontextmanager
-    async def fake_langgraph_runtime(app):
+    async def fake_runtime_client_lifespan(app):
         events.append("runtime-enter")
         yield
         events.append("runtime-exit")
@@ -36,7 +36,7 @@ def test_lifespan_flushes_memory_queue_on_shutdown(monkeypatch):
         def flush(self):
             events.append("memory-flush")
 
-    monkeypatch.setattr(gateway_app, "langgraph_runtime", fake_langgraph_runtime)
+    monkeypatch.setattr(gateway_app, "runtime_client_lifespan", fake_runtime_client_lifespan)
 
     import app.channels.service as channel_service
     monkeypatch.setattr(channel_service, "start_channel_service", fake_start_channel_service)

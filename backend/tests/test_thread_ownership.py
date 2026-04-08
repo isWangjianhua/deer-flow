@@ -13,26 +13,19 @@ from app.gateway.thread_ownership import (
 )
 
 
-class _FakeStore:
+class _FakeRuntimeClient:
     def __init__(self, items: list[dict] | None = None):
         self._items = items or []
 
-    async def asearch(self, namespace, limit=10_000):
-        return [SimpleNamespace(value=item) for item in self._items[:limit]]
-
-
-class _EmptyCheckpointer:
-    async def alist(self, config=None, limit=None):
-        if False:
-            yield None
-        return
+    async def search_threads(self, payload: dict):
+        limit = payload.get("limit", len(self._items))
+        return self._items[:limit]
 
 
 def _build_app(user_id: str, *, store_items: list[dict] | None = None) -> FastAPI:
     app = FastAPI()
     app.include_router(threads.router)
-    app.state.store = _FakeStore(store_items)
-    app.state.checkpointer = _EmptyCheckpointer()
+    app.state.runtime_client = _FakeRuntimeClient(store_items)
 
     def override_current_user():
         return SimpleNamespace(id=user_id)
@@ -41,13 +34,14 @@ def _build_app(user_id: str, *, store_items: list[dict] | None = None) -> FastAP
     return app
 
 
-def test_create_owned_thread_keeps_langgraph_thread_id_equal_to_business_id(tmp_path, monkeypatch):
+def test_create_owned_thread_assigns_distinct_langgraph_uuid(tmp_path, monkeypatch):
     monkeypatch.setenv("DEER_FLOW_AUTH_DB_PATH", str(tmp_path / "auth.db"))
 
     record = create_owned_thread(user_id="user_a", biz_thread_id="thread_a")
 
     assert record.id == "thread_a"
-    assert record.langgraph_thread_id == "thread_a"
+    assert record.langgraph_thread_id != "thread_a"
+    assert len(record.langgraph_thread_id) == 36
     assert record.user_id == "user_a"
 
 
@@ -75,14 +69,14 @@ def test_ensure_thread_belongs_to_user_rejects_foreign_owner(tmp_path, monkeypat
 
 def test_search_threads_only_returns_current_users_threads(tmp_path, monkeypatch):
     monkeypatch.setenv("DEER_FLOW_AUTH_DB_PATH", str(tmp_path / "auth.db"))
-    create_owned_thread(user_id="user_a", biz_thread_id="thread_a")
-    create_owned_thread(user_id="user_b", biz_thread_id="thread_b")
+    thread_a = create_owned_thread(user_id="user_a", biz_thread_id="thread_a")
+    thread_b = create_owned_thread(user_id="user_b", biz_thread_id="thread_b")
 
     app = _build_app(
         "user_a",
         store_items=[
             {
-                "thread_id": "thread_a",
+                "thread_id": thread_a.langgraph_thread_id,
                 "status": "idle",
                 "created_at": 1,
                 "updated_at": 2,
@@ -90,7 +84,7 @@ def test_search_threads_only_returns_current_users_threads(tmp_path, monkeypatch
                 "values": {},
             },
             {
-                "thread_id": "thread_b",
+                "thread_id": thread_b.langgraph_thread_id,
                 "status": "idle",
                 "created_at": 1,
                 "updated_at": 3,

@@ -63,12 +63,12 @@ async def test_thread_runs_create_run_rejects_foreign_thread_owner(tmp_path, mon
 
     called = False
 
-    async def fake_start_run(body, thread_id, request):
+    async def fake_create_thread_run(*, thread_id, payload, request=None):
         nonlocal called
         called = True
         return None
 
-    monkeypatch.setattr(thread_runs, "start_run", fake_start_run)
+    monkeypatch.setattr(thread_runs, "create_thread_run", fake_create_thread_run)
 
     with pytest.raises(HTTPException) as exc_info:
         await thread_runs.create_run(
@@ -86,26 +86,26 @@ async def test_thread_runs_create_run_rejects_foreign_thread_owner(tmp_path, mon
 @pytest.mark.anyio
 async def test_thread_runs_force_path_thread_and_current_user_into_run_config(tmp_path, monkeypatch):
     monkeypatch.setenv("DEER_FLOW_AUTH_DB_PATH", str(tmp_path / "auth.db"))
-    create_owned_thread(user_id="user_a", biz_thread_id="thread_a")
+    owner_record = create_owned_thread(user_id="user_a", biz_thread_id="thread_a")
 
     captured: dict[str, object] = {}
 
-    async def fake_start_run(body, thread_id, request):
+    async def fake_create_thread_run(*, thread_id, payload, request=None):
         captured["thread_id"] = thread_id
-        captured["config"] = body.config
-        return SimpleNamespace(
-            run_id="run_1",
-            thread_id=thread_id,
-            assistant_id=None,
-            status=SimpleNamespace(value="pending"),
-            metadata={},
-            kwargs={},
-            multitask_strategy="reject",
-            created_at="",
-            updated_at="",
-        )
+        captured["payload"] = payload
+        return {
+            "run_id": "run_1",
+            "thread_id": thread_id,
+            "assistant_id": None,
+            "status": "pending",
+            "metadata": {},
+            "kwargs": {},
+            "multitask_strategy": "reject",
+            "created_at": "",
+            "updated_at": "",
+        }
 
-    monkeypatch.setattr(thread_runs, "start_run", fake_start_run)
+    monkeypatch.setattr(thread_runs, "create_thread_run", fake_create_thread_run)
 
     response = await thread_runs.create_run(
         "thread_a",
@@ -114,8 +114,8 @@ async def test_thread_runs_force_path_thread_and_current_user_into_run_config(tm
         user=SimpleNamespace(id="user_a"),
     )
 
-    assert captured["thread_id"] == "thread_a"
-    assert captured["config"] == {"configurable": {"thread_id": "thread_a", "user_id": "user_a"}}
+    assert captured["thread_id"] == owner_record.langgraph_thread_id
+    assert captured["payload"]["config"] == {"configurable": {"thread_id": owner_record.langgraph_thread_id, "user_id": "user_a"}}
     assert response.thread_id == "thread_a"
 
 
@@ -126,28 +126,26 @@ async def test_stateless_runs_create_owned_thread_for_authenticated_user(tmp_pat
 
     captured: dict[str, object] = {}
 
-    async def fake_start_run(body, thread_id, request):
-        captured["thread_id"] = thread_id
-        captured["config"] = body.config
-        return SimpleNamespace(run_id="run_1", thread_id=thread_id)
-
-    async def fake_sse_consumer(bridge, record, request, run_mgr):
+    async def fake_stream_stateless_run(*, payload, request):
+        captured["thread_id"] = payload["config"]["configurable"]["thread_id"]
+        captured["config"] = payload["config"]
         yield 'event: done\ndata: {}\n\n'
 
-    monkeypatch.setattr(runs_router, "start_run", fake_start_run)
-    monkeypatch.setattr(runs_router, "sse_consumer", fake_sse_consumer)
-    monkeypatch.setattr(runs_router, "get_stream_bridge", lambda request: object())
-    monkeypatch.setattr(runs_router, "get_run_manager", lambda request: object())
+    monkeypatch.setattr(runs_router, "stream_stateless_run", fake_stream_stateless_run)
 
     response = await runs_router.stateless_stream(
         thread_runs.RunCreateRequest(),
         SimpleNamespace(),
         user=SimpleNamespace(id="user_a"),
     )
+    async for _ in response.body_iterator:
+        pass
 
     assert response.media_type == "text/event-stream"
     assert captured["config"] == {"configurable": {"thread_id": captured["thread_id"], "user_id": "user_a"}}
-    assert [record.id for record in list_owned_threads("user_a")] == [captured["thread_id"]]
+    records = list_owned_threads("user_a")
+    assert len(records) == 1
+    assert records[0].langgraph_thread_id == captured["thread_id"]
 
 
 @pytest.mark.anyio
@@ -159,12 +157,13 @@ async def test_stateless_runs_reject_foreign_thread_when_thread_id_supplied(tmp_
 
     called = False
 
-    async def fake_start_run(body, thread_id, request):
+    async def fake_stream_stateless_run(*, payload, request):
         nonlocal called
         called = True
-        return None
+        if False:
+            yield ""
 
-    monkeypatch.setattr(runs_router, "start_run", fake_start_run)
+    monkeypatch.setattr(runs_router, "stream_stateless_run", fake_stream_stateless_run)
 
     with pytest.raises(HTTPException) as exc_info:
         await runs_router.stateless_stream(

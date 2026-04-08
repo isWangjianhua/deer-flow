@@ -1,31 +1,22 @@
-"""Stateless runs endpoints -- stream and wait without a pre-existing thread.
-
-These endpoints auto-create a temporary thread when no ``thread_id`` is
-supplied in the request body.  When a ``thread_id`` **is** provided, it
-is reused so that conversation history is preserved across calls.
-"""
+"""Stateless run endpoints proxied to LangGraph runtime."""
 
 from __future__ import annotations
 
-import asyncio
-import logging
 import uuid
+from collections.abc import AsyncIterator
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
-from app.gateway.deps import get_checkpointer, get_current_user_optional, get_run_manager, get_stream_bridge, require_owned_thread
+from app.gateway.deps import get_current_user_optional, get_runtime_client, require_owned_thread
+from app.gateway.runtime_client import iter_sse_text
 from app.gateway.routers.thread_runs import RunCreateRequest
-from app.gateway.services import sse_consumer, start_run
 from app.gateway.thread_ownership import create_owned_thread
-from deerflow.runtime import serialize_channel_values
 
-logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/runs", tags=["runs"])
 
 
 def _resolve_thread_id(body: RunCreateRequest) -> str:
-    """Return the thread_id from the request body, or generate a new one."""
     thread_id = (body.config or {}).get("configurable", {}).get("thread_id")
     if thread_id:
         return str(thread_id)
@@ -37,14 +28,14 @@ def _resolve_thread_context(body: RunCreateRequest, user) -> tuple[str, str | No
     if requested_thread_id:
         if user is None:
             raise HTTPException(status_code=401, detail="Authentication required")
-        require_owned_thread(str(requested_thread_id), user.id)
-        return str(requested_thread_id), user.id
+        owner_record = require_owned_thread(str(requested_thread_id), user.id)
+        return owner_record.langgraph_thread_id, user.id
 
     if user is None:
         return _resolve_thread_id(body), None
 
     record = create_owned_thread(user_id=user.id)
-    return record.id, user.id
+    return record.langgraph_thread_id, user.id
 
 
 def _normalize_run_request(body: RunCreateRequest, *, thread_id: str, user_id: str | None) -> RunCreateRequest:
@@ -59,22 +50,20 @@ def _normalize_run_request(body: RunCreateRequest, *, thread_id: str, user_id: s
     return body.model_copy(update={"config": config})
 
 
+async def stream_stateless_run(*, payload: dict, request: Request) -> AsyncIterator[str]:
+    client = get_runtime_client(request)
+    upstream = await client.start_stream("POST", "/runs/stream", json_body=payload, default_error="Failed to stream run")
+    async for chunk in iter_sse_text(upstream):
+        yield chunk
+
+
 @router.post("/stream")
 async def stateless_stream(body: RunCreateRequest, request: Request, user=Depends(get_current_user_optional)) -> StreamingResponse:
-    """Create a run and stream events via SSE.
-
-    If ``config.configurable.thread_id`` is provided, the run is created
-    on the given thread so that conversation history is preserved.
-    Otherwise a new temporary thread is created.
-    """
     thread_id, user_id = _resolve_thread_context(body, user)
     body = _normalize_run_request(body, thread_id=thread_id, user_id=user_id)
-    bridge = get_stream_bridge(request)
-    run_mgr = get_run_manager(request)
-    record = await start_run(body, thread_id, request)
 
     return StreamingResponse(
-        sse_consumer(bridge, record, request, run_mgr),
+        stream_stateless_run(payload=body.model_dump(exclude_none=True, exclude_defaults=True), request=request),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -86,31 +75,7 @@ async def stateless_stream(body: RunCreateRequest, request: Request, user=Depend
 
 @router.post("/wait", response_model=dict)
 async def stateless_wait(body: RunCreateRequest, request: Request, user=Depends(get_current_user_optional)) -> dict:
-    """Create a run and block until completion.
-
-    If ``config.configurable.thread_id`` is provided, the run is created
-    on the given thread so that conversation history is preserved.
-    Otherwise a new temporary thread is created.
-    """
     thread_id, user_id = _resolve_thread_context(body, user)
     body = _normalize_run_request(body, thread_id=thread_id, user_id=user_id)
-    record = await start_run(body, thread_id, request)
-
-    if record.task is not None:
-        try:
-            await record.task
-        except asyncio.CancelledError:
-            pass
-
-    checkpointer = get_checkpointer(request)
-    config = {"configurable": {"thread_id": thread_id}}
-    try:
-        checkpoint_tuple = await checkpointer.aget_tuple(config)
-        if checkpoint_tuple is not None:
-            checkpoint = getattr(checkpoint_tuple, "checkpoint", {}) or {}
-            channel_values = checkpoint.get("channel_values", {})
-            return serialize_channel_values(channel_values)
-    except Exception:
-        logger.exception("Failed to fetch final state for run %s", record.run_id)
-
-    return {"status": record.status.value, "error": record.error}
+    client = get_runtime_client(request)
+    return await client.wait_stateless_run(body.model_dump(exclude_none=True, exclude_defaults=True))

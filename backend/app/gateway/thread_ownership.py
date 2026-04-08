@@ -36,12 +36,25 @@ def get_thread_owner_record(biz_thread_id: str) -> ChatThread | None:
     return _row_to_chat_thread(row)
 
 
+def get_thread_owner_record_by_langgraph_id(langgraph_thread_id: str) -> ChatThread | None:
+    with get_db_connection() as conn:
+        row = conn.execute(
+            """
+            SELECT id, langgraph_thread_id, user_id, title, created_at, updated_at
+            FROM chat_thread
+            WHERE langgraph_thread_id = ?
+            """,
+            (langgraph_thread_id,),
+        ).fetchone()
+    return _row_to_chat_thread(row)
+
+
 def create_owned_thread(*, user_id: str, biz_thread_id: str | None = None, title: str = "") -> ChatThread:
     """Create or return a business-owned thread record.
 
-    For the thin isolation layer we deliberately keep the LangGraph thread id
-    equal to the exposed business thread id. This avoids a larger proxy/mapping
-    refactor while still letting us persist ownership metadata now.
+    Business thread ids are Gateway-facing and may be human-chosen. LangGraph's
+    HTTP API requires UUID thread ids, so we persist a separate runtime id and
+    keep the mapping in the Gateway database.
     """
 
     existing = get_thread_owner_record(biz_thread_id) if biz_thread_id else None
@@ -52,9 +65,10 @@ def create_owned_thread(*, user_id: str, biz_thread_id: str | None = None, title
 
     now = str(time.time())
     thread_id = biz_thread_id or f"thread_{uuid.uuid4().hex[:16]}"
+    langgraph_thread_id = str(uuid.uuid4())
     record = ChatThread(
         id=thread_id,
-        langgraph_thread_id=thread_id,
+        langgraph_thread_id=langgraph_thread_id,
         user_id=user_id,
         title=title,
         created_at=now,

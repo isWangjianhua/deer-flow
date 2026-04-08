@@ -6,11 +6,12 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.gateway.routers import conversations
-from app.gateway.thread_ownership import create_owned_thread
+from app.gateway.thread_ownership import create_owned_thread, get_thread_owner_record
 
 
 def _build_app(user_id: str) -> FastAPI:
     app = FastAPI()
+    app.state.runtime_client = _FakeRuntimeClient()
     app.include_router(conversations.router)
 
     def override_current_user():
@@ -18,6 +19,25 @@ def _build_app(user_id: str) -> FastAPI:
 
     app.dependency_overrides[conversations.get_current_user] = override_current_user
     return app
+
+
+class _FakeRuntimeClient:
+    def __init__(self) -> None:
+        self.threads: dict[str, dict] = {}
+
+    async def get_thread(self, thread_id: str) -> dict:
+        thread = self.threads.get(thread_id)
+        if thread is None:
+            from fastapi import HTTPException
+
+            raise HTTPException(status_code=404, detail="Thread not found")
+        return thread
+
+    async def create_thread(self, payload: dict) -> dict:
+        thread_id = payload["thread_id"]
+        thread = {"thread_id": thread_id, "metadata": payload.get("metadata", {})}
+        self.threads[thread_id] = thread
+        return thread
 
 
 def test_list_conversations_only_returns_current_users_records(tmp_path, monkeypatch):
@@ -45,6 +65,9 @@ def test_create_conversation_creates_owned_thread(tmp_path, monkeypatch):
     payload = response.json()
     assert payload["conversation_id"].startswith("thread_")
     assert payload["title"] == "New chat"
+    record = get_thread_owner_record(payload["conversation_id"])
+    assert record is not None
+    assert client.app.state.runtime_client.threads[record.langgraph_thread_id]["thread_id"] == record.langgraph_thread_id
 
 
 def test_get_foreign_conversation_returns_404(tmp_path, monkeypatch):

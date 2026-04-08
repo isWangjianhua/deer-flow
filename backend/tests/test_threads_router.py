@@ -16,6 +16,26 @@ def _override_current_user():
     return User()
 
 
+class _DummyRuntimeClient:
+    async def delete_thread(self, thread_id: str) -> None:
+        return None
+
+
+class _StateRuntimeClient:
+    def __init__(self) -> None:
+        self.requested_thread_ids: list[str] = []
+
+    async def get_thread(self, thread_id: str) -> dict:
+        return {"thread_id": thread_id, "metadata": {}}
+
+    async def create_thread(self, payload: dict) -> dict:
+        return {"thread_id": payload["thread_id"], "metadata": payload.get("metadata", {})}
+
+    async def get_thread_state(self, thread_id: str) -> dict:
+        self.requested_thread_ids.append(thread_id)
+        return {"values": {}, "metadata": {}, "checkpoint": {}, "next": [], "tasks": []}
+
+
 def test_delete_thread_data_removes_thread_directory(tmp_path):
     paths = Paths(tmp_path)
     thread_dir = paths.thread_dir("thread-cleanup")
@@ -67,6 +87,7 @@ def test_delete_thread_route_cleans_thread_directory(tmp_path, monkeypatch):
     app = FastAPI()
     app.include_router(threads.router)
     app.dependency_overrides[threads.get_current_user] = _override_current_user
+    app.state.runtime_client = _DummyRuntimeClient()
 
     with patch("app.gateway.routers.threads.get_paths", return_value=paths):
         with TestClient(app) as client:
@@ -85,6 +106,7 @@ def test_delete_thread_route_rejects_invalid_thread_id(tmp_path, monkeypatch):
     app = FastAPI()
     app.include_router(threads.router)
     app.dependency_overrides[threads.get_current_user] = _override_current_user
+    app.state.runtime_client = _DummyRuntimeClient()
 
     with patch("app.gateway.routers.threads.get_paths", return_value=paths):
         with TestClient(app) as client:
@@ -101,6 +123,7 @@ def test_delete_thread_route_returns_422_for_route_safe_invalid_id(tmp_path, mon
     app = FastAPI()
     app.include_router(threads.router)
     app.dependency_overrides[threads.get_current_user] = _override_current_user
+    app.state.runtime_client = _DummyRuntimeClient()
 
     with patch("app.gateway.routers.threads.get_paths", return_value=paths):
         with TestClient(app) as client:
@@ -138,3 +161,14 @@ def test_delete_thread_data_returns_generic_500_error(tmp_path):
     assert exc_info.value.detail == "Failed to delete local thread data."
     assert "/secret/path" not in exc_info.value.detail
     log_exception.assert_called_once_with("Failed to delete thread data for %s", "thread-cleanup")
+
+
+@pytest.mark.anyio
+async def test_load_thread_state_resolves_business_thread_id_to_runtime_uuid(tmp_path, monkeypatch):
+    monkeypatch.setenv("DEER_FLOW_AUTH_DB_PATH", str(tmp_path / "auth.db"))
+    record = create_owned_thread(user_id="user_a", biz_thread_id="thread-route")
+    request = type("Request", (), {"app": type("App", (), {"state": type("State", (), {"runtime_client": _StateRuntimeClient()})()})()})()
+
+    await threads.load_thread_state(thread_id=record.id, request=request)
+
+    assert request.app.state.runtime_client.requested_thread_ids == [record.langgraph_thread_id]

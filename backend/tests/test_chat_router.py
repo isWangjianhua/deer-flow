@@ -61,21 +61,21 @@ async def test_chat_endpoint_only_forwards_latest_user_message(tmp_path, monkeyp
     monkeypatch.setenv("DEER_FLOW_AUTH_DB_PATH", str(tmp_path / "auth.db"))
     import app.gateway.routers.chat as chat
 
-    captured_inputs: list[dict] = []
+    captured: dict[str, object] = {}
 
-    async def fake_start_run(body, thread_id, request):
-        captured_inputs.append(body.input)
-        return SimpleNamespace(run_id="run_1", thread_id=thread_id)
-
-    async def fake_sse_consumer(bridge, record, request, run_mgr):
+    async def fake_stream_thread_run(*, thread_id, payload, request):
+        captured["thread_id"] = thread_id
+        captured["payload"] = payload
         yield 'event: messages-tuple\ndata: {"type":"ai","content":"Done","id":"ai_1"}\n\n'
 
-    monkeypatch.setattr(chat, "start_run", fake_start_run)
-    monkeypatch.setattr(chat, "sse_consumer", fake_sse_consumer)
-    monkeypatch.setattr(chat, "get_stream_bridge", lambda request: object())
-    monkeypatch.setattr(chat, "get_run_manager", lambda request: object())
+    monkeypatch.setattr(chat, "stream_thread_run", fake_stream_thread_run)
+    ensured: list[tuple[str, object]] = []
+    async def fake_ensure_runtime_thread(*, record, request, metadata=None):
+        ensured.append((record.id, metadata))
 
-    await chat.chat(
+    monkeypatch.setattr(chat.threads, "ensure_runtime_thread", fake_ensure_runtime_thread)
+
+    response = await chat.chat(
         body=chat.UseChatRequest(
             id="req_1",
             messages=[
@@ -88,10 +88,22 @@ async def test_chat_endpoint_only_forwards_latest_user_message(tmp_path, monkeyp
         request=SimpleNamespace(),
         user=SimpleNamespace(id="user_a"),
     )
+    await _collect_streaming_body(response)
 
-    assert captured_inputs == [
-        {"messages": [{"role": "user", "content": "做一个简单的html网页"}]}
-    ]
+    assert captured["thread_id"]
+    assert ensured
+    assert captured["payload"] == {
+        "assistant_id": "lead_agent",
+        "input": {"messages": [{"role": "user", "content": "做一个简单的html网页"}]},
+        "metadata": {"source": "usechat-proxy"},
+        "config": {
+            "configurable": {
+                "thread_id": captured["thread_id"],
+                "user_id": "user_a",
+            }
+        },
+        "stream_mode": ["messages-tuple", "values"],
+    }
 
 
 @pytest.mark.anyio
@@ -99,17 +111,16 @@ async def test_chat_endpoint_creates_conversation_when_missing_id(tmp_path, monk
     monkeypatch.setenv("DEER_FLOW_AUTH_DB_PATH", str(tmp_path / "auth.db"))
     import app.gateway.routers.chat as chat
 
-    async def fake_start_run(body, thread_id, request):
-        assert body.config["configurable"]["user_id"] == "user_a"
-        return SimpleNamespace(run_id="run_1", thread_id=thread_id)
-
-    async def fake_sse_consumer(bridge, record, request, run_mgr):
+    async def fake_stream_thread_run(*, thread_id, payload, request):
+        assert payload["config"]["configurable"]["user_id"] == "user_a"
         yield 'event: messages-tuple\ndata: {"type":"ai","content":"Hello","id":"ai_1"}\n\n'
 
-    monkeypatch.setattr(chat, "start_run", fake_start_run)
-    monkeypatch.setattr(chat, "sse_consumer", fake_sse_consumer)
-    monkeypatch.setattr(chat, "get_stream_bridge", lambda request: object())
-    monkeypatch.setattr(chat, "get_run_manager", lambda request: object())
+    monkeypatch.setattr(chat, "stream_thread_run", fake_stream_thread_run)
+    ensured: list[str] = []
+    async def fake_ensure_runtime_thread(*, record, request, metadata=None):
+        ensured.append(record.id)
+
+    monkeypatch.setattr(chat.threads, "ensure_runtime_thread", fake_ensure_runtime_thread)
 
     response = await chat.chat(
         body=chat.UseChatRequest(
@@ -122,6 +133,7 @@ async def test_chat_endpoint_creates_conversation_when_missing_id(tmp_path, monk
     )
 
     assert response.headers["x-vercel-ai-ui-message-stream"] == "v1"
+    assert len(ensured) == 1
     payload = await _collect_streaming_body(response)
     assert '"type": "data-conversation"' in payload
     assert '"conversationId": "' in payload
@@ -154,18 +166,17 @@ async def test_chat_endpoint_ignores_missing_thread_state_when_collecting_histor
     monkeypatch.setenv("DEER_FLOW_AUTH_DB_PATH", str(tmp_path / "auth.db"))
     import app.gateway.routers.chat as chat
 
-    async def fake_start_run(body, thread_id, request):
-        return SimpleNamespace(run_id="run_1", thread_id=thread_id)
-
-    async def fake_sse_consumer(bridge, record, request, run_mgr):
+    async def fake_stream_thread_run(*, thread_id, payload, request):
         yield 'event: messages-tuple\ndata: {"type":"ai","content":"Hello","id":"ai_1"}\n\n'
 
-    monkeypatch.setattr(chat, "resolve_or_create_conversation", lambda **_: (SimpleNamespace(id="conv_existing"), False))
+    monkeypatch.setattr(
+        chat,
+        "resolve_or_create_conversation",
+        lambda **_: (SimpleNamespace(id="conv_existing", langgraph_thread_id="lg_conv_existing"), False),
+    )
+    monkeypatch.setattr(chat.threads, "ensure_runtime_thread", _noop_ensure_runtime_thread)
     monkeypatch.setattr(chat.threads, "load_thread_state", _raise_missing_thread_state)
-    monkeypatch.setattr(chat, "start_run", fake_start_run)
-    monkeypatch.setattr(chat, "sse_consumer", fake_sse_consumer)
-    monkeypatch.setattr(chat, "get_stream_bridge", lambda request: object())
-    monkeypatch.setattr(chat, "get_run_manager", lambda request: object())
+    monkeypatch.setattr(chat, "stream_thread_run", fake_stream_thread_run)
 
     response = await chat.chat(
         body=chat.UseChatRequest(
@@ -183,3 +194,7 @@ async def test_chat_endpoint_ignores_missing_thread_state_when_collecting_histor
 
 async def _raise_missing_thread_state(*args, **kwargs):
     raise HTTPException(status_code=404, detail="Thread conv_existing not found")
+
+
+async def _noop_ensure_runtime_thread(*args, **kwargs):
+    return None

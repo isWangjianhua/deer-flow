@@ -11,10 +11,9 @@ from app.gateway.chat_proxy import (
     resolve_or_create_conversation,
     usechat_stream_from_langgraph,
 )
-from app.gateway.deps import get_current_user, get_run_manager, get_stream_bridge
+from app.gateway.deps import get_current_user, get_runtime_client
 from app.gateway.routers import threads
 from app.gateway.routers.thread_runs import RunCreateRequest
-from app.gateway.services import sse_consumer, start_run
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 
@@ -74,6 +73,22 @@ def _extract_historical_message_ids(values: dict[str, Any]) -> set[str]:
     return message_ids
 
 
+async def stream_thread_run(*, thread_id: str, payload: dict[str, Any], request: Request):
+    client = get_runtime_client(request)
+    upstream = await client.start_stream(
+        "POST",
+        f"/threads/{thread_id}/runs/stream",
+        json_body=payload,
+        default_error="Failed to stream chat run",
+    )
+    try:
+        async for chunk in upstream.aiter_text():
+            if chunk:
+                yield chunk
+    finally:
+        await upstream.aclose()
+
+
 @router.post("")
 async def chat(body: UseChatRequest, request: Request, user=Depends(get_current_user)) -> StreamingResponse:
     conversation_id = body.body.get("conversation_id")
@@ -87,10 +102,12 @@ async def chat(body: UseChatRequest, request: Request, user=Depends(get_current_
     except PermissionError as exc:
         raise HTTPException(status_code=404, detail="Conversation not found") from exc
 
+    await threads.ensure_runtime_thread(record=record, request=request)
+
     historical_message_ids: set[str] = set()
     if not created:
         try:
-            state = await threads.load_thread_state(thread_id=record.id, request=request)
+            state = await threads.load_thread_state(thread_id=record.id, request=request, owner_record=record)
         except HTTPException as exc:
             if exc.status_code != 404:
                 raise
@@ -101,12 +118,12 @@ async def chat(body: UseChatRequest, request: Request, user=Depends(get_current_
         assistant_id="lead_agent",
         input={"messages": _build_run_messages(body.messages)},
         metadata={"source": "usechat-proxy"},
-        config={
-            "configurable": {
-                "thread_id": record.id,
-                "user_id": user.id,
-                **(
-                    {"model_name": requested_model_name.strip()}
+            config={
+                "configurable": {
+                    "thread_id": record.langgraph_thread_id,
+                    "user_id": user.id,
+                    **(
+                        {"model_name": requested_model_name.strip()}
                     if isinstance(requested_model_name, str) and requested_model_name.strip()
                     else {}
                 ),
@@ -114,10 +131,11 @@ async def chat(body: UseChatRequest, request: Request, user=Depends(get_current_
         },
         stream_mode=["messages-tuple", "values"],
     )
-    run_record = await start_run(run_body, record.id, request)
-    bridge = get_stream_bridge(request)
-    run_mgr = get_run_manager(request)
-    upstream = sse_consumer(bridge, run_record, request, run_mgr)
+    upstream = stream_thread_run(
+        thread_id=record.langgraph_thread_id,
+        payload=run_body.model_dump(exclude_none=True, exclude_defaults=True),
+        request=request,
+    )
 
     return StreamingResponse(
         usechat_stream_from_langgraph(
