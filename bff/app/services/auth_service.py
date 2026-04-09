@@ -14,9 +14,9 @@ class AuthService:
         settings = get_settings()
         if settings.bff_auth_provider == "oidc":
             self.provider = OidcAuthProvider(
-                issuer=settings.bff_oidc_issuer,
+                issuer=str(settings.bff_oidc_issuer),
                 audience=settings.bff_oidc_audience,
-                jwks_url=settings.bff_oidc_jwks_url,
+                jwks_url=str(settings.bff_oidc_jwks_url),
             )
         else:
             self.provider = LocalAuthProvider(db)

@@ -1,6 +1,7 @@
 from types import SimpleNamespace
 
 from app.core.security import get_password_hash, verify_password
+from app.core.config import Settings
 from app.services import auth_service as auth_service_module
 from app.services.auth_service import AuthService
 
@@ -38,11 +39,14 @@ def test_auth_service_selects_local_provider_from_settings(db_session, monkeypat
 
 def test_auth_service_selects_oidc_provider_from_settings(db_session, monkeypatch) -> None:
     calls: list[tuple[object, ...]] = []
-    settings = SimpleNamespace(
+    settings = Settings(
         bff_auth_provider="oidc",
         bff_oidc_issuer="https://issuer.example.com",
         bff_oidc_audience="deerflow-bff",
         bff_oidc_jwks_url="https://issuer.example.com/.well-known/jwks.json",
+        database_url="sqlite:///./test.db",
+        bff_secret_key="test-secret",
+        deerflow_gateway_base_url="http://127.0.0.1:8001",
     )
 
     class FakeLocalProvider:
@@ -51,6 +55,8 @@ def test_auth_service_selects_oidc_provider_from_settings(db_session, monkeypatc
 
     class FakeOidcProvider:
         def __init__(self, *, issuer, audience, jwks_url) -> None:
+            assert isinstance(issuer, str)
+            assert isinstance(jwks_url, str)
             calls.append(("oidc_provider_init", issuer, audience, jwks_url))
 
     monkeypatch.setattr(auth_service_module, "get_settings", lambda: settings)
@@ -63,9 +69,9 @@ def test_auth_service_selects_oidc_provider_from_settings(db_session, monkeypatc
     assert calls == [
         (
             "oidc_provider_init",
-            "https://issuer.example.com",
+            str(settings.bff_oidc_issuer),
             "deerflow-bff",
-            "https://issuer.example.com/.well-known/jwks.json",
+            str(settings.bff_oidc_jwks_url),
         )
     ]
 
