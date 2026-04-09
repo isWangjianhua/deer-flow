@@ -4,7 +4,7 @@
 
 This service currently contains:
 
-- local JWT login
+- provider-oriented auth with a local JWT login provider
 - SQLite persistence
 - conversation create and list routes
 - SSE message streaming proxy to DeerFlow Gateway
@@ -45,17 +45,18 @@ make dev-pro
 Completed in the first slice:
 
 1. Typed settings and SQLite session wiring
-2. Local auth with JWT and seeded demo user
-3. Conversation repository and ownership service
-4. DeerFlow HTTP client for thread creation and stream proxying
-5. Auth, `me`, conversation create/list, and stream routes
+2. `user_identities` table plus identity mapping for auth providers
+3. Local auth with JWT and seeded demo user
+4. Conversation repository and ownership service
+5. DeerFlow HTTP client for thread creation and stream proxying
+6. Auth provider abstraction layer, `me`, conversation create/list, and stream routes
 
 Next planned slice:
 
 1. upload proxy routes
 2. artifact proxy routes
 3. conversation deletion
-4. stronger auth provider integration
+4. real OIDC provider integration
 
 ## Conventions
 

@@ -2,6 +2,8 @@
 
 A lightweight FastAPI BFF for frontend-facing authentication, conversation ownership, and DeerFlow Gateway proxying.
 
+Authentication has moved to a provider-oriented internal architecture. Local login is still the active default provider for this slice, and future external providers such as OIDC are planned but not enabled yet.
+
 ## Purpose
 
 This service is the only public backend entry for the frontend.
@@ -26,6 +28,8 @@ Current scope:
 - SSE chat proxy
 - local SQLite-backed conversation mapping
 - seeded local demo user bootstrap
+- provider-oriented auth internals with `local` as the default active provider
+- preparation for future external auth providers, without enabling them yet
 
 Out of scope for the first version:
 
@@ -126,6 +130,16 @@ Minimum first-version tables:
 - `username`
 - `password_hash`
 - `status`
+- `created_at`
+
+### user_identities
+
+- `id`
+- `user_id`
+- `provider`
+- `subject`
+- `email`
+- `claims_json`
 - `created_at`
 
 ### conversations

@@ -37,13 +37,23 @@ Not allowed in public APIs:
 
 Purpose:
 
-- authenticate against the local seeded user store and return JWT
+- authenticate through the local auth provider and return JWT
+
+Notes:
+
+- this slice still uses the `local` provider for login
+- the provider layer is internal, so external providers are not part of the public contract yet
 
 ### `GET /me`
 
 Purpose:
 
 - return current authenticated user metadata needed by the frontend
+
+Notes:
+
+- the handler resolves the request through provider identity mapping
+- local users are mapped internally before the user payload is returned
 
 ### `POST /conversations`
 
@@ -119,7 +129,7 @@ Rules:
 
 ## Local Auth Bootstrap
 
-The first slice seeds a local development user:
+The first slice seeds a local development user that is used by the default `local` provider:
 
 - username: `demo`
 - password: `demo123`
