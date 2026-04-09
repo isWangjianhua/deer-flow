@@ -15,7 +15,7 @@ def test_login_returns_bearer_token(client) -> None:
     assert response.json()["access_token"]
 
 
-def test_me_returns_current_user(client) -> None:
+def test_me_returns_current_user_in_local_mode(client) -> None:
     login = client.post("/auth/login", json={"username": "demo", "password": "demo123"})
     token = login.json()["access_token"]
 

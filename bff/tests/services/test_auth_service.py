@@ -1,6 +1,7 @@
 from types import SimpleNamespace
 
 from app.core.security import get_password_hash, verify_password
+from app.core.config import Settings
 from app.services import auth_service as auth_service_module
 from app.services.auth_service import AuthService
 
@@ -12,6 +13,67 @@ def test_password_hash_round_trip() -> None:
     assert password_hash != password
     assert verify_password(password, password_hash) is True
     assert verify_password("wrong", password_hash) is False
+
+
+def test_auth_service_selects_local_provider_from_settings(db_session, monkeypatch) -> None:
+    calls: list[tuple[object, ...]] = []
+    settings = SimpleNamespace(bff_auth_provider="local")
+
+    class FakeLocalProvider:
+        def __init__(self, db) -> None:
+            calls.append(("local_provider_init", db))
+
+    class FakeOidcProvider:
+        def __init__(self, **kwargs) -> None:
+            raise AssertionError("OidcAuthProvider should not be used for local auth")
+
+    monkeypatch.setattr(auth_service_module, "get_settings", lambda: settings)
+    monkeypatch.setattr(auth_service_module, "LocalAuthProvider", FakeLocalProvider)
+    monkeypatch.setattr(auth_service_module, "OidcAuthProvider", FakeOidcProvider)
+
+    service = AuthService(db_session)
+
+    assert isinstance(service.provider, FakeLocalProvider)
+    assert calls == [("local_provider_init", db_session)]
+
+
+def test_auth_service_selects_oidc_provider_from_settings(db_session, monkeypatch) -> None:
+    calls: list[tuple[object, ...]] = []
+    settings = Settings(
+        bff_auth_provider="oidc",
+        bff_oidc_issuer="https://issuer.example.com",
+        bff_oidc_audience="deerflow-bff",
+        bff_oidc_jwks_url="https://issuer.example.com/.well-known/jwks.json",
+        database_url="sqlite:///./test.db",
+        bff_secret_key="test-secret",
+        deerflow_gateway_base_url="http://127.0.0.1:8001",
+    )
+
+    class FakeLocalProvider:
+        def __init__(self, db) -> None:
+            raise AssertionError("LocalAuthProvider should not be used for oidc auth")
+
+    class FakeOidcProvider:
+        def __init__(self, *, issuer, audience, jwks_url) -> None:
+            assert isinstance(issuer, str)
+            assert isinstance(jwks_url, str)
+            calls.append(("oidc_provider_init", issuer, audience, jwks_url))
+
+    monkeypatch.setattr(auth_service_module, "get_settings", lambda: settings)
+    monkeypatch.setattr(auth_service_module, "LocalAuthProvider", FakeLocalProvider)
+    monkeypatch.setattr(auth_service_module, "OidcAuthProvider", FakeOidcProvider)
+
+    service = AuthService(db_session)
+
+    assert isinstance(service.provider, FakeOidcProvider)
+    assert calls == [
+        (
+            "oidc_provider_init",
+            str(settings.bff_oidc_issuer),
+            "deerflow-bff",
+            str(settings.bff_oidc_jwks_url),
+        )
+    ]
 
 
 def test_login_routes_through_provider_and_mapper(db_session, monkeypatch) -> None:
