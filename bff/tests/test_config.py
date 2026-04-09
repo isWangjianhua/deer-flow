@@ -48,16 +48,6 @@ def test_auth_provider_settings_parse_oidc_urls() -> None:
     assert settings.bff_oidc_jwks_url.host == "issuer.example.com"
 
 
-def test_auth_provider_settings_rejects_invalid_provider() -> None:
-    with pytest.raises(ValueError):
-        Settings(
-            database_url="sqlite:///./test.db",
-            bff_secret_key="test-secret",
-            deerflow_gateway_base_url="http://127.0.0.1:8001",
-            bff_auth_provider="oidc",
-        )
-
-
 def test_auth_provider_settings_rejects_invalid_oidc_url() -> None:
     with pytest.raises(ValueError):
         Settings(

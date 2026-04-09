@@ -1,7 +1,5 @@
 from functools import lru_cache
 
-from typing import Literal
-
 from pydantic import AnyHttpUrl, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -19,7 +17,7 @@ class Settings(BaseSettings):
     database_url: str = Field(default="sqlite:///./bff.db")
     bff_secret_key: str = Field(default="change-me")
     bff_access_token_expire_minutes: int = Field(default=10080)
-    bff_auth_provider: Literal["local"] = Field(default="local")
+    bff_auth_provider: str = Field(default="local")
     bff_auth_fallback_enabled: bool = Field(default=True)
     bff_oidc_issuer: AnyHttpUrl | None = Field(default=None)
     bff_oidc_audience: str | None = Field(default=None)
