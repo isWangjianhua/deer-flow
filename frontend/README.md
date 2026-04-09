@@ -60,10 +60,10 @@ pnpm start
 ## Site Map
 
 ```
-├── /                    # Landing page
-├── /chats               # Chat list
-├── /chats/new           # New chat page
-└── /chats/[thread_id]   # A specific chat page
+├── /                             # Landing page
+├── /workspace/chats              # Chat list
+├── /workspace/chats/new          # New chat page
+└── /workspace/chats/[conversation_id] # Main BFF-backed chat page
 ```
 
 ## Configuration
@@ -112,6 +112,7 @@ src/
 │   ├── api/                # API client & data fetching
 │   ├── artifacts/          # Artifact management
 │   ├── auth/               # Reusable auth boundary for session and BFF bridge
+│   ├── bff-chat/           # BFF-owned chat boundary for conversations and stream events
 │   ├── config/              # App configuration
 │   ├── i18n/               # Internationalization
 │   ├── mcp/                # MCP integration
@@ -142,6 +143,8 @@ src/
 | `pnpm lint:fix`     | Fix ESLint issues                       |
 | `pnpm typecheck`    | Run TypeScript type checking            |
 | `pnpm check`        | Run both lint and typecheck             |
+| `pnpm test:e2e:auth` | Run the auth Playwright regression      |
+| `pnpm test:e2e:chat` | Run the chat Playwright regression      |
 
 ## Development Notes
 
@@ -167,6 +170,29 @@ The frontend now includes a Playwright auth regression at `tests/e2e/auth.spec.t
 - `pnpm test:e2e:auth` runs the `/workspace/account` auth flow against Chromium.
 - The test uses `NEXT_PUBLIC_AUTH_E2E_MOCK=1` to swap browser login/logout/session restore onto a test-only mock adapter while still exercising the real page and the same-origin `/api/bff/me` fetch path.
 - In normal development and production, auth continues to use Better Auth directly.
+
+## Chat Development
+
+The main workspace chat path now uses a BFF-owned protocol rather than frontend-visible runtime thread semantics.
+
+- `src/core/bff-chat/` owns conversation API calls, stream parsing, and frontend chat state updates.
+- `src/app/api/bff/conversations/` contains the same-origin bridge routes from the browser to the FastAPI BFF.
+- `src/app/workspace/chats/[conversation_id]/` is the main BFF-backed chat route.
+- the BFF currently owns `create`, `list`, `detail`, and `messages/stream` for conversations
+
+Current chat limitations:
+
+- uploads and artifact retrieval are not yet migrated onto the BFF-backed path
+- conversation rename/delete/archive actions are not yet exposed
+- agent-specific chat paths still retain more legacy runtime semantics than the main chat path
+
+## Chat E2E
+
+The frontend now includes a Playwright chat regression at `tests/e2e/chat.spec.ts`.
+
+- `pnpm test:e2e:chat` runs the BFF-backed chat page against Chromium.
+- The test mocks BFF conversation detail and stream responses to validate history hydrate, user send, tool progress rendering, and assistant completion.
+- Together with `pnpm test:e2e:auth`, this covers the current main auth + chat product loop.
 
 ## License
 

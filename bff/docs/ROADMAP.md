@@ -10,9 +10,31 @@ This roadmap describes the recommended next development sequence for the FastAPI
 
 The goal is to move from "backend boundary is correct" to "end-to-end product flow is usable".
 
+## Current Status
+
+Completed on `2026-04-10`:
+
+- `feat/frontend-oidc-login`
+- `feat/frontend-bff-chat-stream`
+
+What is now true:
+
+- browser OIDC login is product-complete on the frontend/BFF path
+- the main chat page now uses a BFF-owned conversation and stream contract
+- the frontend main chat route uses `conversation_id` semantics
+- the BFF now owns `create`, `list`, `detail`, and `messages/stream` for conversations
+
+What still remains for the next product loop:
+
+- uploads and artifact access on the BFF-backed chat path
+- richer conversation lifecycle actions
+- usage governance and production hardening
+
 ## Recommended Order
 
 ### 1. Frontend / Browser OIDC Login
+
+Status: completed
 
 Priority: highest
 
@@ -36,6 +58,8 @@ Suggested branch:
 
 ## 2. Frontend Chat Stream Integration
 
+Status: completed
+
 Priority: highest after browser OIDC login
 
 Why this comes next:
@@ -57,6 +81,8 @@ Suggested branch:
 
 ## 3. Upload and Artifact Proxy
 
+Status: next recommended branch
+
 Priority: medium
 
 Why this matters:
@@ -70,12 +96,16 @@ Recommended scope:
 - artifact download / preview proxying
 - ownership enforcement
 - frontend integration for file and artifact UI
+- BFF-backed attachment send flow on the main chat page
+- artifact access through conversation ownership instead of raw runtime thread access
 
 Suggested branch:
 
 - `feat/bff-uploads-artifacts`
 
 ## 4. Conversation Lifecycle Completion
+
+Status: next after uploads/artifacts
 
 Priority: medium
 
@@ -89,12 +119,15 @@ Recommended scope:
 - rename conversation title
 - improve conversation ordering
 - optional archive / soft-delete behavior
+- frontend list actions and optimistic lifecycle UX
 
 Suggested branch:
 
 - `feat/bff-conversation-lifecycle`
 
 ## 5. Usage Controls and Service Governance
+
+Status: after practical workflow support
 
 Priority: medium
 
@@ -115,6 +148,8 @@ Suggested branch:
 - `feat/bff-usage-guardrails`
 
 ## 6. Production Data and Ops Hardening
+
+Status: after governance basics
 
 Priority: lower than the end-user product loop
 
@@ -145,6 +180,8 @@ Outcome:
 
 - users can complete a real login flow with the chosen identity provider
 
+Status: completed
+
 ### Milestone B: Usable Chat
 
 - `feat/frontend-bff-chat-stream`
@@ -152,6 +189,8 @@ Outcome:
 Outcome:
 
 - authenticated users can start a conversation and receive streamed assistant output
+
+Status: completed
 
 ### Milestone C: Practical Workflow Support
 
@@ -161,6 +200,8 @@ Outcome:
 Outcome:
 
 - users can manage richer conversations and retrieve generated outputs
+
+Status: current focus
 
 ### Milestone D: Service Governance
 
@@ -175,7 +216,7 @@ Outcome:
 
 If only one next branch should be started now, choose:
 
-1. `feat/frontend-oidc-login`
-2. `feat/frontend-bff-chat-stream`
+1. `feat/bff-uploads-artifacts`
+2. `feat/bff-conversation-lifecycle`
 
-This sequence turns the current backend foundation into an actual usable product path without prematurely spending effort on heavier infrastructure.
+This sequence extends the now-working auth and chat baseline into a practical workflow before governance and infrastructure hardening.
