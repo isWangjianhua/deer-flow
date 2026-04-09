@@ -19,12 +19,27 @@ Frontend
 
 The frontend should never call DeerFlow Gateway directly.
 
+## Auth Modes
+
+The BFF currently supports two authentication modes:
+
+- `local`
+  - uses seeded or locally managed users
+  - issues BFF-owned JWTs through `POST /auth/login`
+- `oidc`
+  - accepts an external bearer `id_token`
+  - validates the token against configured issuer, audience, and JWKS settings
+  - maps the external identity into a local BFF user before request handling continues
+
+Browser redirect and callback-based OIDC login flows are not part of the current slice.
+
 ## Responsibilities
 
 ### BFF owns
 
 - frontend-facing API design
 - authentication and user identity lookup
+- external identity to local user mapping
 - conversation ownership checks
 - `conversation_id -> deerflow_thread_id` mapping
 - SSE streaming proxy behavior
@@ -47,6 +62,8 @@ The BFF is the trust boundary for end-user requests.
 Rules:
 
 - end users authenticate to the BFF
+- in `oidc` mode, bearer `id_token` values are validated by the BFF
+- all downstream authorization decisions are made against the mapped local BFF user
 - the BFF validates whether a user can access a conversation
 - the BFF is the only service allowed to know the downstream `thread_id`
 - DeerFlow Gateway should be reachable only from internal network paths
@@ -63,24 +80,35 @@ Internal runtime identifier:
 
 The mapping is owned by the BFF persistence layer. This prevents frontend coupling to DeerFlow runtime internals and leaves room for future runtime replacement.
 
+Authentication identity mapping:
+
+- external OIDC identity is keyed by `provider + subject`
+- the BFF stores that mapping in `user_identities`
+- conversation ownership continues to use the stable local `users.id`
+
+That last rule matters: even in `oidc` mode, the BFF does not use the raw bearer token as an ownership key.
+
 ## Request Flows
 
 ### Conversation creation
 
 1. frontend sends create request to BFF
 2. BFF authenticates user
-3. BFF creates a DeerFlow thread when needed
-4. BFF stores a mapping record
-5. BFF returns a BFF-owned `conversation_id`
+3. if needed, BFF resolves external identity into a local BFF user
+4. BFF creates a DeerFlow thread when needed
+5. BFF stores a mapping record using the stable local `user_id`
+6. BFF returns a BFF-owned `conversation_id`
 
 ### Message streaming
 
 1. frontend sends stream request using `conversation_id`
-2. BFF validates user ownership
-3. BFF loads the mapped DeerFlow thread
-4. BFF opens downstream stream to DeerFlow Gateway
-5. BFF forwards SSE events without buffering the full response
-6. BFF records audit metadata
+2. BFF authenticates the request
+3. if needed, BFF resolves external identity into a local BFF user
+4. BFF validates user ownership
+5. BFF loads the mapped DeerFlow thread
+6. BFF opens downstream stream to DeerFlow Gateway
+7. BFF forwards SSE events without buffering the full response
+8. BFF records audit metadata
 
 ### Uploads and artifacts
 
@@ -106,6 +134,7 @@ Recommended network rules:
 - expose BFF publicly
 - keep DeerFlow Gateway on private network only
 - do not embed DeerFlow credentials in frontend clients
+- do not expose JWKS, issuer secrets, or downstream runtime details through the frontend
 
 ## First-Version Non-Goals
 
