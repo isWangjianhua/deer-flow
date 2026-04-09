@@ -29,6 +29,9 @@ class AuthService:
         return TokenResponse(access_token=token)
 
     def get_current_user(self, user_id: str) -> CurrentUserResponse:
-        identity = self.provider.resolve_token_identity(user_id)
+        if isinstance(self.provider, OidcAuthProvider):
+            identity = self.provider.resolve_bearer_identity(user_id)
+        else:
+            identity = self.provider.resolve_token_identity(user_id)
         user = self.identity_mapper.resolve_or_create_user(identity)
         return CurrentUserResponse.model_validate(user)
