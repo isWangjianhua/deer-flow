@@ -1,22 +1,29 @@
 import pytest
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session, sessionmaker
+from fastapi.testclient import TestClient
+from sqlalchemy.orm import Session
 
+from app.core.security import get_password_hash
 from app.db.base import Base
-from app.models.conversation import Conversation
+from app.db.session import engine, SessionLocal
 from app.models.user import User
+from app.main import app
 
 
 @pytest.fixture
 def db_session() -> Session:
-    engine = create_engine("sqlite+pysqlite:///:memory:", connect_args={"check_same_thread": False})
-    testing_session = sessionmaker(bind=engine, autoflush=False, autocommit=False, class_=Session)
-
+    Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)
 
-    db = testing_session()
+    db = SessionLocal()
     try:
+        db.add(User(username="demo", password_hash=get_password_hash("demo123")))
+        db.commit()
         yield db
     finally:
         db.close()
         Base.metadata.drop_all(engine)
+
+
+@pytest.fixture
+def client(db_session: Session) -> TestClient:
+    return TestClient(app)
