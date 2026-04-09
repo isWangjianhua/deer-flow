@@ -77,6 +77,12 @@ Key environment variables (see `.env.example` for full list):
 NEXT_PUBLIC_BACKEND_BASE_URL="http://localhost:8001"
 # LangGraph API URLs (optional, uses nginx proxy by default)
 NEXT_PUBLIC_LANGGRAPH_BASE_URL="http://localhost:2024"
+# Better Auth / OIDC configuration
+BETTER_AUTH_OIDC_CLIENT_ID="oidc-client-id"
+BETTER_AUTH_OIDC_CLIENT_SECRET="oidc-client-secret"
+BETTER_AUTH_OIDC_DISCOVERY_URL="https://issuer.example.com/.well-known/openid-configuration"
+# Public BFF base URL
+NEXT_PUBLIC_BFF_BASE_URL="/api/bff"
 ```
 
 ## Project Structure
