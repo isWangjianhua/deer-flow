@@ -10,6 +10,8 @@ This directory contains service-specific documentation for the FastAPI BFF.
   - public API surface, identifier rules, and downstream DeerFlow mapping
 - `DEVELOPMENT.md`
   - local development workflow, conventions, and next implementation milestones
+- `ROADMAP.md`
+  - recommended next branches, development order, and milestone sequencing
 
 ## Reading Order
 
@@ -19,6 +21,7 @@ If you are new to this service, read the docs in this order:
 2. `ARCHITECTURE.md`
 3. `API.md`
 4. `DEVELOPMENT.md`
+5. `ROADMAP.md`
 
 ## Key Rules
 
