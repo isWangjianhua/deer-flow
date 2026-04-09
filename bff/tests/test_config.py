@@ -1,3 +1,5 @@
+import pytest
+
 from app.core.config import Settings
 
 
@@ -23,3 +25,44 @@ def test_auth_provider_settings_defaults() -> None:
     assert settings.bff_oidc_issuer is None
     assert settings.bff_oidc_audience is None
     assert settings.bff_oidc_jwks_url is None
+
+
+def test_auth_provider_settings_parse_oidc_urls() -> None:
+    settings = Settings(
+        database_url="sqlite:///./test.db",
+        bff_secret_key="test-secret",
+        deerflow_gateway_base_url="http://127.0.0.1:8001",
+        bff_auth_provider="local",
+        bff_oidc_issuer="https://issuer.example.com/realms/demo",
+        bff_oidc_audience="deerflow",
+        bff_oidc_jwks_url="https://issuer.example.com/realms/demo/protocol/openid-connect/certs",
+    )
+
+    assert settings.bff_auth_provider == "local"
+    assert settings.bff_oidc_audience == "deerflow"
+    assert settings.bff_oidc_issuer is not None
+    assert settings.bff_oidc_issuer.scheme == "https"
+    assert settings.bff_oidc_issuer.host == "issuer.example.com"
+    assert settings.bff_oidc_jwks_url is not None
+    assert settings.bff_oidc_jwks_url.scheme == "https"
+    assert settings.bff_oidc_jwks_url.host == "issuer.example.com"
+
+
+def test_auth_provider_settings_rejects_invalid_provider() -> None:
+    with pytest.raises(ValueError):
+        Settings(
+            database_url="sqlite:///./test.db",
+            bff_secret_key="test-secret",
+            deerflow_gateway_base_url="http://127.0.0.1:8001",
+            bff_auth_provider="oidc",
+        )
+
+
+def test_auth_provider_settings_rejects_invalid_oidc_url() -> None:
+    with pytest.raises(ValueError):
+        Settings(
+            database_url="sqlite:///./test.db",
+            bff_secret_key="test-secret",
+            deerflow_gateway_base_url="http://127.0.0.1:8001",
+            bff_oidc_jwks_url="not-a-url",
+        )
