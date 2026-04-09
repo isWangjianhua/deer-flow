@@ -42,7 +42,7 @@ Purpose:
 Notes:
 
 - this route is the `local` provider login path
-- OIDC mode does not change this endpoint; it still exists for local username/password authentication and token issuance
+- when `BFF_AUTH_PROVIDER=oidc`, this route is not the active login path and should not be used for OIDC login flows
 - the provider layer is internal, so external providers are not part of the public login contract
 
 ### `GET /me`
