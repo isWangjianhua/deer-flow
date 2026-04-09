@@ -16,7 +16,9 @@ export function resolveOidcPluginConfig(config: OidcEnvConfig) {
   const clientSecret = config.BETTER_AUTH_OIDC_CLIENT_SECRET;
   const discoveryUrl = config.BETTER_AUTH_OIDC_DISCOVERY_URL;
 
-  const hasAnyOidcSetting = Boolean(clientId || clientSecret || discoveryUrl);
+  const hasAnyOidcSetting = [clientId, clientSecret, discoveryUrl].some(
+    (value) => value !== undefined,
+  );
   if (!hasAnyOidcSetting) {
     return null;
   }

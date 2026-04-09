@@ -1,8 +1,8 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { authClient } from "@/server/better-auth/client";
+import { signOut } from "@/core/auth/browser";
 
 export function LogoutButton() {
-  return <Button onClick={() => authClient.signOut()}>Sign out</Button>;
+  return <Button onClick={() => void signOut()}>Sign out</Button>;
 }

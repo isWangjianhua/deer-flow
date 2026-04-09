@@ -9,22 +9,15 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { loadBffUser, type BffUserResponse } from "@/core/auth/bff-user";
+import { useBrowserAuthSession } from "@/core/auth/browser";
 import { toAuthSessionState } from "@/core/auth/session";
-import { authClient } from "@/server/better-auth/client";
 
 import { LoginButton } from "./login-button";
 import { LogoutButton } from "./logout-button";
 
-type BffUserResponse = {
-  id?: string;
-  username?: string;
-  email?: string | null;
-  code?: string;
-  message?: string;
-};
-
 export function AuthStatusCard() {
-  const session = authClient.useSession();
+  const session = useBrowserAuthSession();
   const state = toAuthSessionState(session);
   const [bffUser, setBffUser] = useState<BffUserResponse | null>(null);
   const [bffError, setBffError] = useState<string | null>(null);
@@ -37,14 +30,7 @@ export function AuthStatusCard() {
     }
 
     let cancelled = false;
-    void fetch("/api/bff/me")
-      .then(async (response) => {
-        const payload = (await response.json()) as BffUserResponse;
-        if (!response.ok) {
-          throw new Error(payload.message ?? "Failed to load BFF user");
-        }
-        return payload;
-      })
+    void loadBffUser()
       .then((payload) => {
         if (!cancelled) {
           setBffUser(payload);

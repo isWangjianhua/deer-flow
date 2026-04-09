@@ -31,6 +31,19 @@ void test("throws when oidc settings are only partially configured", () => {
   );
 });
 
+void test("treats empty-string oidc settings as invalid partial configuration", () => {
+  assert.throws(
+    () =>
+      resolveOidcPluginConfig({
+        BETTER_AUTH_OIDC_CLIENT_ID: "",
+        BETTER_AUTH_OIDC_CLIENT_SECRET: "",
+        BETTER_AUTH_OIDC_DISCOVERY_URL: "",
+        NEXT_PUBLIC_BETTER_AUTH_OIDC_PROVIDER_ID: undefined,
+      }),
+    /OIDC requires client ID, client secret, and discovery URL/,
+  );
+});
+
 void test("resolves a complete oidc configuration", () => {
   const config = resolveOidcPluginConfig({
     BETTER_AUTH_OIDC_CLIENT_ID: "client-id",

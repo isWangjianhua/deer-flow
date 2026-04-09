@@ -82,9 +82,18 @@ BETTER_AUTH_OIDC_CLIENT_ID="oidc-client-id"
 BETTER_AUTH_OIDC_CLIENT_SECRET="oidc-client-secret"
 BETTER_AUTH_OIDC_DISCOVERY_URL="https://issuer.example.com/.well-known/openid-configuration"
 NEXT_PUBLIC_BETTER_AUTH_OIDC_PROVIDER_ID="oidc"
-# Public BFF base URL
+# Public BFF base URL used by browser code
 NEXT_PUBLIC_BFF_BASE_URL="/api/bff"
+# Internal BFF base URL used by Next.js server routes
+DEER_FLOW_INTERNAL_BFF_BASE_URL="http://127.0.0.1:9000"
 ```
+
+For local OIDC development you typically need all of the following aligned:
+
+- `BETTER_AUTH_URL` pointing at the frontend origin handling the callback, such as `http://localhost:3000`
+- `BETTER_AUTH_OIDC_CLIENT_ID`, `BETTER_AUTH_OIDC_CLIENT_SECRET`, and `BETTER_AUTH_OIDC_DISCOVERY_URL`
+- a running FastAPI BFF reachable from the Next.js server, usually through `DEER_FLOW_INTERNAL_BFF_BASE_URL`
+- `NEXT_PUBLIC_BFF_BASE_URL` only when browser requests should use something other than the default same-origin `/api/bff` bridge
 
 ## Project Structure
 
@@ -145,8 +154,19 @@ src/
 
 - `src/server/better-auth/` contains Better Auth implementation details and OIDC provider wiring.
 - `src/core/auth/` is the stable frontend auth boundary for session state, provider config, and BFF request helpers.
+- `src/core/auth/browser.ts` switches between live Better Auth behavior and a test-only browser mock adapter used by the auth E2E flow.
 - `src/app/api/bff/me/route.ts` is the first authenticated bridge route from the frontend to the FastAPI BFF.
+- `/api/bff/me` prefers `DEER_FLOW_INTERNAL_BFF_BASE_URL`, falls back to an absolute `NEXT_PUBLIC_BFF_BASE_URL`, and otherwise uses `http://127.0.0.1:9000`.
 - `src/app/workspace/account/page.tsx` is the minimum proof page for browser OIDC login, session recovery, and authenticated BFF `/me`.
+- `/workspace/account` is the auth verification page for this slice; future protected workspace routes should reuse `src/core/auth/` and the same Better Auth session instead of re-implementing login checks page by page.
+
+## Auth E2E
+
+The frontend now includes a Playwright auth regression at `tests/e2e/auth.spec.ts`.
+
+- `pnpm test:e2e:auth` runs the `/workspace/account` auth flow against Chromium.
+- The test uses `NEXT_PUBLIC_AUTH_E2E_MOCK=1` to swap browser login/logout/session restore onto a test-only mock adapter while still exercising the real page and the same-origin `/api/bff/me` fetch path.
+- In normal development and production, auth continues to use Better Auth directly.
 
 ## License
 
