@@ -31,17 +31,13 @@ Not allowed in public APIs:
 - `deerflow_thread_id`
 - raw DeerFlow route fragments
 
-## Initial Endpoints
+## Implemented Endpoints
 
 ### `POST /auth/login`
 
 Purpose:
 
-- establish or validate authenticated user session
-
-Initial expectation:
-
-- this may start as a stub or integration point for an external auth provider
+- authenticate against the local seeded user store and return JWT
 
 ### `GET /me`
 
@@ -80,6 +76,8 @@ Rules:
 - keep event order intact
 - do not expose DeerFlow thread identifiers
 
+## Deferred Endpoints
+
 ### `POST /conversations/{conversation_id}/uploads`
 
 Purpose:
@@ -102,11 +100,11 @@ Purpose:
 
 The BFF should return stable errors even when DeerFlow returns transport-specific failures.
 
-Minimum error response shape:
+Current first-slice error response shape:
 
 ```json
 {
-  "error": {
+  "detail": {
     "code": "conversation_not_found",
     "message": "Conversation not found"
   }
@@ -118,6 +116,13 @@ Rules:
 - do not leak downstream URLs
 - do not leak internal thread identifiers
 - do not return raw stack traces
+
+## Local Auth Bootstrap
+
+The first slice seeds a local development user:
+
+- username: `demo`
+- password: `demo123`
 
 ## Downstream Mapping Rules
 

@@ -4,11 +4,11 @@
 
 This service currently contains:
 
-- a project skeleton
-- a health endpoint
-- service-level documentation
-
-It does not yet implement auth, persistence, or DeerFlow proxy routes.
+- local JWT login
+- SQLite persistence
+- conversation create and list routes
+- SSE message streaming proxy to DeerFlow Gateway
+- test coverage for auth, conversation ownership, and streaming
 
 ## Local Development
 
@@ -40,17 +40,22 @@ From the repository root:
 make dev-pro
 ```
 
-## Suggested Implementation Order
+## Implementation Status
 
-1. Add `core/config.py` for typed settings.
-2. Add auth dependency plumbing in `api/deps.py`.
-3. Add a DeerFlow HTTP client in `clients/deerflow.py`.
-4. Define conversation schemas in `schemas/`.
-5. Implement conversation service and repository boundaries.
-6. Add create and list conversation routes.
-7. Implement SSE proxy support for message streaming.
-8. Add upload and artifact proxy routes.
-9. Add tests for ownership and streaming behavior.
+Completed in the first slice:
+
+1. Typed settings and SQLite session wiring
+2. Local auth with JWT and seeded demo user
+3. Conversation repository and ownership service
+4. DeerFlow HTTP client for thread creation and stream proxying
+5. Auth, `me`, conversation create/list, and stream routes
+
+Next planned slice:
+
+1. upload proxy routes
+2. artifact proxy routes
+3. conversation deletion
+4. stronger auth provider integration
 
 ## Conventions
 
@@ -66,7 +71,7 @@ Recommended commands:
 
 ```bash
 cd bff
-uv run pytest
+uv run pytest -q
 uv run ruff check .
 ```
 

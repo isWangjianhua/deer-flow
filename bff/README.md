@@ -12,8 +12,7 @@ It sits between the frontend and DeerFlow Gateway and is responsible for:
 - enforcing basic access control
 - mapping public `conversation_id` to internal DeerFlow `thread_id`
 - proxying chat streaming requests to DeerFlow Gateway
-- proxying uploads and artifact downloads
-- applying basic rate limiting and audit logging
+- providing a stable frontend-facing API boundary
 
 DeerFlow Gateway is treated as an internal agent runtime and should not be exposed directly to end users.
 
@@ -23,12 +22,10 @@ Current scope:
 
 - login session validation
 - current user lookup
-- conversation create/list/delete
+- conversation create/list
 - SSE chat proxy
-- upload proxy
-- artifact download proxy
-- audit log hooks
-- basic rate limiting
+- local SQLite-backed conversation mapping
+- seeded local demo user bootstrap
 
 Out of scope for the first version:
 
@@ -37,6 +34,9 @@ Out of scope for the first version:
 - usage metering and quota deduction
 - admin back office
 - deep business workflow orchestration
+- upload proxy
+- artifact download proxy
+- conversation deletion
 
 ## Architecture
 
@@ -94,6 +94,9 @@ Public-facing rules:
 - `POST /conversations`
 - `GET /conversations`
 - `POST /conversations/{conversation_id}/messages/stream`
+
+Deferred:
+
 - `POST /conversations/{conversation_id}/uploads`
 - `GET /conversations/{conversation_id}/artifacts/{path}`
 - `DELETE /conversations/{conversation_id}`
@@ -105,11 +108,11 @@ Public-facing rules:
 - `clients/deerflow.py`
   - outbound HTTP/SSE client for DeerFlow Gateway
 - `services/`
-  - auth, ownership, rate limit, orchestration
+  - auth and ownership orchestration
 - `repositories/`
   - persistence access
 - `models/`
-  - user, conversation, audit log
+  - user and conversation
 - `sse/proxy.py`
   - SSE passthrough and event adaptation
 
@@ -120,7 +123,8 @@ Minimum first-version tables:
 ### users
 
 - `id`
-- `email` or external auth subject
+- `username`
+- `password_hash`
 - `status`
 - `created_at`
 
@@ -134,16 +138,6 @@ Minimum first-version tables:
 - `created_at`
 - `updated_at`
 
-### audit_logs
-
-- `id`
-- `user_id`
-- `conversation_id`
-- `action`
-- `request_id`
-- `metadata`
-- `created_at`
-
 ## Environment Variables
 
 Example:
@@ -153,15 +147,12 @@ BFF_ENV=development
 BFF_HOST=0.0.0.0
 BFF_PORT=9000
 
-DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/bff
+DATABASE_URL=sqlite:///./bff.db
 BFF_SECRET_KEY=change-me
 BFF_ACCESS_TOKEN_EXPIRE_MINUTES=10080
 
 DEERFLOW_GATEWAY_BASE_URL=http://127.0.0.1:8001
 DEERFLOW_TIMEOUT_SECONDS=300
-
-BFF_RATE_LIMIT_ENABLED=true
-BFF_LOG_LEVEL=INFO
 ```
 
 ## Local Development
@@ -184,6 +175,11 @@ Update at least:
 - `DATABASE_URL`
 - `BFF_SECRET_KEY`
 - `DEERFLOW_GATEWAY_BASE_URL`
+
+The first slice seeds a local development user:
+
+- username: `demo`
+- password: `demo123`
 
 ### 3. Start the service
 
@@ -226,7 +222,6 @@ Confirm the BFF can reach the configured DeerFlow Gateway URL.
 - DeerFlow Gateway must stay internal
 - never expose raw DeerFlow `thread_id`
 - every conversation access must verify `user_id`
-- uploads and artifact downloads must go through ownership checks
 - normalize downstream errors before returning them to frontend
 
 ## Testing
@@ -244,7 +239,7 @@ Run tests:
 
 ```bash
 cd bff
-uv run pytest
+uv run pytest -q
 ```
 
 ## Future Work
@@ -257,6 +252,8 @@ Possible next steps after the first version:
 - background tasks for cleanup
 - usage analytics
 - admin tooling
+- uploads and artifact proxy routes
+- conversation deletion
 
 ## Additional Docs
 
