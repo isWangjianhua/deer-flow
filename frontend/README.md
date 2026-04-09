@@ -102,6 +102,7 @@ src/
 ├── core/                   # Core business logic
 │   ├── api/                # API client & data fetching
 │   ├── artifacts/          # Artifact management
+│   ├── auth/               # Reusable auth boundary for session and BFF bridge
 │   ├── config/              # App configuration
 │   ├── i18n/               # Internationalization
 │   ├── mcp/                # MCP integration
@@ -139,6 +140,13 @@ src/
 - Turbopack enabled by default in development for faster builds
 - Environment validation can be skipped with `SKIP_ENV_VALIDATION=1` (useful for Docker)
 - Backend API URLs are optional; nginx proxy is used by default in development
+
+## Auth Development
+
+- `src/server/better-auth/` contains Better Auth implementation details and OIDC provider wiring.
+- `src/core/auth/` is the stable frontend auth boundary for session state, provider config, and BFF request helpers.
+- `src/app/api/bff/me/route.ts` is the first authenticated bridge route from the frontend to the FastAPI BFF.
+- `src/app/workspace/account/page.tsx` is the minimum proof page for browser OIDC login, session recovery, and authenticated BFF `/me`.
 
 ## License
 
