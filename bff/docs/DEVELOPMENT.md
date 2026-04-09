@@ -4,7 +4,7 @@
 
 This service currently contains:
 
-- provider-oriented auth with a local JWT login provider
+- provider-oriented auth with `local` and `oidc` auth modes
 - SQLite persistence
 - conversation create and list routes
 - SSE message streaming proxy to DeerFlow Gateway
@@ -56,7 +56,7 @@ Next planned slice:
 1. upload proxy routes
 2. artifact proxy routes
 3. conversation deletion
-4. real OIDC provider integration
+4. browser and frontend OIDC redirect/callback integration
 
 ## Conventions
 
@@ -65,6 +65,21 @@ Next planned slice:
 - isolate DeerFlow integration in `clients/`
 - use BFF-owned schemas externally
 - do not expose runtime `thread_id`
+
+## Auth Mode Configuration
+
+`BFF_AUTH_PROVIDER` selects the active auth mode:
+
+- `local` uses the seeded demo user and BFF-issued JWTs
+- `oidc` validates external bearer `id_token` credentials and maps them to local BFF users
+
+When `BFF_AUTH_PROVIDER=oidc`, configure all of the following:
+
+- `BFF_OIDC_ISSUER`
+- `BFF_OIDC_AUDIENCE`
+- `BFF_OIDC_JWKS_URL`
+
+This slice only validates the incoming `id_token`. Browser redirect, authorization-code exchange, and callback handling are intentionally out of scope for now.
 
 ## Testing Guidance
 

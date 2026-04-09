@@ -2,7 +2,12 @@
 
 A lightweight FastAPI BFF for frontend-facing authentication, conversation ownership, and DeerFlow Gateway proxying.
 
-Authentication has moved to a provider-oriented internal architecture. Local login is still the active default provider for this slice, and future external providers such as OIDC are planned but not enabled yet.
+Authentication uses a provider-oriented internal architecture with two supported modes:
+
+- `local` for seeded demo users and BFF-issued JWTs
+- `oidc` for validating external bearer `id_token` credentials against an upstream issuer
+
+Browser redirect and callback handling for OIDC remain out of scope in this slice.
 
 ## Purpose
 
@@ -28,8 +33,9 @@ Current scope:
 - SSE chat proxy
 - local SQLite-backed conversation mapping
 - seeded local demo user bootstrap
-- provider-oriented auth internals with `local` as the default active provider
-- preparation for future external auth providers, without enabling them yet
+- provider-oriented auth internals with `local` and `oidc` auth modes
+- OIDC bearer `id_token` validation for protected requests
+- preparation for future browser-based OIDC redirect/callback flows, without enabling them yet
 
 Out of scope for the first version:
 
@@ -164,6 +170,10 @@ BFF_PORT=9000
 DATABASE_URL=sqlite:///./bff.db
 BFF_SECRET_KEY=change-me
 BFF_ACCESS_TOKEN_EXPIRE_MINUTES=10080
+BFF_AUTH_PROVIDER=local
+BFF_OIDC_ISSUER=
+BFF_OIDC_AUDIENCE=
+BFF_OIDC_JWKS_URL=
 
 DEERFLOW_GATEWAY_BASE_URL=http://127.0.0.1:8001
 DEERFLOW_TIMEOUT_SECONDS=300
@@ -189,11 +199,15 @@ Update at least:
 - `DATABASE_URL`
 - `BFF_SECRET_KEY`
 - `DEERFLOW_GATEWAY_BASE_URL`
+- `BFF_AUTH_PROVIDER` if you want to switch between `local` and `oidc`
+- `BFF_OIDC_ISSUER`, `BFF_OIDC_AUDIENCE`, and `BFF_OIDC_JWKS_URL` when using `oidc`
 
 The first slice seeds a local development user:
 
 - username: `demo`
 - password: `demo123`
+
+When `BFF_AUTH_PROVIDER=oidc`, the BFF expects incoming bearer `id_token` credentials from an external OIDC provider. This slice does not include browser redirect or callback handling, so frontends still need to obtain the token separately.
 
 ### 3. Start the service
 

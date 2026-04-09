@@ -41,8 +41,9 @@ Purpose:
 
 Notes:
 
-- this slice still uses the `local` provider for login
-- the provider layer is internal, so external providers are not part of the public contract yet
+- this route is the `local` provider login path
+- OIDC mode does not change this endpoint; it still exists for local username/password authentication and token issuance
+- the provider layer is internal, so external providers are not part of the public login contract
 
 ### `GET /me`
 
@@ -53,7 +54,8 @@ Purpose:
 Notes:
 
 - the handler resolves the request through provider identity mapping
-- local users are mapped internally before the user payload is returned
+- in `local` mode, the JWT resolves to the seeded or local BFF user
+- in `oidc` mode, protected requests accept an external bearer `id_token`, but `/me` still returns the mapped local BFF user record
 
 ### `POST /conversations`
 
@@ -85,6 +87,11 @@ Rules:
 - validate ownership before opening downstream stream
 - keep event order intact
 - do not expose DeerFlow thread identifiers
+
+Auth notes:
+
+- in `oidc` mode, this protected route accepts an external bearer `id_token`
+- the BFF validates the token, maps the identity to a local BFF user, and then applies the same ownership rules as `local` mode
 
 ## Deferred Endpoints
 
