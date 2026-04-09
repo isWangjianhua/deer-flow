@@ -167,7 +167,7 @@ BFF_ENV=development
 BFF_HOST=0.0.0.0
 BFF_PORT=9000
 
-DATABASE_URL=sqlite:///./bff.db
+DATABASE_URL=sqlite:///./.data/bff.db
 BFF_SECRET_KEY=change-me
 BFF_ACCESS_TOKEN_EXPIRE_MINUTES=10080
 BFF_AUTH_PROVIDER=local
