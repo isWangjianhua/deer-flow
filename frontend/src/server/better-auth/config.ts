@@ -1,9 +1,46 @@
 import { betterAuth } from "better-auth";
 import { genericOAuth } from "better-auth/plugins";
 
-import { env } from "@/env";
+import { env } from "../../env.js";
 
-const providerId = env.BETTER_AUTH_OIDC_PROVIDER_ID ?? "oidc";
+type OidcEnvConfig = {
+  BETTER_AUTH_OIDC_CLIENT_ID?: string;
+  BETTER_AUTH_OIDC_CLIENT_SECRET?: string;
+  BETTER_AUTH_OIDC_DISCOVERY_URL?: string;
+  BETTER_AUTH_OIDC_PROVIDER_ID?: string;
+  NEXT_PUBLIC_BETTER_AUTH_OIDC_PROVIDER_ID?: string;
+};
+
+export function resolveOidcPluginConfig(config: OidcEnvConfig) {
+  const providerId =
+    config.BETTER_AUTH_OIDC_PROVIDER_ID ??
+    config.NEXT_PUBLIC_BETTER_AUTH_OIDC_PROVIDER_ID ??
+    "oidc";
+  const clientId = config.BETTER_AUTH_OIDC_CLIENT_ID;
+  const clientSecret = config.BETTER_AUTH_OIDC_CLIENT_SECRET;
+  const discoveryUrl = config.BETTER_AUTH_OIDC_DISCOVERY_URL;
+
+  const hasAnyOidcSetting = Boolean(clientId || clientSecret || discoveryUrl);
+  if (!hasAnyOidcSetting) {
+    return null;
+  }
+
+  if (!clientId || !clientSecret || !discoveryUrl) {
+    throw new Error(
+      "OIDC requires client ID, client secret, and discovery URL.",
+    );
+  }
+
+  return {
+    providerId,
+    clientId,
+    clientSecret,
+    discoveryUrl,
+    scopes: ["openid", "email", "profile"],
+  };
+}
+
+const oidcConfig = resolveOidcPluginConfig(env);
 
 export const auth = betterAuth({
   baseURL: env.BETTER_AUTH_URL,
@@ -14,18 +51,10 @@ export const auth = betterAuth({
     storeAccountCookie: true,
     updateAccountOnSignIn: true,
   },
-  plugins: env.BETTER_AUTH_OIDC_DISCOVERY_URL
+  plugins: oidcConfig
     ? [
         genericOAuth({
-          config: [
-            {
-              providerId,
-              clientId: env.BETTER_AUTH_OIDC_CLIENT_ID!,
-              clientSecret: env.BETTER_AUTH_OIDC_CLIENT_SECRET!,
-              discoveryUrl: env.BETTER_AUTH_OIDC_DISCOVERY_URL,
-              scopes: ["openid", "email", "profile"],
-            },
-          ],
+          config: [oidcConfig],
         }),
       ]
     : [],

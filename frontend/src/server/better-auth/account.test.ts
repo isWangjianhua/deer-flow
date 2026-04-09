@@ -21,3 +21,12 @@ void test("returns null when the account payload does not include an id token", 
 
   assert.equal(token, null);
 });
+
+void test("returns null when the account payload belongs to another provider", () => {
+  const token = getOidcIdTokenFromAccount({
+    providerId: "github",
+    idToken: "header.payload.signature",
+  });
+
+  assert.equal(token, null);
+});

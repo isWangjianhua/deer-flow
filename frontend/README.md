@@ -81,6 +81,7 @@ NEXT_PUBLIC_LANGGRAPH_BASE_URL="http://localhost:2024"
 BETTER_AUTH_OIDC_CLIENT_ID="oidc-client-id"
 BETTER_AUTH_OIDC_CLIENT_SECRET="oidc-client-secret"
 BETTER_AUTH_OIDC_DISCOVERY_URL="https://issuer.example.com/.well-known/openid-configuration"
+NEXT_PUBLIC_BETTER_AUTH_OIDC_PROVIDER_ID="oidc"
 # Public BFF base URL
 NEXT_PUBLIC_BFF_BASE_URL="/api/bff"
 ```
