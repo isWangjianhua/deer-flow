@@ -14,6 +14,62 @@ def test_password_hash_round_trip() -> None:
     assert verify_password("wrong", password_hash) is False
 
 
+def test_auth_service_selects_local_provider_from_settings(db_session, monkeypatch) -> None:
+    calls: list[tuple[object, ...]] = []
+    settings = SimpleNamespace(bff_auth_provider="local")
+
+    class FakeLocalProvider:
+        def __init__(self, db) -> None:
+            calls.append(("local_provider_init", db))
+
+    class FakeOidcProvider:
+        def __init__(self, **kwargs) -> None:
+            raise AssertionError("OidcAuthProvider should not be used for local auth")
+
+    monkeypatch.setattr(auth_service_module, "get_settings", lambda: settings)
+    monkeypatch.setattr(auth_service_module, "LocalAuthProvider", FakeLocalProvider)
+    monkeypatch.setattr(auth_service_module, "OidcAuthProvider", FakeOidcProvider)
+
+    service = AuthService(db_session)
+
+    assert isinstance(service.provider, FakeLocalProvider)
+    assert calls == [("local_provider_init", db_session)]
+
+
+def test_auth_service_selects_oidc_provider_from_settings(db_session, monkeypatch) -> None:
+    calls: list[tuple[object, ...]] = []
+    settings = SimpleNamespace(
+        bff_auth_provider="oidc",
+        bff_oidc_issuer="https://issuer.example.com",
+        bff_oidc_audience="deerflow-bff",
+        bff_oidc_jwks_url="https://issuer.example.com/.well-known/jwks.json",
+    )
+
+    class FakeLocalProvider:
+        def __init__(self, db) -> None:
+            raise AssertionError("LocalAuthProvider should not be used for oidc auth")
+
+    class FakeOidcProvider:
+        def __init__(self, *, issuer, audience, jwks_url) -> None:
+            calls.append(("oidc_provider_init", issuer, audience, jwks_url))
+
+    monkeypatch.setattr(auth_service_module, "get_settings", lambda: settings)
+    monkeypatch.setattr(auth_service_module, "LocalAuthProvider", FakeLocalProvider)
+    monkeypatch.setattr(auth_service_module, "OidcAuthProvider", FakeOidcProvider)
+
+    service = AuthService(db_session)
+
+    assert isinstance(service.provider, FakeOidcProvider)
+    assert calls == [
+        (
+            "oidc_provider_init",
+            "https://issuer.example.com",
+            "deerflow-bff",
+            "https://issuer.example.com/.well-known/jwks.json",
+        )
+    ]
+
+
 def test_login_routes_through_provider_and_mapper(db_session, monkeypatch) -> None:
     calls: list[tuple[object, ...]] = []
     identity = SimpleNamespace(provider="local", subject="demo", claims={"username": "demo"})
