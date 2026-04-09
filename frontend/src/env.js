@@ -17,7 +17,6 @@ export const env = createEnv({
     BETTER_AUTH_OIDC_CLIENT_ID: z.string().optional(),
     BETTER_AUTH_OIDC_CLIENT_SECRET: z.string().optional(),
     BETTER_AUTH_OIDC_DISCOVERY_URL: z.string().optional(),
-    BETTER_AUTH_OIDC_PROVIDER_ID: z.string().optional(),
     GITHUB_OAUTH_TOKEN: z.string().optional(),
     NODE_ENV: z
       .enum(["development", "test", "production"])
@@ -52,7 +51,6 @@ export const env = createEnv({
       process.env.BETTER_AUTH_OIDC_CLIENT_SECRET,
     BETTER_AUTH_OIDC_DISCOVERY_URL:
       process.env.BETTER_AUTH_OIDC_DISCOVERY_URL,
-    BETTER_AUTH_OIDC_PROVIDER_ID: process.env.BETTER_AUTH_OIDC_PROVIDER_ID,
     NODE_ENV: process.env.NODE_ENV,
 
     NEXT_PUBLIC_BACKEND_BASE_URL: process.env.NEXT_PUBLIC_BACKEND_BASE_URL,

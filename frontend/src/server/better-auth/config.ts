@@ -7,15 +7,11 @@ type OidcEnvConfig = {
   BETTER_AUTH_OIDC_CLIENT_ID?: string;
   BETTER_AUTH_OIDC_CLIENT_SECRET?: string;
   BETTER_AUTH_OIDC_DISCOVERY_URL?: string;
-  BETTER_AUTH_OIDC_PROVIDER_ID?: string;
   NEXT_PUBLIC_BETTER_AUTH_OIDC_PROVIDER_ID?: string;
 };
 
 export function resolveOidcPluginConfig(config: OidcEnvConfig) {
-  const providerId =
-    config.BETTER_AUTH_OIDC_PROVIDER_ID ??
-    config.NEXT_PUBLIC_BETTER_AUTH_OIDC_PROVIDER_ID ??
-    "oidc";
+  const providerId = config.NEXT_PUBLIC_BETTER_AUTH_OIDC_PROVIDER_ID ?? "oidc";
   const clientId = config.BETTER_AUTH_OIDC_CLIENT_ID;
   const clientSecret = config.BETTER_AUTH_OIDC_CLIENT_SECRET;
   const discoveryUrl = config.BETTER_AUTH_OIDC_DISCOVERY_URL;

@@ -6,11 +6,7 @@ export type BetterAuthAccountPayload = {
 };
 
 function resolveOidcProviderId() {
-  return (
-    process.env.BETTER_AUTH_OIDC_PROVIDER_ID ??
-    process.env.NEXT_PUBLIC_BETTER_AUTH_OIDC_PROVIDER_ID ??
-    "oidc"
-  );
+  return process.env.NEXT_PUBLIC_BETTER_AUTH_OIDC_PROVIDER_ID ?? "oidc";
 }
 
 export async function getOidcAccount(request: NextRequest) {

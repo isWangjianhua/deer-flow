@@ -11,7 +11,6 @@ void test("returns null when no oidc settings are configured", () => {
       BETTER_AUTH_OIDC_CLIENT_ID: undefined,
       BETTER_AUTH_OIDC_CLIENT_SECRET: undefined,
       BETTER_AUTH_OIDC_DISCOVERY_URL: undefined,
-      BETTER_AUTH_OIDC_PROVIDER_ID: undefined,
       NEXT_PUBLIC_BETTER_AUTH_OIDC_PROVIDER_ID: undefined,
     }),
     null,
@@ -26,7 +25,6 @@ void test("throws when oidc settings are only partially configured", () => {
         BETTER_AUTH_OIDC_CLIENT_SECRET: undefined,
         BETTER_AUTH_OIDC_DISCOVERY_URL:
           "https://issuer.example.com/.well-known/openid-configuration",
-        BETTER_AUTH_OIDC_PROVIDER_ID: undefined,
         NEXT_PUBLIC_BETTER_AUTH_OIDC_PROVIDER_ID: undefined,
       }),
     /OIDC requires client ID, client secret, and discovery URL/,
@@ -39,7 +37,6 @@ void test("resolves a complete oidc configuration", () => {
     BETTER_AUTH_OIDC_CLIENT_SECRET: "client-secret",
     BETTER_AUTH_OIDC_DISCOVERY_URL:
       "https://issuer.example.com/.well-known/openid-configuration",
-    BETTER_AUTH_OIDC_PROVIDER_ID: undefined,
     NEXT_PUBLIC_BETTER_AUTH_OIDC_PROVIDER_ID: "oidc",
   });
 
