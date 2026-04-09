@@ -132,6 +132,16 @@ Minimum first-version tables:
 - `status`
 - `created_at`
 
+### user_identities
+
+- `id`
+- `user_id`
+- `provider`
+- `subject`
+- `email`
+- `claims_json`
+- `created_at`
+
 ### conversations
 
 - `id`
