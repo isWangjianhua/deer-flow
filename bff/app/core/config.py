@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from pydantic import AnyHttpUrl, Field
+from pydantic import AnyHttpUrl, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -24,6 +24,25 @@ class Settings(BaseSettings):
     bff_oidc_jwks_url: AnyHttpUrl | None = Field(default=None)
     deerflow_gateway_base_url: str = Field(default="http://127.0.0.1:8001")
     deerflow_timeout_seconds: int = Field(default=300)
+
+    @model_validator(mode="after")
+    def validate_oidc_settings(self) -> "Settings":
+        if self.bff_auth_provider != "oidc":
+            return self
+
+        missing_fields = []
+        if self.bff_oidc_issuer is None:
+            missing_fields.append("bff_oidc_issuer")
+        if not self.bff_oidc_audience:
+            missing_fields.append("bff_oidc_audience")
+        if self.bff_oidc_jwks_url is None:
+            missing_fields.append("bff_oidc_jwks_url")
+
+        if missing_fields:
+            missing = ", ".join(missing_fields)
+            raise ValueError(f"OIDC auth provider requires {missing}")
+
+        return self
 
 
 @lru_cache

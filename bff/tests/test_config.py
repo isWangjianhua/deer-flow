@@ -1,4 +1,5 @@
 import pytest
+from pydantic import ValidationError
 
 from app.core.config import Settings
 
@@ -56,3 +57,27 @@ def test_auth_provider_settings_rejects_invalid_oidc_url() -> None:
             deerflow_gateway_base_url="http://127.0.0.1:8001",
             bff_oidc_jwks_url="not-a-url",
         )
+
+
+def test_oidc_provider_requires_issuer_audience_and_jwks_url() -> None:
+    with pytest.raises(ValidationError):
+        Settings(
+            database_url="sqlite:///./test.db",
+            bff_secret_key="test-secret",
+            deerflow_gateway_base_url="http://127.0.0.1:8001",
+            bff_auth_provider="oidc",
+        )
+
+
+def test_oidc_provider_accepts_complete_configuration() -> None:
+    settings = Settings(
+        database_url="sqlite:///./test.db",
+        bff_secret_key="test-secret",
+        deerflow_gateway_base_url="http://127.0.0.1:8001",
+        bff_auth_provider="oidc",
+        bff_oidc_issuer="https://issuer.example.com",
+        bff_oidc_audience="deerflow-bff",
+        bff_oidc_jwks_url="https://issuer.example.com/.well-known/jwks.json",
+    )
+
+    assert settings.bff_auth_provider == "oidc"
