@@ -185,3 +185,9 @@ That means:
 - do not mix in chat UI work
 - do not overbuild packaging or monorepo abstractions
 - keep future migration in mind, but optimize for a usable first implementation in the current frontend
+
+## Implementation Notes
+
+- the first bridge implementation uses a same-origin Next.js route at `/api/bff/me`
+- the bridge keeps provider token handling on the server side instead of exposing it to arbitrary client components
+- the first user-facing proof page is `/workspace/account`
