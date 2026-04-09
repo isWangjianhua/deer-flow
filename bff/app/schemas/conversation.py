@@ -22,5 +22,23 @@ class ConversationListItem(BaseModel):
     updated_at: datetime
 
 
+class ConversationStateValues(BaseModel):
+    title: str = ""
+    messages: list[dict] = []
+    artifacts: list[str] = []
+    todos: list[dict] = []
+
+
+class ConversationDetailResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    title: str
+    status: str
+    created_at: datetime
+    updated_at: datetime
+    values: ConversationStateValues
+
+
 class StreamMessageRequest(BaseModel):
     message: str

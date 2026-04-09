@@ -27,7 +27,13 @@ def test_stream_route_rejects_unowned_conversation(client) -> None:
 def test_stream_route_returns_sse_for_owned_conversation(client, db_session, monkeypatch) -> None:
     class FakeResponse:
         async def aiter_lines(self):
-            for line in ["event: message", 'data: {"content":"hi"}']:
+            for line in [
+                "event: message_delta",
+                'data: {"message_id":"assistant-1","delta":"hi"}',
+                "",
+                "event: tool_start",
+                'data: {"tool_call_id":"tool-1","label":"Searching web"}',
+            ]:
                 yield line
 
         async def aclose(self) -> None:
@@ -59,3 +65,5 @@ def test_stream_route_returns_sse_for_owned_conversation(client, db_session, mon
 
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/event-stream")
+    assert b"event: message.delta" in response.content
+    assert b"event: tool.started" in response.content

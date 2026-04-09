@@ -1,0 +1,77 @@
+import type { Message } from "@langchain/langgraph-sdk";
+
+import type { Todo } from "@/core/todos";
+
+export type BffConversation = {
+  id: string;
+  title: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type BffConversationList = BffConversation[];
+
+export type CreateConversationResult = BffConversation;
+
+export type BffConversationDetail = BffConversation & {
+  status: string;
+  values: {
+    title?: string;
+    messages?: Message[];
+    artifacts?: string[];
+    todos?: Todo[];
+  };
+};
+
+export type BffChatEvent =
+  | {
+      type: "message.started";
+      data: { message_id: string };
+    }
+  | {
+      type: "message.delta";
+      data: { message_id: string; delta: string };
+    }
+  | {
+      type: "message.completed";
+      data: { message_id: string };
+    }
+  | {
+      type: "tool.started";
+      data: { tool_call_id: string; label: string };
+    }
+  | {
+      type: "tool.progress";
+      data: { tool_call_id: string; message: string };
+    }
+  | {
+      type: "tool.completed";
+      data: { tool_call_id: string };
+    }
+  | {
+      type: "tool.failed";
+      data: { tool_call_id: string; message: string };
+    }
+  | {
+      type: "run.failed";
+      data: { message: string; code: string };
+    };
+
+export type BffChatToolState = {
+  id: string;
+  label: string;
+  status: "running" | "completed" | "failed";
+  summary: string | null;
+};
+
+export type BffChatMessageState = {
+  id: string;
+  role: "assistant";
+  content: string;
+  status: "streaming" | "completed";
+  tools: BffChatToolState[];
+};
+
+export type BffChatState = {
+  messages: BffChatMessageState[];
+};

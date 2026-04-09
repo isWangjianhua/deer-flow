@@ -15,6 +15,7 @@
     "preview": "next build && next start",
     "start": "next start",
     "test:e2e:auth": "playwright test tests/e2e/auth.spec.ts --project=chromium",
+    "test:e2e:chat": "playwright test tests/e2e/chat.spec.ts --project=chromium",
     "test:e2e": "playwright test",
     "typecheck": "tsc --noEmit"
   },

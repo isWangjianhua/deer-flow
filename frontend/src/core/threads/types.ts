@@ -11,6 +11,15 @@ export interface AgentThreadState extends Record<string, unknown> {
 
 export interface AgentThread extends Thread<AgentThreadState> {}
 
+export interface WorkspaceThreadStream {
+  messages: Message[];
+  values: AgentThreadState;
+  isLoading: boolean;
+  isThreadLoading: boolean;
+  error?: unknown;
+  stop(): Promise<void>;
+}
+
 export interface AgentThreadContext extends Record<string, unknown> {
   thread_id: string;
   model_name: string | undefined;

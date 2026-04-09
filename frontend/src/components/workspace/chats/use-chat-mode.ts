@@ -9,7 +9,8 @@ import { useI18n } from "@/core/i18n/hooks";
  */
 export function useSpecificChatMode() {
   const { t } = useI18n();
-  const { thread_id: threadIdFromPath } = useParams<{ thread_id: string }>();
+  const params = useParams<{ thread_id?: string; conversation_id?: string }>();
+  const threadIdFromPath = params.conversation_id ?? params.thread_id ?? "new";
   const searchParams = useSearchParams();
   const promptInputController = usePromptInputController();
   const inputInitialValue = useMemo(() => {

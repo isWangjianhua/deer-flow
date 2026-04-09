@@ -1,5 +1,6 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
@@ -10,25 +11,28 @@ import {
   WorkspaceContainer,
   WorkspaceHeader,
 } from "@/components/workspace/workspace-container";
+import { listConversations } from "@/core/bff-chat";
 import { useI18n } from "@/core/i18n/hooks";
-import { useThreads } from "@/core/threads/hooks";
-import { pathOfThread, titleOfThread } from "@/core/threads/utils";
 import { formatTimeAgo } from "@/core/utils/datetime";
 
 export default function ChatsPage() {
   const { t } = useI18n();
-  const { data: threads } = useThreads();
+  const { data: conversations } = useQuery({
+    queryKey: ["bff", "conversations"],
+    queryFn: () => listConversations(),
+  });
   const [search, setSearch] = useState("");
 
   useEffect(() => {
     document.title = `${t.pages.chats} - ${t.pages.appName}`;
   }, [t.pages.chats, t.pages.appName]);
 
-  const filteredThreads = useMemo(() => {
-    return threads?.filter((thread) => {
-      return titleOfThread(thread).toLowerCase().includes(search.toLowerCase());
+  const filteredConversations = useMemo(() => {
+    return conversations?.filter((conversation) => {
+      const title = conversation.title?.trim() ?? t.pages.untitled;
+      return title.toLowerCase().includes(search.toLowerCase());
     });
-  }, [threads, search]);
+  }, [conversations, search, t.pages.untitled]);
   return (
     <WorkspaceContainer>
       <WorkspaceHeader></WorkspaceHeader>
@@ -47,18 +51,18 @@ export default function ChatsPage() {
           <main className="min-h-0 flex-1">
             <ScrollArea className="size-full py-4">
               <div className="mx-auto flex size-full max-w-(--container-width-md) flex-col">
-                {filteredThreads?.map((thread) => (
+                {filteredConversations?.map((conversation) => (
                   <Link
-                    key={thread.thread_id}
-                    href={pathOfThread(thread.thread_id)}
+                    key={conversation.id}
+                    href={`/workspace/chats/${conversation.id}`}
                   >
                     <div className="flex flex-col gap-2 border-b p-4">
                       <div>
-                        <div>{titleOfThread(thread)}</div>
+                        <div>{conversation.title?.trim() ?? t.pages.untitled}</div>
                       </div>
-                      {thread.updated_at && (
+                      {conversation.updated_at && (
                         <div className="text-muted-foreground text-sm">
-                          {formatTimeAgo(thread.updated_at)}
+                          {formatTimeAgo(conversation.updated_at)}
                         </div>
                       )}
                     </div>

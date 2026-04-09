@@ -7,20 +7,7 @@ import {
   getOidcIdTokenFromAccount,
   getSession,
 } from "@/server/better-auth";
-
-function getInternalBffBaseURL() {
-  const internal = process.env.DEER_FLOW_INTERNAL_BFF_BASE_URL?.trim();
-  if (internal) {
-    return internal.replace(/\/+$/, "");
-  }
-
-  const configured = process.env.NEXT_PUBLIC_BFF_BASE_URL?.trim();
-  if (configured?.startsWith("http://") || configured?.startsWith("https://")) {
-    return configured.replace(/\/+$/, "");
-  }
-
-  return "http://127.0.0.1:9000";
-}
+import { getInternalBffBaseURL } from "@/server/bff/internal";
 
 export async function GET(request: NextRequest) {
   const session = await getSession();

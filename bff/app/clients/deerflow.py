@@ -29,3 +29,12 @@ class DeerFlowClient:
         response = await client.send(request, stream=True)
         response.raise_for_status()
         return client, response
+
+    async def get_thread_history(self, thread_id: str, limit: int = 1) -> list[dict]:
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+          response = await client.post(
+              f"{self.base_url}/api/threads/{thread_id}/history",
+              json={"limit": limit},
+          )
+          response.raise_for_status()
+          return response.json()

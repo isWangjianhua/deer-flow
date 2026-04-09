@@ -6,6 +6,7 @@ from app.api.deps import get_current_user_id, get_db_session
 from app.clients.deerflow import DeerFlowClient
 from app.schemas.conversation import (
     ConversationCreateResponse,
+    ConversationDetailResponse,
     ConversationListItem,
     StreamMessageRequest,
 )
@@ -34,6 +35,18 @@ def list_conversations(
     db: Session = Depends(get_db_session),
 ) -> list[ConversationListItem]:
     return ConversationService(db).list_conversations(user_id)
+
+
+@router.get("/{conversation_id}", response_model=ConversationDetailResponse)
+async def get_conversation(
+    conversation_id: str,
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db_session),
+) -> ConversationDetailResponse:
+    return await ConversationService(db).get_conversation_detail(
+        user_id,
+        conversation_id,
+    )
 
 
 @router.post("/{conversation_id}/messages/stream")

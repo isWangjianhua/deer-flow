@@ -2,9 +2,14 @@ from fastapi import status
 from sqlalchemy.orm import Session
 
 from app.api.errors import error_response
+from app.clients.deerflow import DeerFlowClient
 from app.models.conversation import Conversation
 from app.repositories.conversation_repo import ConversationRepository
-from app.schemas.conversation import ConversationCreateResponse, ConversationListItem
+from app.schemas.conversation import (
+    ConversationCreateResponse,
+    ConversationDetailResponse,
+    ConversationListItem,
+)
 
 
 class ConversationService:
@@ -36,3 +41,23 @@ class ConversationService:
         if conversation.user_id != user_id:
             raise error_response(status.HTTP_403_FORBIDDEN, "forbidden", "Forbidden")
         return conversation
+
+    async def get_conversation_detail(
+        self,
+        user_id: str,
+        conversation_id: str,
+    ) -> ConversationDetailResponse:
+        conversation = self.require_owned_conversation(user_id, conversation_id)
+        history = await DeerFlowClient().get_thread_history(
+            conversation.deerflow_thread_id,
+            limit=1,
+        )
+        latest_values = history[0].get("values", {}) if history else {}
+        return ConversationDetailResponse(
+            id=conversation.id,
+            title=conversation.title,
+            status=conversation.status,
+            created_at=conversation.created_at,
+            updated_at=conversation.updated_at,
+            values=latest_values,
+        )
