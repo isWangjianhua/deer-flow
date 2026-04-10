@@ -1,3 +1,5 @@
+import asyncio
+
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
@@ -10,7 +12,10 @@ from app.schemas.conversation import (
     ConversationListItem,
     StreamMessageRequest,
 )
-from app.services.conversation_service import ConversationService
+from app.services.conversation_service import (
+    ConversationService,
+    sync_conversation_after_stream_safe,
+)
 from app.sse.proxy import iter_sse_lines
 
 
@@ -30,7 +35,7 @@ async def create_conversation(
 
 
 @router.get("", response_model=list[ConversationListItem])
-def list_conversations(
+async def list_conversations(
     user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db_session),
 ) -> list[ConversationListItem]:
@@ -63,12 +68,14 @@ async def stream_message(
         message=payload.message,
     )
 
-    async def stream_and_sync():
-        async for line in iter_sse_lines(client, response):
-            yield line
-        await service.sync_conversation_after_stream(conversation)
+    async def stream_only():
+        try:
+            async for line in iter_sse_lines(client, response):
+                yield line
+        finally:
+            asyncio.create_task(sync_conversation_after_stream_safe(conversation.id))
 
     return StreamingResponse(
-        stream_and_sync(),
+        stream_only(),
         media_type="text/event-stream",
     )

@@ -30,6 +30,8 @@ export async function POST(
       "content-type":
         response.headers.get("content-type") ?? "text/event-stream",
       "cache-control": "no-cache, no-transform",
+      "x-accel-buffering":
+        response.headers.get("x-accel-buffering") ?? "no",
     },
   });
 }

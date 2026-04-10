@@ -101,6 +101,7 @@ class StreamEventNormalizer:
         self.frontend_message_id: str | None = None
         self.message_text = ""
         self.message_completed = False
+        self.run_failed = False
         self.started_tool_ids: set[str] = set()
         self.completed_tool_ids: set[str] = set()
 
@@ -130,6 +131,10 @@ class StreamEventNormalizer:
             return [normalize_stream_event({"event": event_name, "data": data})]
 
         events: list[dict] = []
+
+        if event_name == "error":
+            self.run_failed = True
+            return [{"event": "run.failed", "data": data}]
 
         if event_name in {"messages", "messages-tuple"}:
             message_payload: object = data
@@ -198,13 +203,6 @@ class StreamEventNormalizer:
                                 },
                             }
                         )
-                    events.append(
-                        {
-                            "event": "tool.completed",
-                            "data": {"tool_call_id": tool_call_id},
-                        }
-                    )
-                    self.completed_tool_ids.add(tool_call_id)
 
             return events
 
@@ -289,6 +287,8 @@ class StreamEventNormalizer:
             return events
 
         if event_name == "end":
+            if self.run_failed:
+                return []
             if self.frontend_message_id is not None and not self.message_completed:
                 self.message_completed = True
                 return [

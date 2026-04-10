@@ -17,18 +17,27 @@ Completed on `2026-04-10`:
 - `feat/frontend-oidc-login`
 - `feat/frontend-bff-chat-stream`
 
+Completed on `2026-04-11`:
+
+- `streaming-fix`
+
 What is now true:
 
 - browser OIDC login is product-complete on the frontend/BFF path
 - the main chat page now uses a BFF-owned conversation and stream contract
 - the frontend main chat route uses `conversation_id` semantics
 - the BFF now owns `create`, `list`, `detail`, and `messages/stream` for conversations
+- the browser-facing BFF chat stream preserves explicit SSE anti-buffering behavior
+- downstream gateway `error` events are exposed as frontend-visible `run.failed`
+- post-stream history sync no longer blocks the active SSE response
+- route-level BFF pytest is stable again after removing the hanging sync test path
 
 What still remains for the next product loop:
 
 - uploads and artifact access on the BFF-backed chat path
 - richer conversation lifecycle actions
 - usage governance and production hardening
+- browser-automation coverage for the live BFF streaming path once the local Playwright setup is dependable
 
 ## Recommended Order
 
@@ -191,6 +200,13 @@ Outcome:
 - authenticated users can start a conversation and receive streamed assistant output
 
 Status: completed
+
+Stability follow-through now complete:
+
+- downstream failure propagation repaired
+- browser-facing stream buffering repaired
+- post-stream sync removed from the hot path
+- local route-test execution stabilized
 
 ### Milestone C: Practical Workflow Support
 

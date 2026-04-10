@@ -1,3 +1,6 @@
+import httpx
+import time
+
 from app.clients.deerflow import DeerFlowClient
 from app.services.conversation_service import ConversationService
 
@@ -55,7 +58,13 @@ def test_stream_route_returns_sse_for_owned_conversation(client, db_session, mon
         assert message == WEATHER_PROMPT
         return FakeClient(), FakeResponse()
 
+    async def mock_get_thread_history(self, thread_id: str, limit: int = 1) -> list[dict]:
+        assert thread_id == "thread-owned"
+        assert limit == 1
+        return []
+
     monkeypatch.setattr(DeerFlowClient, "stream_message", mock_stream_message)
+    monkeypatch.setattr(DeerFlowClient, "get_thread_history", mock_get_thread_history)
 
     login = client.post("/auth/login", json={"username": "demo", "password": "demo123"})
     token = login.json()["access_token"]
@@ -76,7 +85,8 @@ def test_stream_route_returns_sse_for_owned_conversation(client, db_session, mon
     assert response.headers["content-type"].startswith("text/event-stream")
     assert b"event: message.started" in response.content
     assert b"event: tool.started" in response.content
-    assert b"event: tool.completed" in response.content
+    assert b"event: tool.progress" in response.content
+    assert b"event: tool.completed" not in response.content
     assert b"event: message.delta" in response.content
     assert b"event: message.completed" in response.content
 
@@ -143,10 +153,73 @@ def test_stream_route_syncs_conversation_title_after_stream(client, db_session, 
 
     assert response.status_code == 200
 
-    listed = client.get("/conversations", headers=headers)
-    detail = client.get(f"/conversations/{conversation.id}", headers=headers)
+    listed = None
+    detail = None
+    for _ in range(20):
+        listed = client.get("/conversations", headers=headers)
+        detail = client.get(f"/conversations/{conversation.id}", headers=headers)
+        if (
+            listed.status_code == 200
+            and listed.json()[0]["title"] == "Synced conversation"
+            and detail.status_code == 200
+            and detail.json()["title"] == "Synced conversation"
+        ):
+            break
+        time.sleep(0.01)
 
+    assert listed is not None
+    assert detail is not None
     assert listed.status_code == 200
     assert listed.json()[0]["title"] == "Synced conversation"
     assert detail.status_code == 200
     assert detail.json()["title"] == "Synced conversation"
+
+
+def test_stream_route_keeps_sse_response_when_post_stream_sync_fails(client, db_session, monkeypatch) -> None:
+    class FakeResponse:
+        async def aiter_lines(self):
+            for line in [
+                "event: values",
+                'data: {"messages":[{"type":"human","id":"h-1","content":"hello"},{"type":"ai","id":"ai-1","content":"Hi there"}],"artifacts":[],"todos":[]}',
+                "",
+                "event: end",
+                "data: {}",
+            ]:
+                yield line
+
+        async def aclose(self) -> None:
+            return None
+
+    class FakeClient:
+        async def aclose(self) -> None:
+            return None
+
+    async def mock_stream_message(self, thread_id: str, message: str):
+        return FakeClient(), FakeResponse()
+
+    async def mock_get_thread_history(self, thread_id: str, limit: int = 1) -> list[dict]:
+        raise httpx.ConnectError("history unavailable")
+
+    monkeypatch.setattr(DeerFlowClient, "stream_message", mock_stream_message)
+    monkeypatch.setattr(DeerFlowClient, "get_thread_history", mock_get_thread_history)
+
+    login = client.post("/auth/login", json={"username": "demo", "password": "demo123"})
+    token = login.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+    me = client.get("/me", headers=headers)
+    conversation = ConversationService(db_session).create_conversation(
+        user_id=me.json()["id"],
+        deerflow_thread_id="thread-owned",
+    )
+
+    response = client.post(
+        f"/conversations/{conversation.id}/messages/stream",
+        json={"message": "hello"},
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/event-stream")
+    assert b"event: message.started" in response.content
+    assert b"event: message.delta" in response.content
+    assert b"event: message.completed" in response.content

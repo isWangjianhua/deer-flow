@@ -1,3 +1,4 @@
+import logging
 from datetime import UTC, datetime
 
 from fastapi import status
@@ -5,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.api.errors import error_response
 from app.clients.deerflow import DeerFlowClient
+from app.db.session import SessionLocal
 from app.models.conversation import Conversation
 from app.repositories.conversation_repo import ConversationRepository
 from app.schemas.conversation import (
@@ -12,6 +14,8 @@ from app.schemas.conversation import (
     ConversationDetailResponse,
     ConversationListItem,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class ConversationService:
@@ -100,3 +104,22 @@ class ConversationService:
             latest_values,
             touch_updated_at=True,
         )
+
+
+async def sync_conversation_after_stream_safe(conversation_id: str) -> None:
+    db = SessionLocal()
+    try:
+        service = ConversationService(db)
+        conversation = service.repo.get_by_id(conversation_id)
+        if conversation is None:
+            return
+        try:
+            await service.sync_conversation_after_stream(conversation)
+        except Exception:
+            logger.warning(
+                "Post-stream conversation sync failed for conversation_id=%s",
+                conversation_id,
+                exc_info=True,
+            )
+    finally:
+        db.close()

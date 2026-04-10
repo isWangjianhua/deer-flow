@@ -10,5 +10,5 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/login", response_model=TokenResponse)
-def login(payload: LoginRequest, db: Session = Depends(get_db_session)) -> TokenResponse:
+async def login(payload: LoginRequest, db: Session = Depends(get_db_session)) -> TokenResponse:
     return AuthService(db).login(payload.username, payload.password)

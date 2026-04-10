@@ -10,7 +10,7 @@ router = APIRouter(tags=["users"])
 
 
 @router.get("/me", response_model=CurrentUserResponse)
-def me(
+async def me(
     user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db_session),
 ) -> CurrentUserResponse:

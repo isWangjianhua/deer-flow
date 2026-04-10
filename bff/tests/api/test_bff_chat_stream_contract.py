@@ -96,10 +96,7 @@ def test_stream_event_normalizer_maps_messages_sequence_to_frontend_events():
         "event": "tool.progress",
         "data": {"tool_call_id": "tool-1", "message": "Found LangGraph docs"},
     }
-    assert tool_result[1] == {
-        "event": "tool.completed",
-        "data": {"tool_call_id": "tool-1"},
-    }
+    assert len(tool_result) == 1
     assert final_text[0] == {
         "event": "message.delta",
         "data": {
@@ -239,4 +236,114 @@ def test_stream_event_normalizer_ignores_empty_tool_call_ids() -> None:
                 "args": {"url": "https://example.com"},
             },
         },
+    ]
+
+
+def test_stream_event_normalizer_maps_gateway_error_to_run_failed() -> None:
+    normalizer = StreamEventNormalizer()
+
+    events = normalizer.normalize(
+        "error",
+        {"message": "boom", "name": "ValueError"},
+    )
+
+    assert events == [
+        {
+            "event": "run.failed",
+            "data": {"message": "boom", "name": "ValueError"},
+        }
+    ]
+
+
+def test_stream_event_normalizer_does_not_complete_message_after_error() -> None:
+    normalizer = StreamEventNormalizer()
+
+    started = normalizer.normalize(
+        "messages",
+        [
+            {
+                "type": "AIMessageChunk",
+                "id": "ai-1",
+                "content": "partial",
+            },
+            {"langgraph_node": "agent"},
+        ],
+    )
+    failed = normalizer.normalize(
+        "error",
+        {"message": "boom", "name": "ValueError"},
+    )
+    completed = normalizer.normalize("end", {})
+
+    assert started[0] == {
+        "event": "message.started",
+        "data": {"message_id": "ai-1"},
+    }
+    assert failed == [
+        {
+            "event": "run.failed",
+            "data": {"message": "boom", "name": "ValueError"},
+        }
+    ]
+    assert completed == []
+
+
+def test_stream_event_normalizer_does_not_complete_tool_for_each_chunk() -> None:
+    normalizer = StreamEventNormalizer()
+
+    normalizer.normalize(
+        "messages",
+        [
+            {
+                "type": "ai",
+                "id": "ai-1",
+                "content": "",
+                "tool_calls": [
+                    {
+                        "id": "tool-1",
+                        "name": "web_search",
+                        "args": {"query": "weather"},
+                    }
+                ],
+            },
+            {"langgraph_node": "agent"},
+        ],
+    )
+
+    first = normalizer.normalize(
+        "messages",
+        [
+            {
+                "type": "ToolMessageChunk",
+                "id": "tool-message-1",
+                "tool_call_id": "tool-1",
+                "content": "Looking up forecast",
+            },
+            {"langgraph_node": "tools"},
+        ],
+    )
+    second = normalizer.normalize(
+        "messages",
+        [
+            {
+                "type": "ToolMessageChunk",
+                "id": "tool-message-2",
+                "tool_call_id": "tool-1",
+                "content": "Checking hourly data",
+            },
+            {"langgraph_node": "tools"},
+        ],
+    )
+
+    assert first == [
+        {
+            "event": "tool.progress",
+            "data": {"tool_call_id": "tool-1", "message": "Looking up forecast"},
+        }
+    ]
+    assert second == [
+        {
+            "event": "tool.progress",
+            "data": {"tool_call_id": "tool-1", "message": "Checking hourly data"},
+        }
     ]
