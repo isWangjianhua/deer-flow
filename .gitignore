@@ -55,5 +55,7 @@ web/
 backend/Dockerfile.langgraph
 config.yaml.bak
 .playwright-mcp
+.playwright-cli/
+.codex
 .gstack/
 .worktrees
