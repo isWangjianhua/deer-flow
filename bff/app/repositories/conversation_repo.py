@@ -24,3 +24,9 @@ class ConversationRepository:
 
     def get_by_id(self, conversation_id: str) -> Conversation | None:
         return self.db.scalar(select(Conversation).where(Conversation.id == conversation_id))
+
+    def save(self, conversation: Conversation) -> Conversation:
+        self.db.add(conversation)
+        self.db.commit()
+        self.db.refresh(conversation)
+        return conversation

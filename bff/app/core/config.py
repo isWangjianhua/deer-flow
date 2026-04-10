@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from pydantic import AnyHttpUrl, Field, model_validator
+from pydantic import AnyHttpUrl, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -24,6 +24,13 @@ class Settings(BaseSettings):
     bff_oidc_jwks_url: AnyHttpUrl | None = Field(default=None)
     deerflow_gateway_base_url: str = Field(default="http://127.0.0.1:8001")
     deerflow_timeout_seconds: int = Field(default=300)
+
+    @field_validator("bff_oidc_issuer", "bff_oidc_audience", "bff_oidc_jwks_url", mode="before")
+    @classmethod
+    def blank_oidc_values_become_none(cls, value: object) -> object:
+        if isinstance(value, str) and value.strip() == "":
+            return None
+        return value
 
     @model_validator(mode="after")
     def validate_oidc_settings(self) -> "Settings":

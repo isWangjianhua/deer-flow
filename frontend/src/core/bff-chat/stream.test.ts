@@ -25,7 +25,7 @@ void test("parses tool lifecycle events from SSE data", () => {
   const result = parseBffStreamChunk(
     [
       "event: tool.started",
-      'data: {"tool_call_id":"tool-1","label":"Searching web"}',
+      'data: {"tool_call_id":"tool-1","label":"Searching web","name":"web_search","args":{"query":"weather"}}',
       "",
       "event: tool.completed",
       'data: {"tool_call_id":"tool-1"}',
@@ -35,6 +35,7 @@ void test("parses tool lifecycle events from SSE data", () => {
 
   assert.equal(result.length, 2);
   assert.equal(result[0]?.type, "tool.started");
+  assert.equal(result[0]?.data.name, "web_search");
   assert.equal(result[1]?.type, "tool.completed");
 });
 

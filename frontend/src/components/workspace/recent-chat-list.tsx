@@ -1,5 +1,6 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import {
   Download,
   FileJson,
@@ -43,6 +44,8 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { getAPIClient } from "@/core/api";
+import { listConversations } from "@/core/bff-chat";
+import { isBffChatRoute } from "@/core/bff-chat/ui";
 import { useI18n } from "@/core/i18n/hooks";
 import {
   exportThreadAsJSON,
@@ -59,15 +62,70 @@ import { env } from "@/env";
 import { isIMEComposing } from "@/lib/ime";
 
 export function RecentChatList() {
+  const pathname = usePathname();
+
+  if (isBffChatRoute(pathname)) {
+    return <BffRecentChatList pathname={pathname} />;
+  }
+
+  if (pathname.startsWith("/workspace/agents")) {
+    return <LegacyRecentChatList pathname={pathname} />;
+  }
+
+  return null;
+}
+
+function BffRecentChatList({ pathname }: { pathname: string }) {
+  const { t } = useI18n();
+  const { data: conversations = [] } = useQuery({
+    queryKey: ["bff", "conversations"],
+    queryFn: () => listConversations(),
+    refetchOnWindowFocus: false,
+  });
+
+  if (conversations.length === 0) {
+    return null;
+  }
+
+  return (
+    <SidebarGroup>
+      <SidebarGroupLabel>{t.sidebar.recentChats}</SidebarGroupLabel>
+      <SidebarGroupContent className="group-data-[collapsible=icon]:pointer-events-none group-data-[collapsible=icon]:-mt-8 group-data-[collapsible=icon]:opacity-0">
+        <SidebarMenu>
+          <div className="flex w-full flex-col gap-1">
+            {conversations.map((conversation) => {
+              const href = `/workspace/chats/${conversation.id}`;
+              const isActive = href === pathname;
+              return (
+                <SidebarMenuItem
+                  key={conversation.id}
+                  className="group/side-menu-item"
+                >
+                  <SidebarMenuButton isActive={isActive} asChild>
+                    <Link
+                      className="text-muted-foreground block w-full whitespace-nowrap group-hover/side-menu-item:overflow-hidden"
+                      href={href}
+                    >
+                      {conversation.title?.trim() ?? "New chat"}
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              );
+            })}
+          </div>
+        </SidebarMenu>
+      </SidebarGroupContent>
+    </SidebarGroup>
+  );
+}
+
+function LegacyRecentChatList({ pathname }: { pathname: string }) {
   const { t } = useI18n();
   const router = useRouter();
-  const pathname = usePathname();
   const { thread_id: threadIdFromPath } = useParams<{ thread_id: string }>();
   const { data: threads = [] } = useThreads();
   const { mutate: deleteThread } = useDeleteThread();
   const { mutate: renameThread } = useRenameThread();
-
-  // Rename dialog state
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [renameThreadId, setRenameThreadId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
@@ -111,12 +169,10 @@ export function RecentChatList() {
 
   const handleShare = useCallback(
     async (threadId: string) => {
-      // Always use Vercel URL for sharing so others can access
       const VERCEL_URL = "https://deer-flow-v2.vercel.app";
       const isLocalhost =
         window.location.hostname === "localhost" ||
         window.location.hostname === "127.0.0.1";
-      // On localhost: use Vercel URL; On production: use current origin
       const baseUrl = isLocalhost ? VERCEL_URL : window.location.origin;
       const shareUrl = `${baseUrl}/workspace/chats/${threadId}`;
       try {
@@ -157,6 +213,7 @@ export function RecentChatList() {
   if (threads.length === 0) {
     return null;
   }
+
   return (
     <>
       <SidebarGroup>
@@ -231,9 +288,7 @@ export function RecentChatList() {
                                     <span>{t.common.exportAsMarkdown}</span>
                                   </DropdownMenuItem>
                                   <DropdownMenuItem
-                                    onSelect={() =>
-                                      handleExport(thread, "json")
-                                    }
+                                    onSelect={() => handleExport(thread, "json")}
                                   >
                                     <FileJson className="text-muted-foreground" />
                                     <span>{t.common.exportAsJSON}</span>
@@ -260,7 +315,6 @@ export function RecentChatList() {
         </SidebarGroupContent>
       </SidebarGroup>
 
-      {/* Rename Dialog */}
       <Dialog open={renameDialogOpen} onOpenChange={setRenameDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>

@@ -32,6 +32,11 @@ const config = {
       "http://127.0.0.1:8001",
     );
 
+    rewrites.push({
+      source: "/workspace/chat/new",
+      destination: "/workspace/chats/new",
+    });
+
     if (!process.env.NEXT_PUBLIC_LANGGRAPH_BASE_URL) {
       rewrites.push({
         source: "/api/langgraph",

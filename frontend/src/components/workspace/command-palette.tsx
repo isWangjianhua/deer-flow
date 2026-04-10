@@ -24,6 +24,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { BFF_NEW_CHAT_PATH } from "@/core/bff-chat/ui";
 import { useI18n } from "@/core/i18n/hooks";
 import { useGlobalShortcuts } from "@/hooks/use-global-shortcuts";
 
@@ -38,7 +39,7 @@ export function CommandPalette() {
   const [isMac, setIsMac] = useState(false);
 
   const handleNewChat = useCallback(() => {
-    router.push("/workspace/chats/new");
+    router.push(BFF_NEW_CHAT_PATH);
     setOpen(false);
   }, [router]);
 

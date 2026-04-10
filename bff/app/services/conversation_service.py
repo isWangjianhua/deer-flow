@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 from fastapi import status
 from sqlalchemy.orm import Session
 
@@ -34,6 +36,30 @@ class ConversationService:
         items = self.repo.list_by_user_id(user_id)
         return [ConversationListItem.model_validate(item) for item in items]
 
+    def _sync_conversation_snapshot(
+        self,
+        conversation: Conversation,
+        latest_values: dict,
+        *,
+        touch_updated_at: bool = False,
+    ) -> Conversation:
+        changed = False
+
+        title = latest_values.get("title")
+        if isinstance(title, str):
+            normalized_title = title.strip()
+            if normalized_title and normalized_title != conversation.title:
+                conversation.title = normalized_title
+                changed = True
+
+        if touch_updated_at:
+            conversation.updated_at = datetime.now(UTC)
+            changed = True
+
+        if changed:
+            return self.repo.save(conversation)
+        return conversation
+
     def require_owned_conversation(self, user_id: str, conversation_id: str) -> Conversation:
         conversation = self.repo.get_by_id(conversation_id)
         if conversation is None:
@@ -53,6 +79,7 @@ class ConversationService:
             limit=1,
         )
         latest_values = history[0].get("values", {}) if history else {}
+        conversation = self._sync_conversation_snapshot(conversation, latest_values)
         return ConversationDetailResponse(
             id=conversation.id,
             title=conversation.title,
@@ -60,4 +87,16 @@ class ConversationService:
             created_at=conversation.created_at,
             updated_at=conversation.updated_at,
             values=latest_values,
+        )
+
+    async def sync_conversation_after_stream(self, conversation: Conversation) -> Conversation:
+        history = await DeerFlowClient().get_thread_history(
+            conversation.deerflow_thread_id,
+            limit=1,
+        )
+        latest_values = history[0].get("values", {}) if history else {}
+        return self._sync_conversation_snapshot(
+            conversation,
+            latest_values,
+            touch_updated_at=True,
         )

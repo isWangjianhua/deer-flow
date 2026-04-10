@@ -38,7 +38,12 @@ export type BffChatEvent =
     }
   | {
       type: "tool.started";
-      data: { tool_call_id: string; label: string };
+      data: {
+        tool_call_id: string;
+        label: string;
+        name: string;
+        args: Record<string, unknown>;
+      };
     }
   | {
       type: "tool.progress";
@@ -60,6 +65,8 @@ export type BffChatEvent =
 export type BffChatToolState = {
   id: string;
   label: string;
+  name: string;
+  args: Record<string, unknown>;
   status: "running" | "completed" | "failed";
   summary: string | null;
 };

@@ -56,12 +56,19 @@ async def stream_message(
     user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db_session),
 ) -> StreamingResponse:
-    conversation = ConversationService(db).require_owned_conversation(user_id, conversation_id)
+    service = ConversationService(db)
+    conversation = service.require_owned_conversation(user_id, conversation_id)
     client, response = await DeerFlowClient().stream_message(
         thread_id=conversation.deerflow_thread_id,
         message=payload.message,
     )
+
+    async def stream_and_sync():
+        async for line in iter_sse_lines(client, response):
+            yield line
+        await service.sync_conversation_after_stream(conversation)
+
     return StreamingResponse(
-        iter_sse_lines(client, response),
+        stream_and_sync(),
         media_type="text/event-stream",
     )

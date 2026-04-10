@@ -33,6 +33,7 @@ export default function ChatsPage() {
       return title.toLowerCase().includes(search.toLowerCase());
     });
   }, [conversations, search, t.pages.untitled]);
+
   return (
     <WorkspaceContainer>
       <WorkspaceHeader></WorkspaceHeader>

@@ -51,7 +51,7 @@ export function groupMessages<T>(
     return null;
   }
 
-  for (const message of messages) {
+  for (const [index, message] of messages.entries()) {
     if (isHiddenFromUIMessage(message)) {
       continue;
     }
@@ -118,7 +118,13 @@ export function groupMessages<T>(
 
       // Not an else-if: a message with reasoning + content (but no tool calls) goes
       // into the processing group above AND gets its own assistant bubble here.
-      if (hasContent(message) && !hasToolCalls(message)) {
+      if (
+        (hasContent(message) ||
+          (index === messages.length - 1 &&
+            !hasReasoning(message) &&
+            !hasToolCalls(message))) &&
+        !hasToolCalls(message)
+      ) {
         groups.push({ id: message.id, type: "assistant", messages: [message] });
       }
     }

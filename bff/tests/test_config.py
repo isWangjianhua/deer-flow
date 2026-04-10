@@ -59,6 +59,22 @@ def test_auth_provider_settings_rejects_invalid_oidc_url() -> None:
         )
 
 
+def test_local_provider_treats_blank_oidc_values_as_unset() -> None:
+    settings = Settings(
+        database_url="sqlite:///./test.db",
+        bff_secret_key="test-secret",
+        deerflow_gateway_base_url="http://127.0.0.1:8001",
+        bff_auth_provider="local",
+        bff_oidc_issuer="",
+        bff_oidc_audience="",
+        bff_oidc_jwks_url="",
+    )
+
+    assert settings.bff_oidc_issuer is None
+    assert settings.bff_oidc_audience is None
+    assert settings.bff_oidc_jwks_url is None
+
+
 def test_oidc_provider_requires_issuer_audience_and_jwks_url() -> None:
     with pytest.raises(ValidationError):
         Settings(

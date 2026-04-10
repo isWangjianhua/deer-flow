@@ -58,6 +58,8 @@ export function applyBffChatEvent(
               tools: message.tools.concat({
                 id: event.data.tool_call_id,
                 label: event.data.label,
+                name: event.data.name,
+                args: event.data.args,
                 status: "running",
                 summary: null,
               }),

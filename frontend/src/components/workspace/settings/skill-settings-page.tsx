@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/item";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { BFF_NEW_CHAT_PATH } from "@/core/bff-chat/ui";
 import { useI18n } from "@/core/i18n/hooks";
 import { useEnableSkill, useSkills } from "@/core/skills/hooks";
 import type { Skill } from "@/core/skills/type";
@@ -65,7 +66,7 @@ function SkillSettingsList({
   );
   const handleCreateSkill = () => {
     onClose?.();
-    router.push("/workspace/chats/new?mode=skill");
+    router.push(`${BFF_NEW_CHAT_PATH}?mode=skill`);
   };
   return (
     <div className="flex w-full flex-col gap-4">

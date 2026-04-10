@@ -40,10 +40,14 @@ export function toThreadMessages(
           content: "",
           tool_calls: assistantMessage.tools.map((tool) => ({
             id: tool.id,
-            name: "bff_tool",
-            args: {
-              description: tool.label,
-            },
+            name: tool.name,
+            args:
+              tool.args.description === undefined
+                ? {
+                    ...tool.args,
+                    description: tool.label,
+                  }
+                : tool.args,
           })),
         });
 
@@ -51,14 +55,19 @@ export function toThreadMessages(
           messages.push({
             type: "tool",
             id: `${assistantMessage.id}-${tool.id}-result`,
-            name: "bff_tool",
+            name: tool.name,
             tool_call_id: tool.id,
             content: buildToolStatusSummary(tool),
           });
         }
       }
 
-      if (assistantMessage.content || assistantMessage.status === "completed") {
+      if (
+        assistantMessage.content ||
+        assistantMessage.status === "streaming" ||
+        assistantMessage.status === "completed" ||
+        messages.length === 0
+      ) {
         messages.push({
           type: "ai",
           id: assistantMessage.id,

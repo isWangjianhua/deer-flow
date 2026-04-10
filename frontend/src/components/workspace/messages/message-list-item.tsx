@@ -120,6 +120,7 @@ function MessageContent_({
   isLoading?: boolean;
   threadId: string;
 }) {
+  const { t } = useI18n();
   const rehypePlugins = useRehypeSplitWordsIntoSpans(isLoading);
   const isHuman = message.type === "human";
   const components = useMemo(
@@ -182,6 +183,17 @@ function MessageContent_({
           <ReasoningTrigger />
           <ReasoningContent>{reasoningContent}</ReasoningContent>
         </Reasoning>
+      </AIElementMessageContent>
+    );
+  }
+
+  if (!isHuman && isLoading && !contentToDisplay) {
+    return (
+      <AIElementMessageContent className={className}>
+        <div className="text-muted-foreground flex items-center gap-2 text-sm">
+          <Loader className="size-4" />
+          <span>{t.common.thinking}</span>
+        </div>
       </AIElementMessageContent>
     );
   }

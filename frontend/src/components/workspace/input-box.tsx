@@ -13,6 +13,7 @@ import {
   ZapIcon,
 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
 import {
   useCallback,
   useEffect,
@@ -55,6 +56,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import { isBffChatRoute } from "@/core/bff-chat/ui";
 import { getBackendBaseURL } from "@/core/config";
 import { useI18n } from "@/core/i18n/hooks";
 import { useModels } from "@/core/models/hooks";
@@ -142,9 +144,11 @@ export function InputBox({
   onStop?: () => void;
 }) {
   const { t } = useI18n();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const [modelDialogOpen, setModelDialogOpen] = useState(false);
-  const { models } = useModels();
+  const legacyControlsEnabled = !isBffChatRoute(pathname);
+  const { models } = useModels({ enabled: legacyControlsEnabled });
   const { thread, isMock } = useThread();
   const { textInput } = usePromptInputController();
   const promptRootRef = useRef<HTMLDivElement | null>(null);
@@ -365,7 +369,7 @@ export function InputBox({
       return;
     }
 
-    if (disabled || isMock) {
+    if (disabled || isMock || !legacyControlsEnabled) {
       return;
     }
 
@@ -426,7 +430,15 @@ export function InputBox({
       });
 
     return () => controller.abort();
-  }, [context.model_name, disabled, isMock, status, thread.messages, threadId]);
+  }, [
+    context.model_name,
+    disabled,
+    isMock,
+    legacyControlsEnabled,
+    status,
+    thread.messages,
+    threadId,
+  ]);
 
   return (
     <div ref={promptRootRef} className="relative flex flex-col gap-4">

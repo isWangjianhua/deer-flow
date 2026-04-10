@@ -29,6 +29,7 @@ export const env = createEnv({
    * `NEXT_PUBLIC_`.
    */
   client: {
+    NEXT_PUBLIC_AUTH_MODE: z.string().optional(),
     NEXT_PUBLIC_BACKEND_BASE_URL: z.string().optional(),
     NEXT_PUBLIC_BETTER_AUTH_OIDC_PROVIDER_ID: z.string().optional(),
     NEXT_PUBLIC_BFF_BASE_URL: z.string().optional(),
@@ -54,6 +55,7 @@ export const env = createEnv({
     NODE_ENV: process.env.NODE_ENV,
 
     NEXT_PUBLIC_BACKEND_BASE_URL: process.env.NEXT_PUBLIC_BACKEND_BASE_URL,
+    NEXT_PUBLIC_AUTH_MODE: process.env.NEXT_PUBLIC_AUTH_MODE,
     NEXT_PUBLIC_BETTER_AUTH_OIDC_PROVIDER_ID:
       process.env.NEXT_PUBLIC_BETTER_AUTH_OIDC_PROVIDER_ID,
     NEXT_PUBLIC_BFF_BASE_URL: process.env.NEXT_PUBLIC_BFF_BASE_URL,

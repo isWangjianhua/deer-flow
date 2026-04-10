@@ -1,3 +1,9 @@
+import {
+  getLocalBffHeaderName,
+  isLocalDevAuthMode,
+  readLocalBffAccessToken,
+} from "@/core/auth/local";
+
 import type {
   BffConversationDetail,
   BffConversationList,
@@ -12,9 +18,26 @@ type StreamMessageInput = {
   signal?: AbortSignal;
 };
 
+function buildRequestHeaders(contentType?: string) {
+  const headers = new Headers();
+  if (contentType) {
+    headers.set("content-type", contentType);
+  }
+
+  if (isLocalDevAuthMode()) {
+    const token = readLocalBffAccessToken();
+    if (token) {
+      headers.set(getLocalBffHeaderName(), token);
+    }
+  }
+
+  return headers;
+}
+
 export async function createConversation(fetchImpl: FetchLike = fetch) {
   const response = await fetchImpl("/api/bff/conversations", {
     method: "POST",
+    headers: buildRequestHeaders(),
   });
 
   if (!response.ok) {
@@ -25,7 +48,9 @@ export async function createConversation(fetchImpl: FetchLike = fetch) {
 }
 
 export async function listConversations(fetchImpl: FetchLike = fetch) {
-  const response = await fetchImpl("/api/bff/conversations");
+  const response = await fetchImpl("/api/bff/conversations", {
+    headers: buildRequestHeaders(),
+  });
 
   if (!response.ok) {
     throw new Error("Failed to list conversations");
@@ -38,7 +63,9 @@ export async function getConversation(
   conversationId: string,
   fetchImpl: FetchLike = fetch,
 ) {
-  const response = await fetchImpl(`/api/bff/conversations/${conversationId}`);
+  const response = await fetchImpl(`/api/bff/conversations/${conversationId}`, {
+    headers: buildRequestHeaders(),
+  });
 
   if (!response.ok) {
     throw new Error("Failed to load conversation");
@@ -55,9 +82,7 @@ export async function streamMessage(
     `/api/bff/conversations/${input.conversationId}/messages/stream`,
     {
       method: "POST",
-      headers: {
-        "content-type": "application/json",
-      },
+      headers: buildRequestHeaders("application/json"),
       signal: input.signal,
       body: JSON.stringify({
         message: input.message,

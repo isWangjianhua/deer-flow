@@ -73,6 +73,8 @@ pnpm start
 Key environment variables (see `.env.example` for full list):
 
 ```bash
+# Auth mode
+NEXT_PUBLIC_AUTH_MODE="oidc"
 # Backend API URLs (optional, uses nginx proxy by default)
 NEXT_PUBLIC_BACKEND_BASE_URL="http://localhost:8001"
 # LangGraph API URLs (optional, uses nginx proxy by default)
@@ -94,6 +96,13 @@ For local OIDC development you typically need all of the following aligned:
 - `BETTER_AUTH_OIDC_CLIENT_ID`, `BETTER_AUTH_OIDC_CLIENT_SECRET`, and `BETTER_AUTH_OIDC_DISCOVERY_URL`
 - a running FastAPI BFF reachable from the Next.js server, usually through `DEER_FLOW_INTERNAL_BFF_BASE_URL`
 - `NEXT_PUBLIC_BFF_BASE_URL` only when browser requests should use something other than the default same-origin `/api/bff` bridge
+
+For local development without OIDC, use the BFF local auth provider instead:
+
+- set `NEXT_PUBLIC_AUTH_MODE=local` in `frontend/.env`
+- set `DEER_FLOW_INTERNAL_BFF_BASE_URL=http://127.0.0.1:9000`
+- keep `BFF_AUTH_PROVIDER=local` in `bff/.env`
+- sign in from `/workspace/account` with the seeded dev user `demo / demo123`
 
 ## Project Structure
 

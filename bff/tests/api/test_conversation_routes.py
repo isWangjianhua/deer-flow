@@ -76,5 +76,6 @@ def test_get_conversation_detail(client, monkeypatch) -> None:
     assert detail.status_code == 200
     payload = detail.json()
     assert payload["id"] == created.json()["id"]
+    assert payload["title"] == "Loaded conversation"
     assert payload["values"]["title"] == "Loaded conversation"
     assert payload["values"]["messages"][0]["id"] == "human-1"

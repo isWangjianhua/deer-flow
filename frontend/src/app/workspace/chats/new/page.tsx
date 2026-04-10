@@ -1,5 +1,5 @@
 import ChatPage from "@/components/workspace/chats/chat-page";
 
-export default function ConversationPage() {
+export default function LegacyNewChatPage() {
   return <ChatPage />;
 }

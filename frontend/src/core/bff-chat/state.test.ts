@@ -35,7 +35,12 @@ void test("tracks tool progress inside the active assistant message", () => {
   });
   state = applyBffChatEvent(state, {
     type: "tool.started",
-    data: { tool_call_id: "tool-1", label: "Searching web" },
+    data: {
+      tool_call_id: "tool-1",
+      label: "Searching web",
+      name: "web_search",
+      args: { query: "weather" },
+    },
   });
   state = applyBffChatEvent(state, {
     type: "tool.progress",
@@ -44,6 +49,8 @@ void test("tracks tool progress inside the active assistant message", () => {
 
   assert.equal(state.messages[0]?.tools[0]?.status, "running");
   assert.equal(state.messages[0]?.tools[0]?.summary, "Looking for results");
+  assert.equal(state.messages[0]?.tools[0]?.name, "web_search");
+  assert.deepEqual(state.messages[0]?.tools[0]?.args, { query: "weather" });
 });
 
 void test("marks tool completion and failure states", () => {
@@ -55,7 +62,12 @@ void test("marks tool completion and failure states", () => {
   });
   state = applyBffChatEvent(state, {
     type: "tool.started",
-    data: { tool_call_id: "tool-1", label: "Searching web" },
+    data: {
+      tool_call_id: "tool-1",
+      label: "Searching web",
+      name: "web_search",
+      args: { query: "weather" },
+    },
   });
   state = applyBffChatEvent(state, {
     type: "tool.failed",

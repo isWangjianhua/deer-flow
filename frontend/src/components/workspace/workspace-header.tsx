@@ -11,6 +11,7 @@ import {
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { BFF_NEW_CHAT_LEGACY_PATH, BFF_NEW_CHAT_PATH } from "@/core/bff-chat/ui";
 import { useI18n } from "@/core/i18n/hooks";
 import { env } from "@/env";
 import { cn } from "@/lib/utils";
@@ -52,10 +53,13 @@ export function WorkspaceHeader({ className }: { className?: string }) {
       <SidebarMenu>
         <SidebarMenuItem>
           <SidebarMenuButton
-            isActive={pathname === "/workspace/chats/new"}
+            isActive={
+              pathname === BFF_NEW_CHAT_PATH ||
+              pathname === BFF_NEW_CHAT_LEGACY_PATH
+            }
             asChild
           >
-            <Link className="text-muted-foreground" href="/workspace/chats/new">
+            <Link className="text-muted-foreground" href={BFF_NEW_CHAT_PATH}>
               <MessageSquarePlus size={16} />
               <span>{t.sidebar.newChat}</span>
             </Link>

@@ -1,6 +1,7 @@
 "use client";
 
 import type { Message } from "@langchain/langgraph-sdk";
+import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -11,6 +12,7 @@ import { createConversation, getConversation, streamMessage } from "./api";
 import { createHumanMessage, toThreadMessages } from "./messages";
 import { createInitialChatState, applyBffChatEvent } from "./state";
 import { createBffStreamDecoder } from "./stream";
+import { mergeConversationMetadata, toConversationThreadState } from "./values";
 
 type BffThreadStreamOptions = {
   conversationId?: string | null | undefined;
@@ -48,6 +50,17 @@ function createEmptyThreadState(messages: Message[]): AgentThreadState {
   };
 }
 
+function mergeStableMessages(
+  baseValues: AgentThreadState,
+  chatState: ReturnType<typeof createInitialChatState>,
+  humanMessages: Message[],
+) {
+  return {
+    ...baseValues,
+    messages: baseValues.messages.concat(toThreadMessages(chatState, humanMessages)),
+  };
+}
+
 export function useBffThreadStream({
   conversationId,
   onStart,
@@ -65,6 +78,7 @@ export function useBffThreadStream({
   const [isLoading, setIsLoading] = useState(false);
   const [isThreadLoading, setIsThreadLoading] = useState(false);
   const [error, setError] = useState<unknown>(undefined);
+  const queryClient = useQueryClient();
   const activeConversationIdRef = useRef<string | null>(conversationId ?? null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const sendInFlightRef = useRef(false);
@@ -129,12 +143,7 @@ export function useBffThreadStream({
         if (cancelled) {
           return;
         }
-        setBaseValues({
-          title: conversation.values.title ?? conversation.title ?? "",
-          messages: conversation.values.messages ?? [],
-          artifacts: conversation.values.artifacts ?? [],
-          todos: conversation.values.todos ?? [],
-        });
+        setBaseValues(toConversationThreadState(conversation));
       })
       .catch((loadError) => {
         if (cancelled) {
@@ -185,6 +194,7 @@ export function useBffThreadStream({
           const created = await createConversation();
           resolvedConversationId = created.id;
           activeConversationIdRef.current = resolvedConversationId;
+          void queryClient.invalidateQueries({ queryKey: ["bff", "conversations"] });
           onStart?.(resolvedConversationId);
         }
 
@@ -237,7 +247,7 @@ export function useBffThreadStream({
         setIsLoading(false);
       }
     },
-    [onStart],
+    [onStart, queryClient],
   );
 
   useEffect(() => {
@@ -247,9 +257,27 @@ export function useBffThreadStream({
       lastMessage.id !== lastFinishedIdRef.current
     ) {
       lastFinishedIdRef.current = lastMessage.id;
-      onFinish?.(createEmptyThreadState(toThreadMessages(chatState, humanMessages)));
+      const nextValues = mergeStableMessages(baseValues, chatState, humanMessages);
+      setBaseValues(nextValues);
+      setHumanMessages([]);
+      setChatState(createInitialChatState());
+      void queryClient.invalidateQueries({ queryKey: ["bff", "conversations"] });
+      onFinish?.(nextValues);
+
+      const activeConversationId = activeConversationIdRef.current;
+      if (activeConversationId) {
+        void getConversation(activeConversationId)
+          .then((conversation) => {
+            setBaseValues((current) =>
+              mergeConversationMetadata(current, conversation),
+            );
+          })
+          .catch(() => {
+            // Keep the streamed messages even if the metadata refresh fails.
+          });
+      }
     }
-  }, [chatState, humanMessages, onFinish]);
+  }, [baseValues, chatState, humanMessages, onFinish, queryClient]);
 
   return [thread, sendMessage, false];
 }

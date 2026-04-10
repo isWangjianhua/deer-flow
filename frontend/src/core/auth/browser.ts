@@ -2,7 +2,13 @@
 
 import { useEffect, useState } from "react";
 
+import { resolveStoredBrowserAuthSession } from "@/core/auth/browser-state";
 import { getOidcProviderId } from "@/core/auth/config";
+import {
+  isLocalDevAuthMode,
+  readLocalDevSession,
+  writeLocalDevSession,
+} from "@/core/auth/local";
 import { authClient, type Session } from "@/server/better-auth/client";
 
 const MOCK_AUTH_EVENT = "deer-flow:auth-mock-changed";
@@ -108,9 +114,16 @@ function buildMockSession(): Session {
 
 export function useBrowserAuthSession(): BrowserAuthSession {
   const liveSession = authClient.useSession();
-  const [mockSession, setMockSession] = useState<Session | null>(() =>
-    readMockSession(),
-  );
+  const [mockSession, setMockSession] = useState<Session | null>(null);
+  const [localSession, setLocalSession] = useState<Session | null>(null);
+  const [isHydrated, setIsHydrated] = useState(false);
+
+  useEffect(() => {
+    setIsHydrated(true);
+    if (isLocalDevAuthMode()) {
+      setLocalSession(readLocalDevSession());
+    }
+  }, []);
 
   useEffect(() => {
     if (!isMockAuthEnabled()) {
@@ -132,17 +145,26 @@ export function useBrowserAuthSession(): BrowserAuthSession {
   }, []);
 
   if (!isMockAuthEnabled()) {
+    if (isLocalDevAuthMode()) {
+      return resolveStoredBrowserAuthSession({
+        hydrated: isHydrated,
+        session: localSession,
+      });
+    }
     return liveSession;
   }
 
-  return {
-    data: mockSession,
-    isPending: false,
-    error: null,
-  };
+  return resolveStoredBrowserAuthSession({
+    hydrated: isHydrated,
+    session: mockSession,
+  });
 }
 
 export async function signInWithOidc() {
+  if (isLocalDevAuthMode()) {
+    throw new Error("Use signInWithLocalPassword in local dev auth mode.");
+  }
+
   if (isMockAuthEnabled()) {
     writeMockSession(buildMockSession());
     return;
@@ -155,10 +177,50 @@ export async function signInWithOidc() {
 }
 
 export async function signOut() {
+  if (isLocalDevAuthMode()) {
+    await signOutLocal();
+    return;
+  }
+
   if (isMockAuthEnabled()) {
     writeMockSession(null);
     return;
   }
 
   await authClient.signOut();
+}
+
+export async function signInWithLocalPassword(
+  username: string,
+  password: string,
+) {
+  const response = await fetch("/api/auth/local/login", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+    },
+    credentials: "same-origin",
+    body: JSON.stringify({ username, password }),
+  });
+
+  if (!response.ok) {
+    const payload = (await response.json()) as { message?: string };
+    throw new Error(payload.message ?? "Local sign in failed");
+  }
+
+  const payload = (await response.json()) as {
+    accessToken?: string;
+    session?: unknown;
+  };
+  const session = normalizeMockSession(payload.session);
+  writeLocalDevSession(session, payload.accessToken ?? null);
+  return session;
+}
+
+export async function signOutLocal() {
+  await fetch("/api/auth/local/logout", {
+    method: "POST",
+    credentials: "same-origin",
+  });
+  writeLocalDevSession(null, null);
 }
