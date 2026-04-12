@@ -174,3 +174,67 @@ void test("strips a repeated pre-tool reasoning suffix from post-tool reasoning 
     "用户询问西安明天的天气，我需要使用之前成功的天气查询网站来获取西安的天气预报信息。",
   );
 });
+
+void test("strips repeated historical reasoning prefixes from later post-tool snapshots", () => {
+  let state = createInitialChatState();
+
+  const firstReasoning =
+    "用户询问西安天气，但之前的 web_search 工具返回错误（No results found）。让我尝试使用不同的搜索词或网站来获取西安的天气信息。";
+  const secondReasoning =
+    "搜索结果不相关，让我尝试用其他天气网站查询西安天气。";
+  const thirdReasoning =
+    "让我尝试访问中国天气网的西安页面来获取天气数据。";
+
+  state = applyBffChatEvent(state, {
+    type: "message.started",
+    data: { message_id: "assistant-4" },
+  });
+  state = applyBffChatEvent(state, {
+    type: "reasoning.delta",
+    data: {
+      message_id: "assistant-4",
+      delta: firstReasoning,
+    },
+  });
+  state = applyBffChatEvent(state, {
+    type: "tool.started",
+    data: {
+      tool_call_id: "tool-4a",
+      label: "搜索相关信息",
+      name: "web_search",
+      args: { query: "西安 天气" },
+    },
+  });
+  state = applyBffChatEvent(state, {
+    type: "reasoning.delta",
+    data: {
+      message_id: "assistant-4",
+      delta: secondReasoning,
+    },
+  });
+  state = applyBffChatEvent(state, {
+    type: "tool.started",
+    data: {
+      tool_call_id: "tool-4b",
+      label: "查看网页",
+      name: "web_fetch",
+      args: { url: "https://example.com/xian-weather" },
+    },
+  });
+  state = applyBffChatEvent(state, {
+    type: "reasoning.delta",
+    data: {
+      message_id: "assistant-4",
+      delta: `${firstReasoning}${secondReasoning}${firstReasoning}${secondReasoning}${thirdReasoning}`,
+    },
+  });
+
+  assert.equal(state.messages[0]?.steps.length, 5);
+  assert.equal(state.messages[0]?.steps[0]?.type, "reasoning");
+  assert.equal(state.messages[0]?.steps[2]?.type, "reasoning");
+  assert.equal(state.messages[0]?.steps[4]?.type, "reasoning");
+  if (state.messages[0]?.steps[4]?.type !== "reasoning") {
+    throw new Error("expected the final step to be a reasoning step");
+  }
+  assert.equal(state.messages[0].steps[4].content, thirdReasoning);
+});

@@ -10,35 +10,15 @@ function appendPostToolReasoning(
   preToolReasoning: string,
 ) {
   const nextReasoning = currentReasoning + incomingDelta;
-  const normalizedPreToolReasoning = preToolReasoning.trim();
-  const normalizedNextReasoning = nextReasoning.trim();
-
-  if (!normalizedPreToolReasoning) {
-    return nextReasoning;
-  }
-
-  if (normalizedNextReasoning === normalizedPreToolReasoning) {
-    return "";
-  }
-
-  if (
-    normalizedNextReasoning.length > normalizedPreToolReasoning.length &&
-    normalizedNextReasoning.endsWith(normalizedPreToolReasoning)
-  ) {
-    return normalizedNextReasoning
-      .slice(0, normalizedNextReasoning.length - normalizedPreToolReasoning.length)
-      .trimEnd();
-  }
-
-  return nextReasoning;
+  return trimHistoricalReasoningDelta(nextReasoning, preToolReasoning);
 }
 
-function trimHistoricalReasoningSuffix(
+function trimHistoricalReasoningDelta(
   incomingDelta: string,
   historicalReasoning: string,
 ) {
   const normalizedHistoricalReasoning = historicalReasoning.trim();
-  const normalizedIncomingDelta = incomingDelta.trim();
+  let normalizedIncomingDelta = incomingDelta.trim();
 
   if (!normalizedHistoricalReasoning) {
     return incomingDelta;
@@ -48,19 +28,29 @@ function trimHistoricalReasoningSuffix(
     return "";
   }
 
-  if (
+  while (
+    normalizedIncomingDelta.length > normalizedHistoricalReasoning.length &&
+    normalizedIncomingDelta.startsWith(normalizedHistoricalReasoning)
+  ) {
+    normalizedIncomingDelta = normalizedIncomingDelta
+      .slice(normalizedHistoricalReasoning.length)
+      .trimStart();
+  }
+
+  while (
     normalizedIncomingDelta.length > normalizedHistoricalReasoning.length &&
     normalizedIncomingDelta.endsWith(normalizedHistoricalReasoning)
   ) {
-    return normalizedIncomingDelta
-      .slice(
-        0,
-        normalizedIncomingDelta.length - normalizedHistoricalReasoning.length,
-      )
+    normalizedIncomingDelta = normalizedIncomingDelta
+      .slice(0, normalizedIncomingDelta.length - normalizedHistoricalReasoning.length)
       .trimEnd();
   }
 
-  return incomingDelta;
+  if (normalizedIncomingDelta === normalizedHistoricalReasoning) {
+    return "";
+  }
+
+  return normalizedIncomingDelta;
 }
 
 function collectHistoricalReasoning(
@@ -119,7 +109,7 @@ export function applyBffChatEvent(
               const nextDelta =
                 lastStep?.type === "reasoning"
                   ? event.data.delta
-                  : trimHistoricalReasoningSuffix(
+                  : trimHistoricalReasoningDelta(
                       event.data.delta,
                       collectHistoricalReasoning(message.steps),
                     );
