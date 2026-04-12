@@ -118,10 +118,31 @@ Priority APIs:
 3. skills
 4. agents
 
+Additional ownership requirements:
+
+1. `memory` must stop behaving like a global runtime file and become user-scoped state keyed by
+   `user_id`
+2. `MCP`, `skills`, and `agents` must each define an explicit owner model before they are treated as
+   multi-user-safe resources
+3. browser and external clients must stop depending on Gateway `/api/threads/*` for user-facing
+   resource access
+4. user-state resources should cross a BFF ownership boundary before they can resolve an internal
+   runtime `thread_id`
+
+Memory-provider direction:
+
+- keep the API boundary flexible enough to swap the current file-backed memory implementation for a
+  user-scoped provider such as `mem0`
+- treat `mem0` or a similar managed memory layer as an implementation choice behind the BFF contract,
+  not as a browser-visible dependency
+
 ### Success criteria
 
 - the browser no longer needs to know the raw Gateway base URL for normal workspace usage
 - the same-origin routing story is consistent across chat and settings/product surfaces
+- memory reads and writes are isolated per `user_id`
+- no browser-visible user workflow depends directly on Gateway `/api/threads/*`
+- user-facing resources resolve internal `thread_id` values only after BFF ownership checks
 
 ## Phase 5: Productize `/workspace/account`
 
@@ -168,9 +189,10 @@ Reduce the gap between "current convenient routing" and "intended BFF-first rout
 If work resumes immediately, this is the recommended order:
 
 1. memory/MCP/skills/agents ownership decision
-2. conversation lifecycle
-3. legacy runtime-thread cleanup outside the BFF-backed chat path
-4. production hardening and governance
+2. user-scoped memory design and provider migration path
+3. conversation lifecycle
+4. legacy runtime-thread cleanup outside the BFF-backed chat path
+5. production hardening and governance
 
 ## Non-Goals For This Plan
 

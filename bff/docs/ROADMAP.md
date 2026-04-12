@@ -124,6 +124,13 @@ Recommended scope:
   treating them as incidental plumbing
 - continue removing or formalizing the remaining legacy runtime-thread dependencies after startup
   alignment, model proxying, same-origin settings bridges, and nginx cleanup
+- define a real owner model for `memory`, `MCP`, `skills`, and `agents`
+- make user-state resources cross a BFF ownership boundary before resolving internal runtime
+  `thread_id` values
+- remove browser-visible dependency on Gateway `/api/threads/*` for user-facing workflows
+- redesign memory as user-scoped storage keyed by `user_id` instead of a single global runtime file
+- keep the memory implementation replaceable so a provider such as `mem0` can be adopted later
+  behind the same BFF contract
 
 Suggested branch:
 
@@ -163,6 +170,8 @@ Priority: medium
 Current gap:
 
 - the BFF has create/list/stream, but conversation lifecycle is still incomplete
+- some legacy runtime-thread workflows still rely on direct `/api/threads/*` semantics outside the
+  BFF-owned chat path
 
 Recommended scope:
 
@@ -192,6 +201,7 @@ Recommended scope:
 - per-user concurrency limits
 - request / audit logs
 - basic usage accounting hooks
+- multi-user ownership enforcement for every user-state resource boundary
 
 Suggested branch:
 
@@ -239,6 +249,8 @@ What still remains here is architectural follow-up, not the initial cleanup:
 
 - deciding whether additional browser-visible paths should move from Next.js bridges into BFF-owned APIs
 - keeping docs aligned if Docker and local startup paths diverge again
+- ensuring any remaining thread-scoped resource access is mediated by BFF ownership checks rather than
+  direct browser or external use of Gateway `/api/threads/*`
 
 ## Suggested Milestone Grouping
 

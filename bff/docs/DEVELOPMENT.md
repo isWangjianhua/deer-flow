@@ -68,7 +68,12 @@ Current next slice:
 
 1. conversation lifecycle completion such as delete and rename
 2. deciding whether memory, MCP, skills, and agents should become BFF-owned APIs or remain stable same-origin bridges
-3. additional operational hardening around config loading, uploads, and large artifact handling
+3. turning memory into user-scoped storage keyed by `user_id` instead of a single global runtime file
+4. defining explicit owner models for `MCP`, `skills`, and `agents`
+5. removing browser-visible dependency on Gateway `/api/threads/*` for user-facing resource access
+6. keeping the memory provider swappable so a future backend such as `mem0` can sit behind the same
+   BFF contract
+7. additional operational hardening around config loading, uploads, and large artifact handling
 
 ## Conventions
 
