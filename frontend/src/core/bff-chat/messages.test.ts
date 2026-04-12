@@ -47,6 +47,41 @@ void test("converts tool lifecycle state into ai and tool messages", () => {
   assert.equal(messages[2]?.content, "Looking for sources");
 });
 
+void test("uses enriched tool args in synthesized streaming messages without duplicating the tool step", () => {
+  let state = createInitialChatState();
+  state = applyBffChatEvent(state, {
+    type: "message.started",
+    data: { message_id: "assistant-tool-args" },
+  });
+  state = applyBffChatEvent(state, {
+    type: "tool.started",
+    data: {
+      tool_call_id: "tool-search",
+      label: "web_search",
+      name: "web_search",
+      args: {},
+    },
+  });
+  state = applyBffChatEvent(state, {
+    type: "tool.started",
+    data: {
+      tool_call_id: "tool-search",
+      label: "web_search",
+      name: "web_search",
+      args: { query: "上海 4 月 13 日 天气" },
+    },
+  });
+
+  const messages = toThreadMessages(state, []);
+
+  assert.equal(messages.length, 3);
+  assert.equal(messages[0]?.type, "ai");
+  assert.deepEqual(messages[0]?.tool_calls?.[0]?.args, {
+    query: "上海 4 月 13 日 天气",
+    description: "web_search",
+  });
+});
+
 void test("emits a completed assistant message even when content is empty", () => {
   let state = createInitialChatState();
   state = applyBffChatEvent(state, {

@@ -319,28 +319,54 @@ export function applyBffChatEvent(
     return {
       ...state,
       messages: state.messages.map((message) =>
-        message.id === lastMessage.id
-          ? {
-              ...message,
-              tools: message.tools.concat({
+        message.id !== lastMessage.id
+          ? message
+          : (() => {
+              const nextToolState = {
                 id: event.data.tool_call_id,
                 label: event.data.label,
                 name: event.data.name,
                 args: event.data.args,
-                status: "running",
+                status: "running" as const,
                 summary: null,
-              }),
-              steps: message.steps.concat({
-                type: "tool",
-                id: event.data.tool_call_id,
-                label: event.data.label,
-                name: event.data.name,
-                args: event.data.args,
-                status: "running",
-                summary: null,
-              }),
-            }
-          : message,
+              };
+              const existingTool = message.tools.find(
+                (tool) => tool.id === event.data.tool_call_id,
+              );
+              const nextTools = existingTool
+                ? message.tools.map((tool) =>
+                    tool.id === event.data.tool_call_id
+                      ? {
+                          ...tool,
+                          label: event.data.label,
+                          name: event.data.name,
+                          args: event.data.args,
+                        }
+                      : tool,
+                  )
+                : message.tools.concat(nextToolState);
+              const nextSteps = existingTool
+                ? message.steps.map((step) =>
+                    step.type === "tool" && step.id === event.data.tool_call_id
+                      ? {
+                          ...step,
+                          label: event.data.label,
+                          name: event.data.name,
+                          args: event.data.args,
+                        }
+                      : step,
+                  )
+                : message.steps.concat({
+                    type: "tool" as const,
+                    ...nextToolState,
+                  });
+
+              return {
+                ...message,
+                tools: nextTools,
+                steps: nextSteps,
+              };
+            })(),
       ),
     };
   }

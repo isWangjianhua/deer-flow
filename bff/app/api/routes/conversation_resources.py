@@ -16,75 +16,20 @@ from app.services.conversation_service import ConversationService
 router = APIRouter(prefix="/conversations", tags=["conversations"])
 
 
-def _extract_boundary(content_type: str | None) -> bytes:
+def _validate_multipart_content_type(content_type: str | None) -> str:
     if not content_type:
         raise error_response(
             status.HTTP_400_BAD_REQUEST,
             "invalid_multipart",
             "Missing multipart content-type",
         )
-
-    for part in content_type.split(";"):
-        token = part.strip()
-        if token.startswith("boundary="):
-            boundary = token.split("=", 1)[1].strip().strip('"')
-            if boundary:
-                return boundary.encode("utf-8")
-
-    raise error_response(
-        status.HTTP_400_BAD_REQUEST,
-        "invalid_multipart",
-        "Missing multipart boundary",
-    )
-
-
-def _parse_content_disposition(value: str) -> tuple[str | None, str | None]:
-    field_name = None
-    filename = None
-    for part in value.split(";"):
-        token = part.strip()
-        if token.startswith("name="):
-            field_name = token.split("=", 1)[1].strip().strip('"')
-        elif token.startswith("filename="):
-            filename = token.split("=", 1)[1].strip().strip('"')
-    return field_name, filename
-
-
-def _parse_multipart_files(body: bytes, boundary: bytes) -> list[tuple[str, bytes, str | None]]:
-    delimiter = b"--" + boundary
-    uploaded: list[tuple[str, bytes, str | None]] = []
-
-    for chunk in body.split(delimiter):
-        part = chunk.strip()
-        if not part or part == b"--":
-            continue
-
-        part = part.lstrip(b"\r\n")
-        if part.endswith(b"--"):
-            part = part[:-2]
-
-        header_blob, separator, content = part.partition(b"\r\n\r\n")
-        if not separator:
-            continue
-
-        headers: dict[str, str] = {}
-        for line in header_blob.split(b"\r\n"):
-            name, split, value = line.decode("utf-8").partition(":")
-            if split:
-                headers[name.strip().lower()] = value.strip()
-
-        field_name, filename = _parse_content_disposition(
-            headers.get("content-disposition", ""),
+    if "multipart/form-data" not in content_type.lower():
+        raise error_response(
+            status.HTTP_400_BAD_REQUEST,
+            "invalid_multipart",
+            "Expected multipart/form-data content-type",
         )
-        if field_name != "files" or not filename:
-            continue
-
-        if content.endswith(b"\r\n"):
-            content = content[:-2]
-
-        uploaded.append((filename, content, headers.get("content-type")))
-
-    return uploaded
+    return content_type
 
 
 @router.post("/{conversation_id}/suggestions", response_model=SuggestionsResponse)
@@ -146,17 +91,12 @@ async def upload_files(
         user_id,
         conversation_id,
     )
-    boundary = _extract_boundary(request.headers.get("content-type"))
-    serialized_files = _parse_multipart_files(await request.body(), boundary)
-    if not serialized_files:
-        raise error_response(
-            status.HTTP_400_BAD_REQUEST,
-            "no_files",
-            "No files provided",
-        )
+    content_type = _validate_multipart_content_type(request.headers.get("content-type"))
+    raw_body = await request.body()
     response = await DeerFlowClient().upload_files(
         conversation.deerflow_thread_id,
-        serialized_files,
+        raw_body,
+        content_type,
     )
     return UploadResponse.model_validate(response)
 

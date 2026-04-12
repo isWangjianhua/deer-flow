@@ -53,6 +53,45 @@ void test("tracks tool progress inside the active assistant message", () => {
   assert.deepEqual(state.messages[0]?.tools[0]?.args, { query: "weather" });
 });
 
+void test("updates an existing tool step when the BFF re-emits tool.started with richer args", () => {
+  let state = createInitialChatState();
+
+  state = applyBffChatEvent(state, {
+    type: "message.started",
+    data: { message_id: "assistant-updated-tool" },
+  });
+  state = applyBffChatEvent(state, {
+    type: "tool.started",
+    data: {
+      tool_call_id: "tool-updated",
+      label: "web_search",
+      name: "web_search",
+      args: {},
+    },
+  });
+  state = applyBffChatEvent(state, {
+    type: "tool.started",
+    data: {
+      tool_call_id: "tool-updated",
+      label: "web_search",
+      name: "web_search",
+      args: { query: "上海 4 月 13 日 天气" },
+    },
+  });
+
+  assert.equal(state.messages[0]?.tools.length, 1);
+  assert.equal(state.messages[0]?.steps.length, 1);
+  assert.deepEqual(state.messages[0]?.tools[0]?.args, {
+    query: "上海 4 月 13 日 天气",
+  });
+  if (state.messages[0]?.steps[0]?.type !== "tool") {
+    throw new Error("expected the only step to remain a tool step");
+  }
+  assert.deepEqual(state.messages[0].steps[0].args, {
+    query: "上海 4 月 13 日 天气",
+  });
+});
+
 void test("marks tool completion and failure states", () => {
   let state = createInitialChatState();
 

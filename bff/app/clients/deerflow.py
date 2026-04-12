@@ -50,16 +50,14 @@ class DeerFlowClient:
     async def upload_files(
         self,
         thread_id: str,
-        files: list[tuple[str, bytes, str | None]],
+        body: bytes,
+        content_type: str,
     ) -> dict:
-        payload = [
-            ("files", (filename, content, content_type or "application/octet-stream"))
-            for filename, content, content_type in files
-        ]
         async with httpx.AsyncClient(timeout=None) as client:
             response = await client.post(
                 f"{self.base_url}/api/threads/{thread_id}/uploads",
-                files=payload,
+                content=body,
+                headers={"content-type": content_type},
             )
             response.raise_for_status()
             return response.json()

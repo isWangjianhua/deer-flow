@@ -390,6 +390,151 @@ def test_stream_event_normalizer_ignores_repeated_historical_reasoning_steps_in_
     ]
 
 
+def test_stream_event_normalizer_reemits_tool_started_when_values_snapshot_has_richer_args():
+    normalizer = StreamEventNormalizer()
+
+    first = normalizer.normalize(
+        "messages",
+        [
+            {
+                "type": "ai",
+                "id": "ai-1",
+                "content": "",
+                "tool_calls": [
+                    {
+                        "id": "tool-1",
+                        "name": "web_search",
+                        "args": {},
+                    }
+                ],
+            },
+            {"langgraph_node": "agent"},
+        ],
+    )
+
+    enriched = normalizer.normalize(
+        "values",
+        {
+            "messages": [
+                {"type": "human", "id": "h-1", "content": "hi"},
+                {
+                    "type": "ai",
+                    "id": "ai-1",
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "id": "tool-1",
+                            "name": "web_search",
+                            "args": {"query": "上海 4 月 13 日 天气"},
+                        }
+                    ],
+                },
+            ]
+        },
+    )
+
+    assert first == [
+        {
+            "event": "message.started",
+            "data": {"message_id": "ai-1"},
+        },
+        {
+            "event": "tool.started",
+            "data": {
+                "tool_call_id": "tool-1",
+                "label": "web_search",
+                "name": "web_search",
+                "args": {},
+            },
+        },
+    ]
+    assert enriched == [
+        {
+            "event": "tool.started",
+            "data": {
+                "tool_call_id": "tool-1",
+                "label": "web_search",
+                "name": "web_search",
+                "args": {"query": "上海 4 月 13 日 天气"},
+            },
+        }
+    ]
+
+
+def test_stream_event_normalizer_deduplicates_tool_progress_replayed_by_values_snapshot():
+    normalizer = StreamEventNormalizer()
+
+    normalizer.normalize(
+        "messages",
+        [
+            {
+                "type": "ai",
+                "id": "ai-1",
+                "content": "",
+                "tool_calls": [
+                    {
+                        "id": "tool-1",
+                        "name": "web_search",
+                        "args": {"query": "weather"},
+                    }
+                ],
+            },
+            {"langgraph_node": "agent"},
+        ],
+    )
+    first_progress = normalizer.normalize(
+        "messages",
+        [
+            {
+                "type": "tool",
+                "id": "tool-message-1",
+                "tool_call_id": "tool-1",
+                "content": "Found forecast",
+            },
+            {"langgraph_node": "tools"},
+        ],
+    )
+    replayed_in_values = normalizer.normalize(
+        "values",
+        {
+            "messages": [
+                {"type": "human", "id": "h-1", "content": "hi"},
+                {
+                    "type": "ai",
+                    "id": "ai-1",
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "id": "tool-1",
+                            "name": "web_search",
+                            "args": {"query": "weather"},
+                        }
+                    ],
+                },
+                {
+                    "type": "tool",
+                    "id": "tool-message-1",
+                    "tool_call_id": "tool-1",
+                    "content": "Found forecast",
+                },
+            ]
+        },
+    )
+
+    assert first_progress == [
+        {
+            "event": "tool.progress",
+            "data": {"tool_call_id": "tool-1", "message": "Found forecast"},
+        }
+    ]
+    assert replayed_in_values == [
+        {
+            "event": "tool.completed",
+            "data": {"tool_call_id": "tool-1"},
+        }
+    ]
+
+
 def test_stream_event_normalizer_keeps_true_reasoning_extensions_from_values_snapshot():
     normalizer = StreamEventNormalizer()
 

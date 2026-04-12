@@ -174,8 +174,9 @@ class StreamEventNormalizer:
         self.reasoning_text = ""
         self.message_completed = False
         self.run_failed = False
-        self.started_tool_ids: set[str] = set()
+        self.started_tool_payloads: dict[str, dict] = {}
         self.completed_tool_ids: set[str] = set()
+        self.latest_tool_progress: dict[str, str] = {}
         self.completed_reasoning_steps: list[str] = []
         self.current_reasoning_step = ""
 
@@ -260,18 +261,22 @@ class StreamEventNormalizer:
                 for tool_call in message_payload.get("tool_calls") or []:
                     if not isinstance(tool_call, dict):
                         continue
-                    tool_call_id = tool_call.get("id")
-                    if not _is_valid_tool_call_id(tool_call_id) or tool_call_id in self.started_tool_ids:
-                        continue
                     event = _tool_started_event(tool_call)
-                    if event is not None:
+                    if event is None:
+                        continue
+                    tool_call_id = event["data"]["tool_call_id"]
+                    previous_payload = self.started_tool_payloads.get(tool_call_id)
+                    if previous_payload is None:
                         if self.current_reasoning_step:
                             self.completed_reasoning_steps.append(
                                 self.current_reasoning_step
                             )
                             self.current_reasoning_step = ""
                         events.append(event)
-                    self.started_tool_ids.add(tool_call_id)
+                        self.started_tool_payloads[tool_call_id] = event["data"]
+                    elif event["data"] != previous_payload:
+                        events.append(event)
+                        self.started_tool_payloads[tool_call_id] = event["data"]
 
                 content = _extract_text_content(message_payload.get("content"))
                 if content:
@@ -300,7 +305,8 @@ class StreamEventNormalizer:
                 tool_call_id = message_payload.get("tool_call_id")
                 if _is_valid_tool_call_id(tool_call_id):
                     content = _extract_text_content(message_payload.get("content"))
-                    if content:
+                    previous_progress = self.latest_tool_progress.get(tool_call_id)
+                    if content and content != previous_progress:
                         events.append(
                             {
                                 "event": "tool.progress",
@@ -310,6 +316,7 @@ class StreamEventNormalizer:
                                 },
                             }
                         )
+                        self.latest_tool_progress[tool_call_id] = content
 
             return events
 
@@ -360,16 +367,22 @@ class StreamEventNormalizer:
                     for tool_call in message.get("tool_calls") or []:
                         if not isinstance(tool_call, dict):
                             continue
-                        tool_call_id = tool_call.get("id")
-                        if (
-                            not _is_valid_tool_call_id(tool_call_id)
-                            or tool_call_id in self.started_tool_ids
-                        ):
-                            continue
                         event = _tool_started_event(tool_call)
-                        if event is not None:
+                        if event is None:
+                            continue
+                        tool_call_id = event["data"]["tool_call_id"]
+                        previous_payload = self.started_tool_payloads.get(tool_call_id)
+                        if previous_payload is None:
+                            if self.current_reasoning_step:
+                                self.completed_reasoning_steps.append(
+                                    self.current_reasoning_step
+                                )
+                                self.current_reasoning_step = ""
                             events.append(event)
-                        self.started_tool_ids.add(tool_call_id)
+                            self.started_tool_payloads[tool_call_id] = event["data"]
+                        elif event["data"] != previous_payload:
+                            events.append(event)
+                            self.started_tool_payloads[tool_call_id] = event["data"]
 
                     content = _extract_text_content(message.get("content"))
                     if (
@@ -402,7 +415,8 @@ class StreamEventNormalizer:
                         continue
 
                     content = _extract_text_content(message.get("content"))
-                    if content:
+                    previous_progress = self.latest_tool_progress.get(tool_call_id)
+                    if content and content != previous_progress:
                         events.append(
                             {
                                 "event": "tool.progress",
@@ -412,6 +426,7 @@ class StreamEventNormalizer:
                                 },
                             }
                         )
+                        self.latest_tool_progress[tool_call_id] = content
                     events.append(
                         {
                             "event": "tool.completed",

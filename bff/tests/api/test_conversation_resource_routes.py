@@ -101,13 +101,11 @@ def test_conversation_upload_route_proxies_files_to_gateway_thread(
     db_session,
     monkeypatch,
 ) -> None:
-    async def mock_upload_files(self, thread_id: str, files):
+    async def mock_upload_files(self, thread_id: str, body: bytes, content_type: str):
         assert thread_id == "thread-owned"
-        assert len(files) == 1
-        name, content, content_type = files[0]
-        assert name == "notes.txt"
-        assert content == b"hello from bff"
-        assert content_type == "text/plain"
+        assert content_type.startswith("multipart/form-data; boundary=")
+        assert b'filename="notes.txt"' in body
+        assert b"hello from bff" in body
         return {
             "success": True,
             "files": [
@@ -142,3 +140,58 @@ def test_conversation_upload_route_proxies_files_to_gateway_thread(
     assert response.status_code == 200
     assert response.json()["success"] is True
     assert response.json()["files"][0]["filename"] == "notes.txt"
+
+
+def test_conversation_upload_route_passthrough_preserves_boundary_like_content(
+    client,
+    db_session,
+    monkeypatch,
+) -> None:
+    boundary = "codex-boundary"
+    file_content = b"hello\r\n--codex-boundary\r\nworld"
+    expected_body = (
+        f"--{boundary}\r\n"
+        'Content-Disposition: form-data; name="files"; filename="notes.txt"\r\n'
+        "Content-Type: text/plain\r\n\r\n"
+    ).encode("utf-8") + file_content + f"\r\n--{boundary}--\r\n".encode("utf-8")
+
+    async def mock_upload_files(self, thread_id: str, body: bytes, content_type: str):
+        assert thread_id == "thread-owned"
+        assert content_type == f'multipart/form-data; boundary="{boundary}"'
+        assert body == expected_body
+        return {
+            "success": True,
+            "files": [
+                {
+                    "filename": "notes.txt",
+                    "size": str(len(file_content)),
+                    "path": "/mnt/user-data/uploads/notes.txt",
+                    "virtual_path": "/mnt/user-data/uploads/notes.txt",
+                    "artifact_url": "/api/threads/thread-owned/artifacts/mnt/user-data/uploads/notes.txt",
+                }
+            ],
+            "message": "Successfully uploaded 1 file(s)",
+        }
+
+    monkeypatch.setattr(DeerFlowClient, "upload_files", mock_upload_files, raising=False)
+
+    login = client.post("/auth/login", json={"username": "demo", "password": "demo123"})
+    token = login.json()["access_token"]
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": f'multipart/form-data; boundary="{boundary}"',
+    }
+    me = client.get("/me", headers={"Authorization": f"Bearer {token}"})
+    conversation = ConversationService(db_session).create_conversation(
+        user_id=me.json()["id"],
+        deerflow_thread_id="thread-owned",
+    )
+
+    response = client.post(
+        f"/conversations/{conversation.id}/uploads",
+        content=expected_body,
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    assert response.json()["success"] is True
