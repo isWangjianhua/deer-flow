@@ -117,7 +117,8 @@ Current behavior:
 - main chat artifact viewing/downloading now goes through same-origin `/api/bff/conversations/*/artifacts/*`
 - main chat follow-up suggestions now go through same-origin `/api/bff/conversations/*/suggestions`
 - main chat attachment uploads now go through same-origin `/api/bff/conversations/*/uploads`
-- memory, MCP, skills, agents, and some non-chat runtime paths still use Gateway-facing paths
+- memory, MCP, skills, and agents now go through same-origin Next.js bridge routes
+- some non-chat runtime paths still use Gateway-facing thread semantics
 
 Current startup caveat:
 
@@ -140,7 +141,7 @@ Why this matters:
 
 - the gateway currently assumes CORS is handled by `nginx`
 - direct browser requests to `8001` can succeed in `curl` but still fail in the browser
-- the remaining direct Gateway dependencies make local behavior differ between `:3000` and `:2026`
+- the remaining gateway-thread dependencies still make local behavior differ between `:3000` and `:2026`
 
 Canonical BFF chat routes:
 
@@ -236,13 +237,13 @@ The main workspace chat path now uses a BFF-owned protocol rather than frontend-
 
 Current chat limitations:
 
-- memory, MCP, skills, and agents still use Gateway-facing frontend APIs
+- memory, MCP, skills, and agents are same-origin server bridges today, not BFF-owned APIs
 - conversation rename/delete/archive actions are not yet exposed
 - agent-specific chat paths still retain more legacy runtime semantics than the main chat path
 
 Recommended next follow-up for the BFF chat path:
 
-- migrate memory, MCP, skills, and agents behind BFF or same-origin server bridges
+- decide which memory, MCP, skills, and agents paths should move from same-origin bridges into BFF ownership
 - turn `/workspace/account` from a verification screen into a product account/settings page
 - reduce remaining frontend-visible gateway assumptions in direct `pnpm dev` flows
 

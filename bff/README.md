@@ -270,10 +270,7 @@ Current recommended frontend path:
 
 Known integration gaps as of `2026-04-12`:
 
-- the BFF does not yet expose a model list endpoint
-- the frontend therefore still uses the gateway model list path in some flows
-- upload and artifact proxying are still missing
-- suggestions, memory, MCP, skills, and agents are not yet owned by the BFF boundary
+- memory, MCP, skills, and agents now use same-origin Next.js bridge routes, but are not yet owned by the BFF boundary
 - the workspace account page is still frontend-auth verification UI rather than a product-facing
   account/settings page
 - the current dev launcher and nginx path ownership still reflect a mixed BFF/Gateway boundary
@@ -321,7 +318,7 @@ Recommended test layers:
 
 The next BFF-facing product fixes should focus on consistency, not new product surface area:
 
-1. move artifact and upload access behind BFF ownership checks
-2. migrate workspace settings-related APIs behind BFF or same-origin server bridges
-3. align the dev launcher and documented entrypoints with the BFF-backed frontend path
-4. remove remaining direct frontend-visible DeerFlow Gateway assumptions from local dev flows
+1. decide which settings/resource APIs should move from same-origin Next.js bridges into BFF ownership
+2. complete conversation lifecycle actions and related frontend controls
+3. turn `/workspace/account` into a product-facing account/status page
+4. align nginx and remaining local-dev route ownership with the intended BFF-first architecture

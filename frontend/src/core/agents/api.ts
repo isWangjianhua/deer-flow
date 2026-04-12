@@ -1,5 +1,3 @@
-import { getBackendBaseURL } from "@/core/config";
-
 import type { Agent, CreateAgentRequest, UpdateAgentRequest } from "./types";
 
 const BACKEND_UNAVAILABLE_STATUSES = new Set([502, 503, 504]);
@@ -15,20 +13,20 @@ export class AgentNameCheckError extends Error {
 }
 
 export async function listAgents(): Promise<Agent[]> {
-  const res = await fetch(`${getBackendBaseURL()}/api/agents`);
+  const res = await fetch("/api/agents");
   if (!res.ok) throw new Error(`Failed to load agents: ${res.statusText}`);
   const data = (await res.json()) as { agents: Agent[] };
   return data.agents;
 }
 
 export async function getAgent(name: string): Promise<Agent> {
-  const res = await fetch(`${getBackendBaseURL()}/api/agents/${name}`);
+  const res = await fetch(`/api/agents/${name}`);
   if (!res.ok) throw new Error(`Agent '${name}' not found`);
   return res.json() as Promise<Agent>;
 }
 
 export async function createAgent(request: CreateAgentRequest): Promise<Agent> {
-  const res = await fetch(`${getBackendBaseURL()}/api/agents`, {
+  const res = await fetch("/api/agents", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(request),
@@ -44,7 +42,7 @@ export async function updateAgent(
   name: string,
   request: UpdateAgentRequest,
 ): Promise<Agent> {
-  const res = await fetch(`${getBackendBaseURL()}/api/agents/${name}`, {
+  const res = await fetch(`/api/agents/${name}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(request),
@@ -57,7 +55,7 @@ export async function updateAgent(
 }
 
 export async function deleteAgent(name: string): Promise<void> {
-  const res = await fetch(`${getBackendBaseURL()}/api/agents/${name}`, {
+  const res = await fetch(`/api/agents/${name}`, {
     method: "DELETE",
   });
   if (!res.ok) throw new Error(`Failed to delete agent: ${res.statusText}`);
@@ -68,9 +66,7 @@ export async function checkAgentName(
 ): Promise<{ available: boolean; name: string }> {
   let res: Response;
   try {
-    res = await fetch(
-      `${getBackendBaseURL()}/api/agents/check?name=${encodeURIComponent(name)}`,
-    );
+    res = await fetch(`/api/agents/check?name=${encodeURIComponent(name)}`);
   } catch {
     throw new AgentNameCheckError(
       "Could not reach the DeerFlow backend.",

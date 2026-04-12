@@ -93,6 +93,10 @@ Complete the main BFF-backed chat experience.
 
 Remove the remaining mixed browser-facing Gateway dependencies outside the main chat loop.
 
+Status as of `2026-04-12`: implemented with same-origin Next.js server bridges for `memory`, `MCP`,
+`skills`, and `agents`. The browser no longer needs the raw Gateway base URL for those workspace
+surfaces, but those APIs are still not BFF-owned.
+
 ### Required work
 
 Move one of these ways:

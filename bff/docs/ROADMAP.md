@@ -34,9 +34,10 @@ What is now true:
 
 What still remains for the next product loop:
 
-- full "frontend only talks to BFF" consistency for model and runtime asset access
-- uploads and artifact access on the BFF-backed chat path
+- deciding which same-origin bridge routes should become fully BFF-owned APIs
 - richer conversation lifecycle actions
+- account/status page productization
+- nginx and local-dev route ownership cleanup
 - usage governance and production hardening
 - browser-automation coverage for the live BFF streaming path once the local Playwright setup is dependable
 
@@ -91,14 +92,17 @@ Suggested branch:
 
 ## 3. Model and Runtime Boundary Cleanup
 
-Status: next recommended branch
+Status: in progress
 
 Priority: medium
 
 Why this matters:
 
 - the main chat flow already uses BFF conversation semantics
-- the browser still has some direct DeerFlow Gateway dependencies
+- the browser no longer needs the raw Gateway base URL for the main chat loop, models, memory, MCP,
+  skills, or agents
+- some of those non-chat surfaces are still routed through same-origin Next.js bridges instead of
+  BFF-owned APIs
 - this creates local-dev inconsistency and can surface as CORS-shaped failures when the browser
   tries to call the gateway directly
 
@@ -107,8 +111,8 @@ Recommended scope:
 - define the intended split between BFF-owned and gateway-internal asset paths
 - document `nginx` and Next.js bridge routes as the current same-origin entrypoints rather than
   treating them as incidental plumbing
-- continue removing the remaining direct browser-visible DeerFlow Gateway routes after models and
-  startup alignment
+- continue removing the remaining direct browser-visible DeerFlow Gateway routes after startup
+  alignment, model proxying, and same-origin settings bridges
 
 Suggested branch:
 
@@ -117,8 +121,6 @@ Suggested branch:
 ## 4. Upload and Artifact Proxy
 
 Status: implemented for the main BFF-backed chat path
-
-Status: next recommended branch
 
 Priority: medium
 
