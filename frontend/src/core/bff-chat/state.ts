@@ -4,6 +4,20 @@ export function createInitialChatState(): BffChatState {
   return { messages: [] };
 }
 
+function stripRepeatedRawPrefix(incomingDelta: string, prefix: string) {
+  if (!prefix) {
+    return incomingDelta;
+  }
+
+  if (
+    incomingDelta.length > prefix.length &&
+    incomingDelta.startsWith(prefix)
+  ) {
+    return incomingDelta.slice(prefix.length);
+  }
+  return incomingDelta;
+}
+
 function trimHistoricalReasoningDelta(
   incomingDelta: string,
   historicalReasoning: string,
@@ -188,6 +202,11 @@ export function applyBffChatEvent(
           ? message
           : (() => {
               const lastStep = message.steps[message.steps.length - 1];
+              const fullReasoning = collectHistoricalReasoning(message.steps);
+              const dedupedIncomingDelta = stripRepeatedRawPrefix(
+                event.data.delta,
+                fullReasoning,
+              );
               const historicalReasoning =
                 lastStep?.type === "reasoning"
                   ? collectHistoricalReasoning(message.steps.slice(0, -1))
@@ -196,10 +215,14 @@ export function applyBffChatEvent(
                 lastStep?.type === "reasoning"
                   ? mergeReasoningSnapshot(
                       lastStep.content,
-                      event.data.delta,
+                      dedupedIncomingDelta,
                       historicalReasoning,
                     )
-                  : mergeReasoningSnapshot("", event.data.delta, historicalReasoning);
+                  : mergeReasoningSnapshot(
+                      "",
+                      dedupedIncomingDelta,
+                      historicalReasoning,
+                    );
 
               const nextSteps =
                 !nextReasoning && lastStep?.type !== "reasoning"

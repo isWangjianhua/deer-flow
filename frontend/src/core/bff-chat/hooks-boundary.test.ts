@@ -19,4 +19,8 @@ void test("bff thread stream only invokes onFinish once in the completion path",
     source.includes('uploadFiles(resolvedConversationId, files, { apiMode: "bff" })'),
     "expected BFF chat attachments to upload through the BFF conversation route",
   );
+  assert.ok(
+    source.includes("shouldClearPendingHumanMessages"),
+    "expected useBffThreadStream to clear optimistic human messages once base messages arrive",
+  );
 });

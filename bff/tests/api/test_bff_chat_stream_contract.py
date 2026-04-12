@@ -181,6 +181,123 @@ def test_stream_event_normalizer_emits_reasoning_from_values_snapshot():
     }
 
 
+def test_stream_event_normalizer_strips_repeated_reasoning_prefixes_from_values_snapshot():
+    normalizer = StreamEventNormalizer()
+
+    first_reasoning = "A"
+    second_reasoning = "B"
+    third_reasoning = "C"
+
+    normalizer.normalize(
+        "messages",
+        [
+            {
+                "type": "ai",
+                "id": "ai-1",
+                "content": "",
+                "additional_kwargs": {
+                    "reasoning_content": first_reasoning,
+                },
+                "tool_calls": [
+                    {
+                        "id": "tool-1",
+                        "name": "web_search",
+                        "args": {"query": "weather"},
+                    }
+                ],
+            },
+            {"langgraph_node": "agent"},
+        ],
+    )
+    normalizer.normalize(
+        "messages",
+        [
+            {
+                "type": "AIMessageChunk",
+                "id": "ai-1",
+                "content": "",
+                "additional_kwargs": {
+                    "reasoning_content": f"{first_reasoning}{second_reasoning}",
+                },
+            },
+            {"langgraph_node": "agent"},
+        ],
+    )
+
+    events = normalizer.normalize(
+        "values",
+        {
+            "messages": [
+                {"type": "human", "id": "h-1", "content": "hi"},
+                {
+                    "type": "ai",
+                    "id": "ai-1",
+                    "content": "",
+                    "additional_kwargs": {
+                        "reasoning_content": f"{first_reasoning}{second_reasoning}{first_reasoning}{second_reasoning}{third_reasoning}"
+                    },
+                },
+            ],
+        },
+    )
+
+    assert events == [
+        {
+            "event": "reasoning.delta",
+            "data": {
+                "message_id": "ai-1",
+                "delta": third_reasoning,
+            },
+        }
+    ]
+
+
+def test_stream_event_normalizer_keeps_true_reasoning_extensions_from_values_snapshot():
+    normalizer = StreamEventNormalizer()
+
+    normalizer.normalize(
+        "messages",
+        [
+            {
+                "type": "AIMessageChunk",
+                "id": "ai-1",
+                "content": "",
+                "additional_kwargs": {
+                    "reasoning_content": "A",
+                },
+            },
+            {"langgraph_node": "agent"},
+        ],
+    )
+
+    events = normalizer.normalize(
+        "values",
+        {
+            "messages": [
+                {"type": "human", "id": "h-1", "content": "hi"},
+                {
+                    "type": "ai",
+                    "id": "ai-1",
+                    "content": "",
+                    "additional_kwargs": {
+                        "reasoning_content": "AB",
+                    },
+                },
+            ],
+        },
+    )
+
+    assert events == [
+        {
+            "event": "reasoning.delta",
+            "data": {
+                "message_id": "ai-1",
+                "delta": "B",
+            },
+        }
+    ]
+
+
 def test_stream_event_normalizer_emits_reasoning_from_message_chunks():
     normalizer = StreamEventNormalizer()
 

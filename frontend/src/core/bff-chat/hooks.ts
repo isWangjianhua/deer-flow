@@ -13,6 +13,7 @@ import { promptInputFilePartToFile, uploadFiles } from "@/core/uploads";
 
 import { createConversation, getConversation, streamMessage } from "./api";
 import { createHumanMessage, toThreadMessages } from "./messages";
+import { shouldClearPendingHumanMessages } from "./optimistic";
 import { createInitialChatState, applyBffChatEvent } from "./state";
 import { createBffStreamDecoder } from "./stream";
 import { mergeConversationState, toConversationThreadState } from "./values";
@@ -107,6 +108,7 @@ export function useBffThreadStream({
   const abortControllerRef = useRef<AbortController | null>(null);
   const sendInFlightRef = useRef(false);
   const lastFinishedIdRef = useRef<string | null>(null);
+  const prevBaseMessageCountRef = useRef(0);
   const finishThread = useCallback(
     (state: AgentThreadState) => {
       onFinish?.(state);
@@ -159,6 +161,7 @@ export function useBffThreadStream({
     abortControllerRef.current = null;
     sendInFlightRef.current = false;
     lastFinishedIdRef.current = null;
+    prevBaseMessageCountRef.current = 0;
   }, [conversationId]);
 
   useEffect(() => {
@@ -198,6 +201,19 @@ export function useBffThreadStream({
     };
   }, [conversationId]);
 
+  useEffect(() => {
+    if (
+      shouldClearPendingHumanMessages({
+        pendingHumanMessages: humanMessages.length,
+        baseMessageCount: baseValues.messages.length,
+        previousBaseMessageCount: prevBaseMessageCountRef.current,
+      })
+    ) {
+      setHumanMessages([]);
+      prevBaseMessageCountRef.current = baseValues.messages.length;
+    }
+  }, [baseValues.messages.length, humanMessages.length]);
+
   const sendMessage = useCallback(
     async (_conversationId: string, message: PromptInputMessage) => {
       if (sendInFlightRef.current) {
@@ -213,6 +229,7 @@ export function useBffThreadStream({
       sendInFlightRef.current = true;
       setError(undefined);
       setIsLoading(true);
+      prevBaseMessageCountRef.current = baseValues.messages.length;
       const humanMessageId = `bff-human-${Date.now()}`;
       const optimisticFiles: FileInMessage[] =
         message.files?.map((file) => ({
@@ -330,7 +347,7 @@ export function useBffThreadStream({
         setIsLoading(false);
       }
     },
-    [context, onStart, queryClient],
+    [baseValues.messages.length, context, onStart, queryClient],
   );
 
   useEffect(() => {
@@ -349,18 +366,21 @@ export function useBffThreadStream({
       const activeConversationId = activeConversationIdRef.current;
       if (activeConversationId) {
         void getConversation(activeConversationId)
-          .then((conversation) => {
-            const refreshedValues = mergeConversationState(
-              nextValues,
-              conversation,
-            );
-            setBaseValues(refreshedValues);
-            finishThread(refreshedValues);
-          })
-          .catch(() => {
-            finishThread(nextValues);
-          });
+        .then((conversation) => {
+          const refreshedValues = mergeConversationState(
+            nextValues,
+            conversation,
+          );
+          prevBaseMessageCountRef.current = refreshedValues.messages.length;
+          setBaseValues(refreshedValues);
+          finishThread(refreshedValues);
+        })
+        .catch(() => {
+          prevBaseMessageCountRef.current = nextValues.messages.length;
+          finishThread(nextValues);
+        });
       } else {
+        prevBaseMessageCountRef.current = nextValues.messages.length;
         finishThread(nextValues);
       }
     }

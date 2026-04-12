@@ -132,6 +132,41 @@ void test("routes reasoning that arrives after tool start into the post-tool buc
   );
 });
 
+void test("keeps true incremental post-tool reasoning chunks without trimming them away", () => {
+  let state = createInitialChatState();
+
+  state = applyBffChatEvent(state, {
+    type: "message.started",
+    data: { message_id: "assistant-2b" },
+  });
+  state = applyBffChatEvent(state, {
+    type: "reasoning.delta",
+    data: { message_id: "assistant-2b", delta: "Plan the next step." },
+  });
+  state = applyBffChatEvent(state, {
+    type: "tool.started",
+    data: {
+      tool_call_id: "tool-2b",
+      label: "Search web",
+      name: "web_search",
+      args: { query: "Chengdu weather" },
+    },
+  });
+  state = applyBffChatEvent(state, {
+    type: "reasoning.delta",
+    data: { message_id: "assistant-2b", delta: "Now summarize" },
+  });
+  state = applyBffChatEvent(state, {
+    type: "reasoning.delta",
+    data: { message_id: "assistant-2b", delta: " the result." },
+  });
+
+  assert.equal(
+    state.messages[0]?.reasoning_after_tools,
+    "Now summarize the result.",
+  );
+});
+
 void test("strips a repeated pre-tool reasoning suffix from post-tool reasoning snapshots", () => {
   let state = createInitialChatState();
 
@@ -329,4 +364,55 @@ void test("collapses repeated snapshot updates within the same post-tool reasoni
     state.messages[0]?.reasoning_after_tools,
     `${secondReasoning}${thirdReasoning}`,
   );
+});
+
+void test("strips repeated full-turn reasoning snapshots before the next tool boundary", () => {
+  let state = createInitialChatState();
+
+  const firstReasoning = "A";
+  const secondReasoning = "B";
+  const thirdReasoning = "C";
+
+  state = applyBffChatEvent(state, {
+    type: "message.started",
+    data: { message_id: "assistant-7" },
+  });
+  state = applyBffChatEvent(state, {
+    type: "reasoning.delta",
+    data: {
+      message_id: "assistant-7",
+      delta: firstReasoning,
+    },
+  });
+  state = applyBffChatEvent(state, {
+    type: "tool.started",
+    data: {
+      tool_call_id: "tool-7a",
+      label: "搜索相关信息",
+      name: "web_search",
+      args: { query: "西安 天气" },
+    },
+  });
+  state = applyBffChatEvent(state, {
+    type: "reasoning.delta",
+    data: {
+      message_id: "assistant-7",
+      delta: secondReasoning,
+    },
+  });
+  state = applyBffChatEvent(state, {
+    type: "reasoning.delta",
+    data: {
+      message_id: "assistant-7",
+      delta: `${firstReasoning}${secondReasoning}${firstReasoning}${secondReasoning}${thirdReasoning}`,
+    },
+  });
+
+  assert.equal(state.messages[0]?.steps.length, 3);
+  assert.equal(state.messages[0]?.steps[2]?.type, "reasoning");
+  if (state.messages[0]?.steps[2]?.type !== "reasoning") {
+    throw new Error("expected the current step to remain a reasoning step");
+  }
+  assert.equal(state.messages[0].steps[2].content, `${secondReasoning}${thirdReasoning}`);
+  assert.equal(state.messages[0]?.reasoning_after_tools, `${secondReasoning}${thirdReasoning}`);
 });

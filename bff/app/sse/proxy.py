@@ -102,6 +102,15 @@ def _is_valid_tool_call_id(tool_call_id: object) -> bool:
     return isinstance(tool_call_id, str) and bool(tool_call_id.strip())
 
 
+def _strip_repeated_prefix(delta: str, prefix: str) -> str:
+    if not prefix:
+        return delta
+
+    if len(delta) > len(prefix) and delta.startswith(prefix):
+        return delta[len(prefix) :]
+    return delta
+
+
 def _tool_started_event(tool_call: dict) -> dict | None:
     tool_call_id = tool_call.get("id")
     if not _is_valid_tool_call_id(tool_call_id):
@@ -200,6 +209,9 @@ class StreamEventNormalizer:
                         reasoning_delta = reasoning[len(self.reasoning_text) :]
                     else:
                         reasoning_delta = reasoning
+                    reasoning_delta = _strip_repeated_prefix(
+                        reasoning_delta, self.reasoning_text
+                    )
                     if reasoning_delta:
                         events.append(
                             {
@@ -288,6 +300,9 @@ class StreamEventNormalizer:
                             reasoning_delta = reasoning[len(self.reasoning_text) :]
                         else:
                             reasoning_delta = reasoning
+                        reasoning_delta = _strip_repeated_prefix(
+                            reasoning_delta, self.reasoning_text
+                        )
                         if reasoning_delta:
                             events.append(
                                 {
