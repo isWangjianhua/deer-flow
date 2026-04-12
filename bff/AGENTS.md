@@ -139,6 +139,28 @@ When adding features:
 4. add or update tests
 5. keep the external API independent from DeerFlow internals
 
+Additional expectations:
+
+- prefer narrow, ownership-aware changes over broad proxying or leakage of runtime internals
+- keep auth, ownership, and contract normalization explicit in the BFF layer
+- treat a completed feature as code, tests, and documentation shipped together
+
+## Documentation and Handoff Requirements
+
+Feature work is not complete until the affected documentation is updated.
+
+When a change affects BFF behavior, contracts, auth, ownership, streaming, startup, or operational assumptions, update the relevant documents in the same change. This may include:
+
+- `bff/README.md`
+- `bff/AGENTS.md`
+- `bff/docs/DEVELOPMENT.md`
+- `bff/docs/ROADMAP.md`
+- relevant root or shared `docs/` pages
+- relevant roadmap documents when the change closes, adds, or reorders planned work
+- `docs/superpowers/handoffs/*` when the change leaves known gaps, follow-up work, or cross-service integration context
+
+Add a new document when the feature introduces a new contract, workflow, or operational rule that is not documented clearly elsewhere.
+
 ## If Unsure
 
 If a change makes the frontend more dependent on DeerFlow internals, it is probably the wrong direction.

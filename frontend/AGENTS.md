@@ -122,6 +122,29 @@ When editing it:
 - Use ASCII unless a file already requires Unicode.
 - Add brief comments only where the control flow is genuinely non-obvious.
 
+## Professional Development Style
+
+- Treat every feature as a product change, not only a code change.
+- Prefer the smallest change that preserves the current BFF and same-origin ownership boundaries.
+- Keep architecture decisions explicit; do not hide boundary changes inside UI refactors.
+- When behavior changes materially, add or update regression coverage before calling the work done.
+- Keep refactors adjacent to the feature you are touching; avoid unrelated cleanup in the same change.
+- Verify the final browser path still matches the intended entrypoint and ownership model.
+
+## Documentation and Handoff Requirements
+
+Feature work is not complete until the affected documentation is updated.
+
+When a change affects frontend behavior, architecture, startup, or user workflow, update the relevant documents in the same change. This may include:
+
+- `frontend/README.md`
+- `frontend/AGENTS.md`
+- relevant `docs/` pages
+- relevant roadmap documents when the change closes, adds, or reorders planned work
+- `docs/superpowers/handoffs/*` when the change introduces follow-up work, known gaps, or cross-service context another engineer will need
+
+Add a new document when the feature introduces a new workflow, boundary, or operational rule that is not already documented clearly elsewhere.
+
 ## Tests
 
 When behavior changes materially, prefer tests in this order:
