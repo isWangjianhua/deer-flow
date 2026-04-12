@@ -100,7 +100,7 @@ void test("keeps an assistant placeholder message during tool-driven streaming",
 
   assert.equal(messages.length, 3);
   assert.equal(messages[0]?.type, "ai");
-  assert.equal(messages[0]?.id, "assistant-3-tools");
+  assert.equal(messages[0]?.id, "assistant-3-tool-3-tool-call");
   assert.equal(messages[1]?.type, "tool");
   assert.equal(messages[1]?.content, "Running");
   assert.equal(messages[2]?.type, "ai");
@@ -177,4 +177,75 @@ void test("keeps post-tool reasoning after the tool lifecycle in synthesized mes
     messages[3]?.additional_kwargs?.reasoning_content,
     "已经拿到结果，现在整理成最终回答。",
   );
+});
+
+void test("keeps reasoning steps interleaved between multiple tool calls", () => {
+  let state = createInitialChatState();
+  state = applyBffChatEvent(state, {
+    type: "message.started",
+    data: { message_id: "assistant-6" },
+  });
+  state = applyBffChatEvent(state, {
+    type: "reasoning.delta",
+    data: { message_id: "assistant-6", delta: "先判断成都天气需要查网页。" },
+  });
+  state = applyBffChatEvent(state, {
+    type: "tool.started",
+    data: {
+      tool_call_id: "tool-6a",
+      label: "查看网页",
+      name: "web_fetch",
+      args: { url: "https://example.com/chengdu" },
+    },
+  });
+  state = applyBffChatEvent(state, {
+    type: "tool.progress",
+    data: { tool_call_id: "tool-6a", message: "成都天气预报" },
+  });
+  state = applyBffChatEvent(state, {
+    type: "reasoning.delta",
+    data: { message_id: "assistant-6", delta: "已经拿到成都天气，接着查询西安。" },
+  });
+  state = applyBffChatEvent(state, {
+    type: "tool.started",
+    data: {
+      tool_call_id: "tool-6b",
+      label: "查看网页",
+      name: "web_fetch",
+      args: { url: "https://example.com/xian" },
+    },
+  });
+  state = applyBffChatEvent(state, {
+    type: "tool.progress",
+    data: { tool_call_id: "tool-6b", message: "西安天气预报" },
+  });
+  state = applyBffChatEvent(state, {
+    type: "reasoning.delta",
+    data: { message_id: "assistant-6", delta: "两地结果都齐了，现在整理最终回答。" },
+  });
+  state = applyBffChatEvent(state, {
+    type: "message.delta",
+    data: { message_id: "assistant-6", delta: "最终回答" },
+  });
+
+  const messages = toThreadMessages(state, []);
+
+  assert.equal(messages.length, 8);
+  assert.equal(
+    messages[0]?.additional_kwargs?.reasoning_content,
+    "先判断成都天气需要查网页。",
+  );
+  assert.equal(messages[1]?.tool_calls?.[0]?.id, "tool-6a");
+  assert.equal(messages[2]?.type, "tool");
+  assert.equal(
+    messages[3]?.additional_kwargs?.reasoning_content,
+    "已经拿到成都天气，接着查询西安。",
+  );
+  assert.equal(messages[4]?.tool_calls?.[0]?.id, "tool-6b");
+  assert.equal(messages[5]?.type, "tool");
+  assert.equal(
+    messages[6]?.additional_kwargs?.reasoning_content,
+    "两地结果都齐了，现在整理最终回答。",
+  );
+  assert.equal(messages[7]?.content, "最终回答");
 });

@@ -75,6 +75,19 @@ export type BffChatToolState = {
   summary: string | null;
 };
 
+export type BffChatReasoningStepState = {
+  type: "reasoning";
+  content: string;
+};
+
+export type BffChatToolStepState = BffChatToolState & {
+  type: "tool";
+};
+
+export type BffChatStepState =
+  | BffChatReasoningStepState
+  | BffChatToolStepState;
+
 export type BffChatMessageState = {
   id: string;
   role: "assistant";
@@ -83,6 +96,7 @@ export type BffChatMessageState = {
   reasoning_after_tools: string;
   status: "streaming" | "completed";
   tools: BffChatToolState[];
+  steps: BffChatStepState[];
 };
 
 export type BffChatState = {

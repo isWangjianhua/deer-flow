@@ -39,62 +39,56 @@ export function toThreadMessages(
   const assistantMessages = chatState.messages.flatMap<Message>(
     (assistantMessage) => {
       const messages: Message[] = [];
-      const hasPreToolReasoning =
-        assistantMessage.reasoning_before_tools.length > 0;
-      const hasPostToolReasoning =
-        assistantMessage.reasoning_after_tools.length > 0;
-      const hasVisibleAssistantContent = hasPostToolReasoning
-        ? true
-        : assistantMessage.content.length > 0;
+      const reasoningSteps = assistantMessage.steps.filter(
+        (step) => step.type === "reasoning",
+      );
+      const toolSteps = assistantMessage.steps.filter((step) => step.type === "tool");
+      const hasToolSteps = toolSteps.length > 0;
+      const hasVisibleAssistantContent =
+        reasoningSteps.length > 0 ? true : assistantMessage.content.length > 0;
 
-      if (hasPreToolReasoning && assistantMessage.tools.length > 0) {
-        messages.push({
-          type: "ai",
-          id: `${assistantMessage.id}-reasoning-before-tools`,
-          content: "",
-          additional_kwargs: {
-            reasoning_content: assistantMessage.reasoning_before_tools,
-          },
-        });
-      }
+      for (const [index, step] of assistantMessage.steps.entries()) {
+        if (step.type === "reasoning") {
+          if (!hasToolSteps || !step.content) {
+            continue;
+          }
 
-      if (assistantMessage.tools.length > 0) {
-        messages.push({
-          type: "ai",
-          id: `${assistantMessage.id}-tools`,
-          content: "",
-          tool_calls: assistantMessage.tools.map((tool) => ({
-            id: tool.id,
-            name: tool.name,
-            args:
-              tool.args.description === undefined
-                ? {
-                    ...tool.args,
-                    description: tool.label,
-                  }
-                : tool.args,
-          })),
-        });
-
-        for (const tool of assistantMessage.tools) {
           messages.push({
-            type: "tool",
-            id: `${assistantMessage.id}-${tool.id}-result`,
-            name: tool.name,
-            tool_call_id: tool.id,
-            content: buildToolStatusSummary(tool),
+            type: "ai",
+            id: `${assistantMessage.id}-reasoning-${index}`,
+            content: "",
+            additional_kwargs: {
+              reasoning_content: step.content,
+            },
           });
+          continue;
         }
-      }
 
-      if (hasPostToolReasoning) {
         messages.push({
           type: "ai",
-          id: `${assistantMessage.id}-reasoning-after-tools`,
+          id: `${assistantMessage.id}-${step.id}-tool-call`,
           content: "",
-          additional_kwargs: {
-            reasoning_content: assistantMessage.reasoning_after_tools,
-          },
+          tool_calls: [
+            {
+              id: step.id,
+              name: step.name,
+              args:
+                step.args.description === undefined
+                  ? {
+                      ...step.args,
+                      description: step.label,
+                    }
+                  : step.args,
+            },
+          ],
+        });
+
+        messages.push({
+          type: "tool",
+          id: `${assistantMessage.id}-${step.id}-result`,
+          name: step.name,
+          tool_call_id: step.id,
+          content: buildToolStatusSummary(step),
         });
       }
 
@@ -110,9 +104,13 @@ export function toThreadMessages(
           id: assistantMessage.id,
           content: assistantMessage.content,
           additional_kwargs:
-            assistantMessage.tools.length === 0
-              ? hasPreToolReasoning
-                ? { reasoning_content: assistantMessage.reasoning_before_tools }
+            !hasToolSteps
+              ? reasoningSteps.length > 0
+                ? {
+                    reasoning_content: reasoningSteps
+                      .map((step) => step.content)
+                      .join(""),
+                  }
                 : undefined
               : undefined,
         });
