@@ -333,7 +333,7 @@ On Windows, run the local development flow from Git Bash. Native `cmd.exe` and P
 DeerFlow supports multiple startup modes across two dimensions:
 
 - **Dev / Prod** — dev enables hot-reload; prod uses pre-built frontend
-- **Standard / Gateway** — standard uses a separate LangGraph server (4 processes); Gateway mode (experimental) embeds the agent runtime in the Gateway API (3 processes)
+- **Standard / Gateway** — standard uses a separate LangGraph server; Gateway mode (experimental) embeds the agent runtime in the Gateway API
 
 | | **Local Foreground** | **Local Daemon** | **Docker Dev** | **Docker Prod** |
 |---|---|---|---|---|
@@ -357,7 +357,7 @@ In standard mode, DeerFlow runs a dedicated [LangGraph Platform](https://langcha
 |---|---|---|
 | **Architecture** | Gateway (REST API) + LangGraph (agent runtime) | Gateway embeds agent runtime |
 | **Concurrency** | `--n-jobs-per-worker` per worker (requires license) | `--workers` × async tasks (no per-worker cap) |
-| **Containers / Processes** | 4 (frontend, gateway, langgraph, nginx) | 3 (frontend, gateway, nginx) |
+| **Containers / Processes** | 5 local processes (`frontend`, `gateway`, `bff`, `langgraph`, `nginx`) or 4 dev containers | 4 local processes (`frontend`, `gateway`, `bff`, `nginx`) or 3 dev containers |
 | **Resource usage** | Higher (two Python runtimes) | Lower (single Python runtime) |
 | **LangGraph Platform license** | Required for production images | Not required |
 | **Cold start** | Slower (two services to initialize) | Faster |

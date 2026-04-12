@@ -6,9 +6,11 @@ This service currently contains:
 
 - provider-oriented auth with `local` and `oidc` auth modes
 - SQLite persistence
-- conversation create and list routes
+- conversation create, list, detail, and stream routes
+- BFF-owned model discovery
+- conversation-scoped artifact, upload, and suggestion routes
 - SSE message streaming proxy to DeerFlow Gateway
-- test coverage for auth, conversation ownership, and streaming
+- test coverage for auth, conversation ownership, streaming, models, and conversation resources
 
 ## Local Development
 
@@ -25,7 +27,17 @@ uv sync
 cp .env.example .env
 ```
 
-### Start the BFF
+### Start the full local stack
+
+From the repository root:
+
+```bash
+make dev-pro
+```
+
+This starts `Gateway + BFF + Frontend + nginx`.
+
+### Start the BFF only
 
 ```bash
 cd bff
@@ -34,10 +46,11 @@ uv run uvicorn app.main:app --host 0.0.0.0 --port 9000 --reload
 
 ### Start DeerFlow Gateway
 
-From the repository root:
+If you are running the BFF on its own, start Gateway separately:
 
 ```bash
-make dev-pro
+cd backend
+PYTHONPATH=. uv run uvicorn app.gateway.app:app --host 0.0.0.0 --port 8001 --reload
 ```
 
 ## Implementation Status
@@ -51,12 +64,11 @@ Completed in the first slice:
 5. DeerFlow HTTP client for thread creation and stream proxying
 6. Auth provider abstraction layer, `me`, conversation create/list, and stream routes
 
-Next planned slice:
+Current next slice:
 
-1. upload proxy routes
-2. artifact proxy routes
-3. conversation deletion
-4. browser and frontend OIDC redirect/callback integration
+1. conversation lifecycle completion such as delete and rename
+2. deciding whether memory, MCP, skills, and agents should become BFF-owned APIs or remain stable same-origin bridges
+3. additional operational hardening around config loading, uploads, and large artifact handling
 
 ## Conventions
 
@@ -79,7 +91,7 @@ When `BFF_AUTH_PROVIDER=oidc`, configure all of the following:
 - `BFF_OIDC_AUDIENCE`
 - `BFF_OIDC_JWKS_URL`
 
-This slice only validates the incoming `id_token`. Browser redirect, authorization-code exchange, and callback handling are intentionally out of scope for now.
+The BFF still validates the incoming `id_token`. Browser redirect, authorization-code exchange, and callback handling are owned by the frontend auth layer rather than by the BFF itself.
 
 ## Testing Guidance
 

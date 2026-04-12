@@ -11,7 +11,7 @@ configuration together, rather than treating them as separate implementation isl
 
 ## Current Architecture Assessment
 
-The current system is usable, but the architecture is still transitional.
+The current system is usable, and several formerly transitional gaps have already been closed.
 
 What is already true:
 
@@ -19,14 +19,16 @@ What is already true:
 - browser auth flows are BFF-oriented
 - Gateway mode can serve as the internal agent runtime
 - `nginx` is the most complete same-origin browser entrypoint
+- gateway-mode local startup launches BFF by default
+- model discovery, main chat artifacts/uploads/suggestions, and account status now align with the BFF-backed path
+- nginx ownership now lets bridge-owned browser APIs fall through to `frontend`
 
 What is not yet fully true:
 
 - the browser does not yet exclusively depend on BFF-owned APIs
-- the account page is not yet productized
 - direct frontend development at `:3000` still behaves differently from the canonical `:2026`
   entrypoint
-- the current gateway-mode launcher still does not start the BFF automatically
+- some workspace surfaces still rely on same-origin Next.js bridges rather than BFF-owned APIs
 
 ## Layer Responsibilities
 
@@ -54,11 +56,8 @@ Should own:
 
 Currently missing:
 
-- model list proxy
-- artifact proxy
-- upload proxy
-- broader settings/resource proxy coverage
-- startup integration with the canonical gateway-mode dev flow
+- broader settings/resource proxy coverage inside the BFF itself
+- conversation lifecycle completion beyond create/list/detail/stream
 
 ### Frontend
 
@@ -69,14 +68,11 @@ Should:
 
 Currently still Gateway-facing in places such as:
 
-- models
-- artifacts
-- uploads
-- suggestions
 - memory
 - MCP
 - skills
 - agents
+- older runtime-thread surfaces outside the main BFF chat flow
 
 ### Nginx
 
@@ -89,33 +85,29 @@ It currently provides:
 - central CORS behavior
 - streaming/SSE buffering controls
 
-It also still proxies many browser-visible resource and settings paths directly to Gateway, which
-is useful today but keeps the architecture mixed.
+It still remains the canonical same-origin browser entrypoint, but the direct browser-visible
+Gateway route set has been reduced.
 
 This is especially important because the Gateway currently assumes that browser CORS is handled by
 `nginx`.
 
 ## Recommended Development Order
 
-1. Align `serve.sh` and the documented gateway-mode startup flow with the already-BFF-backed
-   frontend by launching BFF or introducing an explicit BFF-first local launcher.
-2. Add BFF model proxying and move the frontend model selector behind `/api/bff/*`.
-3. Move artifacts and uploads behind BFF ownership checks.
-4. Migrate suggestions plus settings/resource APIs such as memory, MCP, skills, and agents behind
-   BFF or stable same-origin bridges.
-5. Productize `/workspace/account` into a real account/settings page.
-6. Keep `nginx` documentation and route ownership aligned with the intended architecture.
+1. Decide whether memory, MCP, skills, and agents should become BFF-owned APIs or remain stable same-origin bridges.
+2. Complete conversation lifecycle actions such as rename and delete.
+3. Keep `nginx` documentation and route ownership aligned with the intended architecture.
+4. Continue removing legacy runtime-thread assumptions outside the main BFF chat loop.
 
 ## Account Page Recommendation
 
-The current account page is good enough for integration verification, but it is not yet a product UI.
+The current account page is now productized enough for normal local use.
 
 Recommended direction:
 
-- primary content should be account/session status
-- local and OIDC flows should be described more clearly
-- raw `/me` and session payloads should move into collapsible diagnostics
-- BFF and browser-session health should be visually separated
+- primary content should remain account/session status
+- local and OIDC flows should remain clearly separated
+- raw `/me` and session payloads should stay behind collapsible diagnostics
+- BFF and browser-session health should remain visually separated
 
 ## Practical Conclusion
 

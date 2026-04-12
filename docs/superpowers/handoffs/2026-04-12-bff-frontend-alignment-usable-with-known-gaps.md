@@ -6,27 +6,27 @@
 
 ## Current Status
 
-This repository is now broadly usable on the BFF-backed chat path, but it is not yet fully
-aligned to the target architecture of "browser only talks to BFF through a same-origin entrypoint".
+This repository is now broadly usable on the BFF-backed chat path and substantially closer to the
+target architecture of "browser only talks to BFF through a same-origin entrypoint".
 
 What is working:
 
 - local BFF auth via `/workspace/account`
 - BFF-backed conversation create/list/detail/stream
 - repaired stream ordering, reasoning display, and post-completion refresh behavior
-- restored model/mode controls in the UI code path
+- BFF-backed model/mode controls in the UI code path
 - canonical BFF chat route restored to `/workspace/chats/new`
+- BFF-backed artifacts, uploads, and follow-up suggestions for the main chat route
+- same-origin bridge routing for memory, MCP, skills, and agents
+- gateway-mode startup now launches BFF by default
+- nginx route ownership now lets bridge-owned browser APIs fall through to `frontend`
+- `/workspace/account` is now a product-facing account/status page with collapsible diagnostics
 
 What remains inconsistent:
 
-- the frontend still depends on the DeerFlow Gateway model list path
-- some artifact/runtime file paths still depend on DeerFlow Gateway routes
-- several workspace APIs such as memory, MCP, skills, agents, uploads, and suggestions still
-  remain Gateway-facing in the frontend code
-- `nginx` is an essential runtime layer but that role was under-documented before this review
-- `make dev-pro` / `serve.sh --gateway` still do not start the BFF even though the frontend main
-  chat and auth validation paths already depend on it
-- direct browser requests to `http://127.0.0.1:8001` are fragile because gateway CORS is not the intended public contract
+- memory, MCP, skills, and agents are same-origin from the browser, but they are still not BFF-owned APIs
+- some legacy runtime file and thread surfaces still depend on Gateway-facing semantics behind server bridges
+- direct browser requests to `http://127.0.0.1:8001` are still fragile because gateway CORS is not the intended public contract
 
 ## Four-Layer View
 
@@ -40,8 +40,8 @@ The stable deployment and local-dev picture now needs to be described as four la
 The key architecture point is that the Gateway is an internal runtime service, while `nginx`
 currently acts as the mature external entrypoint for browser traffic.
 
-The key operational mismatch is that the current gateway-mode launcher still starts only
-`Gateway + Frontend + nginx`, not `BFF`.
+The remaining operational mismatch is not startup anymore; it is the split between BFF-owned APIs
+and same-origin Next.js bridge routes that still proxy selected Gateway surfaces.
 
 ## Root Cause Notes
 
@@ -71,31 +71,30 @@ So the stable local contract is still same-origin proxying, not direct browser-t
 
 ### Account page
 
-`/workspace/account` is still a verification/debug page rather than a product-facing account page.
+`/workspace/account` is no longer only a verification/debug page. The main remaining gap there is
+follow-on product depth, not the first productization pass.
 
-The current UI is useful for auth validation, but it should evolve into:
+What is already true:
 
 - clearer browser session state
 - BFF session / `/me` health
 - connection diagnostics in a secondary debug panel
-- account and auth settings instead of raw JSON as the primary content
+
+What still remains optional:
+
+- deeper account and auth settings beyond session/status visibility
 
 ### API boundary cleanup
 
 The next architecture cleanup should move more browser-visible functionality behind BFF or
 same-origin server bridges:
 
-- models
-- artifacts
-- uploads
-- suggestions
 - memory
 - MCP
 - skills
 - agents
 
-It should also align the launcher and documented local startup story with the already-BFF-backed
-frontend routes.
+The launcher and local startup story are now aligned; remaining cleanup is about API ownership.
 
 ## Documentation Updated In This Slice
 
@@ -115,11 +114,10 @@ These docs now describe:
 
 Do not treat these as blockers for current use, but they are the next clear cleanup items:
 
-1. add a BFF-owned model list endpoint such as `GET /models` and bridge it to `/api/bff/models`
-2. move artifact and upload access behind BFF ownership checks
-3. migrate suggestions and workspace settings-related APIs behind BFF or same-origin server bridges
-4. turn `/workspace/account` into a product account page rather than leaving it as a debug-only view
-5. keep browser-facing local development same-origin, either through `nginx` or the Next.js bridge routes
+1. decide whether memory, MCP, skills, and agents should stay same-origin Next.js bridge routes or become BFF-owned APIs
+2. complete conversation lifecycle actions such as rename and delete
+3. keep browser-facing local development same-origin, either through `nginx` or the Next.js bridge routes
+4. continue shrinking legacy Gateway-thread assumptions outside the main BFF chat path
 
 ## Practical Recommendation
 

@@ -14,9 +14,9 @@ The BFF owns:
 - conversation ownership checks
 - public API shape
 - mapping between `conversation_id` and DeerFlow `thread_id`
-- basic rate limiting
-- audit logging
 - error normalization
+- model discovery for the BFF-backed frontend path
+- conversation-scoped artifact, upload, and suggestion access for the BFF-backed chat path
 
 The BFF does not own DeerFlow internals.
 
@@ -28,7 +28,7 @@ Agents must preserve these boundaries:
 - Do not make the frontend depend directly on DeerFlow Gateway routes or schemas.
 - Do not bypass ownership checks for any conversation-scoped route.
 - Do not put BFF-specific business logic into DeerFlow `backend/`.
-- Do not turn this service into a thin transparent reverse proxy.
+- Do not turn this service into a transparent reverse proxy with no ownership or contract shaping.
 
 ## Public API Rules
 
@@ -39,6 +39,8 @@ When adding or changing endpoints:
 - normalize downstream DeerFlow errors
 - keep auth checks and ownership checks at the BFF layer
 - preserve SSE behavior for chat streaming
+- preserve the current richer stream contract for reasoning, tool starts, tool progress, and
+  completion
 
 ## Directory Responsibilities
 
@@ -80,11 +82,10 @@ Every conversation-scoped action must verify:
 2. the conversation belongs to that user
 3. the mapped DeerFlow thread exists or is handled explicitly
 
-Minimum persistence expectation:
+Current persistence expectation:
 
 - `users`
 - `conversations`
-- `audit_logs`
 
 ## Streaming Rules
 
@@ -97,6 +98,7 @@ When editing streaming behavior:
 - avoid unnecessary transformation
 - only inject BFF-owned metadata when necessary
 - keep DeerFlow protocol details hidden from frontend callers where possible
+- do not emit duplicate reasoning or tool-progress snapshots when normalizing downstream events
 
 ## Error Handling
 
@@ -125,6 +127,7 @@ Do not introduce these without explicit approval:
 - admin control planes
 - complex async job orchestration
 - frontend code inside `bff/`
+- a public API that mirrors Gateway 1:1 when the BFF can provide a narrower contract
 
 ## Preferred Development Style
 

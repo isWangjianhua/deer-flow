@@ -1,105 +1,139 @@
-# Agents Architecture
+# AGENTS.md
 
-## Overview
+Guidance for coding agents working in `frontend/`.
 
-DeerFlow is built on a sophisticated agent-based architecture using the [LangGraph SDK](https://github.com/langchain-ai/langgraph) to enable intelligent, stateful AI interactions. This document outlines the agent system architecture, patterns, and best practices for working with agents in the frontend application.
+## Service Role
 
-## Architecture Overview
+The frontend is a Next.js application with two important integration layers:
 
-### Core Components
+- browser-facing UI and page state
+- same-origin server bridge routes that hide internal backend topology from the browser
 
-```
-┌────────────────────────────────────────────────────────┐
-│                    Frontend (Next.js)                  │
-├────────────────────────────────────────────────────────┤
-│  ┌──────────────┐    ┌──────────────┐    ┌──────────┐  │
-│  │ UI Components│───▶│ Thread Hooks │───▶│ LangGraph│  │
-│  │              │    │              │    │   SDK    │  │
-│  └──────────────┘    └──────────────┘    └──────────┘  │
-│         │                    │                  │      │
-│         │                    ▼                  │      │
-│         │            ┌──────────────┐           │      │
-│         └───────────▶│ Thread State │◀──────────┘      │
-│                      │  Management  │                  │
-│                      └──────────────┘                  │
-└────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌────────────────────────────────────────────────────────┐
-│              LangGraph Backend (lead_agent)            │
-│  ┌────────────┐  ┌──────────┐  ┌───────────────────┐   │
-│  │Main Agent  │─▶│Sub-Agents│─▶│  Tools & Skills   │   │
-│  └────────────┘  └──────────┘  └───────────────────┘   │
-└────────────────────────────────────────────────────────┘
+Today the main workspace chat and account flows are BFF-backed. Some older workspace surfaces still
+use Gateway-facing runtime semantics behind Next.js bridge routes.
+
+## Current Architecture
+
+```text
+browser
+  -> frontend pages/components
+  -> same-origin Next.js routes under /api/*
+     -> /api/bff/* -> FastAPI BFF
+     -> selected /api/* bridge routes -> DeerFlow Gateway
 ```
 
-## Project Structure
+### Primary ownership
 
-```
-src/
-├── app/                    # Next.js App Router pages
-│   ├── api/                # API routes
-│   ├── workspace/          # Main workspace pages
-│   └── mock/               # Mock/demo pages
-├── components/             # React components
-│   ├── ui/                 # Reusable UI components
-│   ├── workspace/          # Workspace-specific components
-│   ├── landing/            # Landing page components
-│   └── ai-elements/        # AI-related UI elements
-├── core/                   # Core business logic
-│   ├── api/                # API client & data fetching
-│   ├── artifacts/          # Artifact management
-│   ├── config/              # App configuration
-│   ├── i18n/               # Internationalization
-│   ├── mcp/                # MCP integration
-│   ├── messages/           # Message handling
-│   ├── models/             # Data models & types
-│   ├── settings/           # User settings
-│   ├── skills/             # Skills system
-│   ├── threads/            # Thread management
-│   ├── todos/              # Todo system
-│   └── utils/              # Utility functions
-├── hooks/                  # Custom React hooks
-├── lib/                    # Shared libraries & utilities
-├── server/                 # Server-side code (Not available yet)
-│   └── better-auth/        # Authentication setup (Not available yet)
-└── styles/                 # Global styles
-```
+- `src/core/bff-chat/`
+  - owns the BFF conversation contract for create/list/detail/stream
+- `src/app/api/bff/`
+  - owns the browser-to-BFF same-origin bridge
+- `src/core/auth/` and `src/app/api/bff/me/`
+  - own browser auth state and the authenticated BFF `/me` bridge
+- `src/components/workspace/input-box.tsx`
+  - owns model, mode, upload, and suggestion entry points for the main chat path
+- `src/core/threads/`
+  - still owns legacy Gateway-thread workflows that have not been moved to BFF semantics
 
-### Technology Stack
+## Hard Boundaries
 
-- **LangGraph SDK** (`@langchain/langgraph-sdk@1.5.3`) - Agent orchestration and streaming
-- **LangChain Core** (`@langchain/core@1.1.15`) - Fundamental AI building blocks
-- **TanStack Query** (`@tanstack/react-query@5.90.17`) - Server state management
-- **React Hooks** - Thread lifecycle and state management
-- **Shadcn UI** - UI components
-- **MagicUI** - Magic UI components
-- **React Bits** - React bits components
+Agents must preserve these boundaries:
 
-### Interaction Ownership
+- Do not add new browser-visible direct calls to DeerFlow Gateway.
+- Prefer same-origin `/api/bff/*` when a capability is BFF-owned.
+- Prefer same-origin Next.js server bridge routes when a capability is not yet BFF-owned.
+- Do not expose internal BFF or Gateway base URLs in browser-only code unless explicitly required.
+- Treat `conversation_id` as the public identifier for the BFF-backed chat flow.
+- Do not reintroduce raw runtime `thread_id` semantics into the BFF-backed chat UI.
 
-- `src/app/workspace/chats/[thread_id]/page.tsx` owns composer busy-state wiring.
-- `src/core/threads/hooks.ts` owns pre-submit upload state and thread submission.
-- `src/hooks/usePoseStream.ts` is a passive store selector; global WebSocket lifecycle stays in `App.tsx`.
+## Current Browser API Split
 
-## Resources
+### BFF-backed browser paths
 
-- [LangGraph Documentation](https://langchain-ai.github.io/langgraph/)
-- [LangChain Core Concepts](https://js.langchain.com/docs/concepts)
-- [TanStack Query Documentation](https://tanstack.com/query/latest)
-- [Next.js App Router](https://nextjs.org/docs/app)
+- `/api/bff/me`
+- `/api/bff/models`
+- `/api/bff/conversations/*`
+- `/api/bff/conversations/*/artifacts/*`
+- `/api/bff/conversations/*/suggestions`
+- `/api/bff/conversations/*/uploads`
 
-## Contributing
+### Same-origin Next.js bridge paths that still proxy Gateway-facing APIs
 
-When adding new agent features:
+- `/api/memory`
+- `/api/mcp`
+- `/api/skills`
+- `/api/agents`
 
-1. Follow the established project structure
-2. Add comprehensive TypeScript types
-3. Implement proper error handling
-4. Write tests for new functionality
-5. Update this documentation
-6. Follow the code style guide (ESLint + Prettier)
+### Canonical local entrypoints
 
-## License
+- `http://localhost:2026`
+  - the most complete same-origin dev path through nginx
+- `http://localhost:3000`
+  - valid for focused frontend work, but still a partial-bridge workflow
 
-This agent architecture is part of the DeerFlow project.
+Direct browser access to Gateway `:8001` is non-canonical.
+
+## Streaming Rules
+
+Streaming UX is a product boundary. When editing chat streaming behavior:
+
+- preserve event order
+- preserve reasoning/tool interleaving
+- avoid duplicate optimistic user messages
+- avoid duplicate reasoning snapshots
+- keep tool labels and parameters updating during the live stream
+- do not move completed-stream normalization into display components if state-layer fixes are enough
+
+## Account Page Rules
+
+`/workspace/account` is a product page, not only a debug surface.
+
+When editing it:
+
+- keep browser session state and BFF connection status as the primary content
+- keep raw diagnostics behind a collapsible panel
+- preserve both local-auth and OIDC flows
+- avoid turning the page back into raw JSON-first UI
+
+## Directory Responsibilities
+
+- `src/app/`
+  - pages and route handlers only
+- `src/components/`
+  - presentational and interaction UI
+- `src/core/auth/`
+  - browser auth/session behavior and BFF user loading
+- `src/core/bff-chat/`
+  - BFF chat protocol, stream parsing, state, and message assembly
+- `src/core/threads/`
+  - legacy runtime-thread semantics
+- `src/core/models/`, `src/core/uploads/`, `src/core/artifacts/`
+  - browser-facing helpers for the current same-origin API surface
+- `src/app/api/`
+  - same-origin bridge routes only; keep transport concerns here, not in components
+
+## Coding Rules
+
+- Keep browser code same-origin by default.
+- Keep route handlers thin and transport-focused.
+- Keep protocol normalization in `src/core/`, not in JSX.
+- Add types at API boundaries.
+- Follow the existing split between BFF-backed chat state and legacy thread state.
+- Use ASCII unless a file already requires Unicode.
+- Add brief comments only where the control flow is genuinely non-obvious.
+
+## Tests
+
+When behavior changes materially, prefer tests in this order:
+
+1. boundary tests for route ownership and fetch targets
+2. `src/core/bff-chat/` state and message assembly tests
+3. component-level regression tests for chat/account UI boundaries
+4. Playwright coverage for end-to-end auth/chat behavior when the local environment supports it
+
+## If Unsure
+
+If a change makes the browser more aware of Gateway internals, it is probably the wrong direction.
+
+If a change crosses the BFF-backed chat path and the legacy thread path, keep the ownership boundary
+explicit rather than blending them together.

@@ -21,23 +21,34 @@ Completed on `2026-04-11`:
 
 - `streaming-fix`
 
+Completed on `2026-04-12` and `2026-04-13`:
+
+- startup alignment for `make dev-pro` / `serve.sh --gateway`
+- BFF model proxying
+- BFF-backed artifacts, uploads, and suggestions for the main chat path
+- same-origin bridge cleanup for memory, MCP, skills, and agents
+- account page productization
+- nginx browser-route ownership cleanup
+
 What is now true:
 
 - browser OIDC login is product-complete on the frontend/BFF path
 - the main chat page now uses a BFF-owned conversation and stream contract
 - the frontend main chat route uses `conversation_id` semantics
 - the BFF now owns `create`, `list`, `detail`, and `messages/stream` for conversations
+- the BFF now owns model discovery plus the main chat artifact/upload/suggestion contract
 - the browser-facing BFF chat stream preserves explicit SSE anti-buffering behavior
 - downstream gateway `error` events are exposed as frontend-visible `run.failed`
 - post-stream history sync no longer blocks the active SSE response
 - route-level BFF pytest is stable again after removing the hanging sync test path
+- gateway-mode local startup launches `Gateway + BFF + Frontend + nginx`
+- `/workspace/account` now works as a product-facing account/status page
+- nginx now lets bridge-owned browser-visible API routes fall through to `frontend`
 
 What still remains for the next product loop:
 
 - deciding which same-origin bridge routes should become fully BFF-owned APIs
 - richer conversation lifecycle actions
-- account/status page productization
-- nginx and local-dev route ownership cleanup
 - usage governance and production hardening
 - browser-automation coverage for the live BFF streaming path once the local Playwright setup is dependable
 
@@ -92,7 +103,7 @@ Suggested branch:
 
 ## 3. Model and Runtime Boundary Cleanup
 
-Status: in progress
+Status: partially complete
 
 Priority: medium
 
@@ -103,16 +114,16 @@ Why this matters:
   skills, or agents
 - some of those non-chat surfaces are still routed through same-origin Next.js bridges instead of
   BFF-owned APIs
-- this creates local-dev inconsistency and can surface as CORS-shaped failures when the browser
-  tries to call the gateway directly
+- this phase is now mostly about deciding whether those server bridges should stay where they are or
+  move into the BFF proper
 
 Recommended scope:
 
 - define the intended split between BFF-owned and gateway-internal asset paths
 - document `nginx` and Next.js bridge routes as the current same-origin entrypoints rather than
   treating them as incidental plumbing
-- continue removing the remaining direct browser-visible DeerFlow Gateway routes after startup
-  alignment, model proxying, and same-origin settings bridges
+- continue removing or formalizing the remaining legacy runtime-thread dependencies after startup
+  alignment, model proxying, same-origin settings bridges, and nginx cleanup
 
 Suggested branch:
 
@@ -120,7 +131,7 @@ Suggested branch:
 
 ## 4. Upload and Artifact Proxy
 
-Status: implemented for the main BFF-backed chat path
+Status: completed for the main BFF-backed chat path
 
 Priority: medium
 
@@ -145,7 +156,7 @@ Suggested branch:
 
 ## 5. Conversation Lifecycle Completion
 
-Status: next after uploads/artifacts and suggestions
+Status: next product-facing gap
 
 Priority: medium
 
@@ -160,9 +171,6 @@ Recommended scope:
 - improve conversation ordering
 - optional archive / soft-delete behavior
 - frontend list actions and optimistic lifecycle UX
-- account page cleanup so `/workspace/account` can evolve from a verification page into a
-  product-facing account/settings page
-
 Suggested branch:
 
 - `feat/bff-conversation-lifecycle`
@@ -211,6 +219,26 @@ Recommended scope:
 Suggested branch:
 
 - `feat/bff-production-hardening`
+
+## 8. Account Page Productization
+
+Status: completed
+
+The former verification/debug page has already been converted into a product-facing account/status
+page with separate browser-session and BFF-connection sections plus collapsible diagnostics.
+
+## 9. Nginx Route Ownership Cleanup
+
+Status: completed for the current same-origin bridge model
+
+`nginx.local.conf` and `nginx.conf` now let browser-visible bridge-owned API routes fall through to
+`frontend` instead of explicitly proxying `/api/models`, `/api/memory`, `/api/mcp`, `/api/skills`,
+`/api/agents`, and `/api/threads/*` to Gateway.
+
+What still remains here is architectural follow-up, not the initial cleanup:
+
+- deciding whether additional browser-visible paths should move from Next.js bridges into BFF-owned APIs
+- keeping docs aligned if Docker and local startup paths diverge again
 
 ## Suggested Milestone Grouping
 

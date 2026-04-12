@@ -104,44 +104,41 @@ For local development without OIDC, use the BFF local auth provider instead:
 - keep `BFF_AUTH_PROVIDER=local` in `bff/.env`
 - sign in from `/workspace/account` with the seeded dev user `demo / demo123`
 
-### Current BFF Dev Caveats
+### Current Runtime Boundary
 
-The main chat UI now uses the BFF conversation and streaming path, but not every runtime-facing
-frontend dependency has been moved behind the BFF yet.
+The frontend now has a clearer same-origin split between the BFF-backed chat/account flow and a
+smaller set of remaining Gateway-backed workspace surfaces.
 
-Current behavior:
+Current same-origin browser behavior:
 
-- chat create/list/detail/stream goes through same-origin `/api/bff/*`
-- browser auth state and `/me` also go through same-origin `/api/bff/*`
-- model discovery now goes through same-origin `/api/bff/models`
-- main chat artifact viewing/downloading now goes through same-origin `/api/bff/conversations/*/artifacts/*`
-- main chat follow-up suggestions now go through same-origin `/api/bff/conversations/*/suggestions`
-- main chat attachment uploads now go through same-origin `/api/bff/conversations/*/uploads`
-- memory, MCP, skills, and agents now go through same-origin Next.js bridge routes
-- some non-chat runtime paths still use Gateway-facing thread semantics
+- chat create/list/detail/stream goes through `/api/bff/*`
+- browser auth state and `/me` go through `/api/bff/*`
+- model discovery goes through `/api/bff/models`
+- main chat artifact viewing/downloading goes through `/api/bff/conversations/*/artifacts/*`
+- main chat follow-up suggestions go through `/api/bff/conversations/*/suggestions`
+- main chat attachment uploads go through `/api/bff/conversations/*/uploads`
+- memory, MCP, skills, and agents go through same-origin Next.js bridge routes
+- `/workspace/account` is now a product-facing account/status page with collapsible diagnostics
 
-Current startup caveat:
+What still remains mixed:
 
-- `make dev-pro` and `./scripts/serve.sh --dev --gateway` now start the FastAPI BFF on `:9000`
-- the canonical gateway-mode local launcher is now aligned with the BFF-backed account and chat flows
+- some older non-chat runtime surfaces still use Gateway-facing thread semantics behind server bridges
+- direct `:3000` development still behaves differently from the canonical `:2026` nginx entrypoint
+- memory, MCP, skills, and agents are same-origin, but not yet BFF-owned APIs
 
-Recommended local setup today:
+Current startup story:
 
-- prefer same-origin proxying through `nginx` or the built-in Next.js rewrites
-- do not point the browser directly at `http://127.0.0.1:8001` unless you also provide a matching
-  reverse proxy or CORS layer
+- `make dev-pro` and `./scripts/serve.sh --dev --gateway` start `Gateway + BFF + Frontend + nginx`
+- `http://localhost:2026` is the canonical end-to-end local entrypoint
+- `http://localhost:3000` remains useful for focused frontend work, but it is still a partial-bridge workflow
 
-Canonical local entrypoints:
+Current nginx ownership:
 
-- `http://localhost:2026` through `nginx` is the most mature end-to-end dev entrypoint
-- `http://localhost:3000` is usable for focused frontend work, but still depends on Next.js bridge
-  routes and rewrites for some backend access
-
-Why this matters:
-
-- the gateway currently assumes CORS is handled by `nginx`
-- direct browser requests to `8001` can succeed in `curl` but still fail in the browser
-- the remaining gateway-thread dependencies still make local behavior differ between `:3000` and `:2026`
+- browser-visible `/api/models`, `/api/memory`, `/api/mcp`, `/api/skills`, `/api/agents`, and
+  `/api/threads/*` now fall through to `frontend`
+- Next.js same-origin route handlers own those browser entrypoints
+- direct browser access to `http://127.0.0.1:8001` is still non-canonical because the gateway expects
+  CORS to be handled by `nginx`
 
 Canonical BFF chat routes:
 

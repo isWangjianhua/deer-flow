@@ -21,14 +21,17 @@ This plan is derived from:
 - `docs/superpowers/handoffs/2026-04-12-gateway-bff-frontend-nginx-review.md`
 - `bff/docs/ROADMAP.md`
 
-The current product loop works, but several key boundaries are still inconsistent:
+The current product loop works, and several originally planned cleanup phases are now complete.
 
-- gateway-mode startup does not launch BFF
-- frontend still depends on Gateway APIs directly in multiple places
-- `nginx` still proxies many browser-visible routes straight to Gateway
-- `/workspace/account` is still a verification/debug page rather than a product account page
+Still-open architectural boundaries:
+
+- some frontend surfaces still depend on same-origin Next.js bridge routes rather than BFF-owned APIs
+- direct `:3000` development still behaves differently from the canonical `:2026` path
+- conversation lifecycle remains incomplete beyond create/list/detail/stream
 
 ## Phase 1: Fix The Startup Mismatch
+
+Status: completed
 
 ### Objective
 
@@ -52,6 +55,8 @@ Make the canonical gateway-mode local startup match the already-BFF-backed front
 
 ## Phase 2: Move Model Discovery Behind BFF
 
+Status: completed
+
 ### Objective
 
 Remove the most visible remaining browser dependency on Gateway.
@@ -69,6 +74,8 @@ Remove the most visible remaining browser dependency on Gateway.
 - local frontend behavior is consistent between `:2026` and `:3000`
 
 ## Phase 3: Move Artifacts, Uploads, And Suggestions Behind BFF
+
+Status: completed for the main BFF-backed chat path
 
 ### Objective
 
@@ -118,6 +125,8 @@ Priority APIs:
 
 ## Phase 5: Productize `/workspace/account`
 
+Status: completed
+
 ### Objective
 
 Turn the current account verification page into a user-facing account/status page.
@@ -135,6 +144,8 @@ Turn the current account verification page into a user-facing account/status pag
 - diagnostics are still available, but no longer dominate the page
 
 ## Phase 6: Align `nginx` With The Intended Architecture
+
+Status: completed for the current same-origin bridge model
 
 ### Objective
 
@@ -156,12 +167,10 @@ Reduce the gap between "current convenient routing" and "intended BFF-first rout
 
 If work resumes immediately, this is the recommended order:
 
-1. startup alignment
-2. BFF model proxy
-3. artifacts/uploads/suggestions
-4. memory/MCP/skills/agents cleanup
-5. account page productization
-6. final `nginx` route cleanup pass
+1. memory/MCP/skills/agents ownership decision
+2. conversation lifecycle
+3. legacy runtime-thread cleanup outside the BFF-backed chat path
+4. production hardening and governance
 
 ## Non-Goals For This Plan
 

@@ -45,10 +45,8 @@ Out of scope for the first version:
 - usage metering and quota deduction
 - admin back office
 - deep business workflow orchestration
-- upload proxy
-- artifact download proxy
-- model list proxy
 - conversation deletion
+- broader BFF ownership for memory, MCP, skills, and agents
 
 ## Architecture
 
@@ -69,16 +67,20 @@ Key rule:
 Important current caveat:
 
 - the main chat page already uses BFF conversation semantics
-- the frontend still has a few remaining direct DeerFlow Gateway dependencies, especially model
-  discovery, artifacts, uploads, suggestions, and workspace settings-related APIs
+- the main frontend chat/account/model/resource path no longer requires direct browser access to the
+  DeerFlow Gateway
+- memory, MCP, skills, and agents are now same-origin from the browser, but they are still Next.js
+  bridge routes rather than BFF-owned APIs
 - because the gateway currently expects `nginx` to handle CORS, direct browser requests to
   `http://127.0.0.1:8001` are not a stable local-development contract
 - in local frontend-only dev, Next.js currently acts as a partial same-origin bridge for some
   gateway paths, but that is still transitional rather than the final architecture
-- the current `serve.sh --gateway` / `make dev-pro` flow does not yet start the BFF automatically,
-  even though the frontend main chat and auth verification paths already depend on it
+- the current `serve.sh --gateway` / `make dev-pro` flow now starts the BFF automatically
+- nginx route ownership has been aligned so browser-visible bridge-owned API paths fall through to
+  `frontend` instead of being explicitly proxied to Gateway
 
-This means the current architecture is usable, but not yet fully "frontend only talks to BFF".
+This means the current architecture is usable and much closer to the target boundary, but it is not
+yet fully "frontend only talks to BFF".
 
 ## Directory Layout
 
@@ -231,19 +233,28 @@ The first slice seeds a local development user:
 
 When `BFF_AUTH_PROVIDER=oidc`, the BFF expects incoming bearer `id_token` credentials from an external OIDC provider. This slice does not include browser redirect or callback handling, so frontends still need to obtain the token separately.
 
-### 3. Start the service
+### 3. Start the full local stack
+
+From the repository root:
+
+```bash
+make dev-pro
+```
+
+This starts `Gateway + BFF + Frontend + nginx`.
+
+### 4. Start only the BFF for focused BFF work
 
 ```bash
 cd bff
 uv run uvicorn app.main:app --host 0.0.0.0 --port 9000 --reload
 ```
 
-### 4. Start DeerFlow Gateway
-
-From the repository root, run DeerFlow in Gateway mode separately:
+If you start the BFF this way, start Gateway separately instead of using `make dev-pro`:
 
 ```bash
-make dev-pro
+cd backend
+PYTHONPATH=. uv run uvicorn app.gateway.app:app --host 0.0.0.0 --port 8001 --reload
 ```
 
 Confirm the BFF can reach the configured DeerFlow Gateway URL.
@@ -268,13 +279,12 @@ Current recommended frontend path:
 - Next.js server routes should forward to the internal BFF base URL
 - any remaining gateway-specific browser path should be treated as transitional
 
-Known integration gaps as of `2026-04-12`:
+Known integration gaps as of `2026-04-13`:
 
-- memory, MCP, skills, and agents now use same-origin Next.js bridge routes, but are not yet owned by the BFF boundary
-- the workspace account page is still frontend-auth verification UI rather than a product-facing
-  account/settings page
-- the current dev launcher and nginx path ownership still reflect a mixed BFF/Gateway boundary
-- direct browser calls to the gateway are fragile outside `nginx` because gateway CORS is not the intended public contract
+- memory, MCP, skills, and agents are still same-origin Next.js bridge routes rather than BFF-owned APIs
+- some legacy runtime-thread surfaces still exist outside the main BFF-backed chat path
+- conversation lifecycle is still incomplete beyond create/list/detail/stream
+- direct browser calls to the gateway are still fragile outside `nginx` because gateway CORS is not the intended public contract
 
 ## Request Flow
 
