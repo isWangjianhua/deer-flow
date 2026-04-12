@@ -115,6 +115,13 @@ Current behavior:
 - browser auth state and `/me` also go through same-origin `/api/bff/*`
 - model discovery still comes from the DeerFlow Gateway `/api/models`
 - artifact and some runtime file paths still depend on DeerFlow Gateway `/api/threads/*`
+- memory, MCP, skills, agents, uploads, and follow-up suggestion APIs still use Gateway-facing paths
+
+Current startup caveat:
+
+- `make dev-pro` and `./scripts/serve.sh --dev --gateway` do not currently start the FastAPI BFF
+- BFF-backed frontend flows therefore still require a separate `bff` process on `:9000`
+- this especially affects `/workspace/account` and the main BFF-backed chat path
 
 Recommended local setup today:
 
@@ -122,12 +129,20 @@ Recommended local setup today:
 - do not point the browser directly at `http://127.0.0.1:8001` unless you also provide a matching
   reverse proxy or CORS layer
 
+Canonical local entrypoints:
+
+- `http://localhost:2026` through `nginx` is the most mature end-to-end dev entrypoint
+- `http://localhost:3000` is usable for focused frontend work, but still depends on Next.js bridge
+  routes and rewrites for some backend access
+
 Why this matters:
 
 - the gateway currently assumes CORS is handled by `nginx`
 - direct browser requests to `8001` can succeed in `curl` but still fail in the browser
 - when `/api/models` fails in the browser, the model selector and mode selector can render as
   visually empty controls because their labels depend on the loaded model list
+- the remaining direct Gateway dependencies make local behavior differ between `:3000` and `:2026`
+- the current startup scripts do not yet match the frontend's BFF-first chat/auth architecture
 
 Canonical BFF chat routes:
 
@@ -200,7 +215,9 @@ src/
 - `src/app/api/bff/me/route.ts` is the first authenticated bridge route from the frontend to the FastAPI BFF.
 - `/api/bff/me` prefers `DEER_FLOW_INTERNAL_BFF_BASE_URL`, falls back to an absolute `NEXT_PUBLIC_BFF_BASE_URL`, and otherwise uses `http://127.0.0.1:9000`.
 - `src/app/workspace/account/page.tsx` is the minimum proof page for browser OIDC login, session recovery, and authenticated BFF `/me`.
-- `/workspace/account` is the auth verification page for this slice; future protected workspace routes should reuse `src/core/auth/` and the same Better Auth session instead of re-implementing login checks page by page.
+- `/workspace/account` is still an auth verification page for this slice; future product work should
+  turn it into a real account page with clearer session state, connection health, and settings
+  instead of exposing raw debug JSON as the primary UI.
 
 ## Auth E2E
 
@@ -224,13 +241,20 @@ Current chat limitations:
 - model discovery is not yet proxied by the BFF; the frontend still depends on the gateway
   `GET /api/models` path
 - uploads and artifact retrieval are not yet migrated onto the BFF-backed path
+- follow-up suggestions on the input box still depend on a Gateway thread route
+- memory, MCP, skills, and agents still use Gateway-facing frontend APIs
+- the canonical dev launcher still does not bootstrap the BFF automatically
 - conversation rename/delete/archive actions are not yet exposed
 - agent-specific chat paths still retain more legacy runtime semantics than the main chat path
 
 Recommended next follow-up for the BFF chat path:
 
+- align `serve.sh` / `make dev-pro` with the BFF-backed frontend by starting BFF or documenting a
+  BFF-first launcher explicitly
 - add a BFF-owned model list endpoint such as `/api/bff/models`
 - move artifact and upload access behind the same BFF ownership boundary
+- migrate suggestions, memory, MCP, skills, and agents behind BFF or same-origin server bridges
+- turn `/workspace/account` from a verification screen into a product account/settings page
 - reduce remaining frontend-visible gateway assumptions in direct `pnpm dev` flows
 
 ## Chat E2E

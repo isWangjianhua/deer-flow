@@ -108,6 +108,10 @@ Recommended scope:
 - bridge frontend model selection onto `/api/bff/*`
 - remove direct browser dependence on DeerFlow Gateway `/api/models`
 - define the intended split between BFF-owned and gateway-internal asset paths
+- document `nginx` and Next.js bridge routes as the current same-origin entrypoints rather than
+  treating them as incidental plumbing
+- fix the startup mismatch where `make dev-pro` does not launch the BFF even though the frontend
+  main path already depends on it
 
 Suggested branch:
 
@@ -132,6 +136,7 @@ Recommended scope:
 - frontend integration for file and artifact UI
 - BFF-backed attachment send flow on the main chat page
 - artifact access through conversation ownership instead of raw runtime thread access
+- reduction of browser-visible `/api/threads/*` dependencies
 
 Suggested branch:
 
@@ -154,6 +159,8 @@ Recommended scope:
 - improve conversation ordering
 - optional archive / soft-delete behavior
 - frontend list actions and optimistic lifecycle UX
+- account page cleanup so `/workspace/account` can evolve from a verification page into a
+  product-facing account/settings page
 
 Suggested branch:
 

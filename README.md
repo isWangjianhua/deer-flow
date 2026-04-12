@@ -274,6 +274,26 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed Docker development guide.
 
 #### Option 2: Local Development
 
+For the current 2.0 local stack, there are effectively two browser entrypoints:
+
+- `http://localhost:2026` through `nginx`, which is the most complete same-origin entrypoint
+- `http://localhost:3000` for focused frontend work, which still relies on Next.js bridge routes
+  and does not yet fully represent the final browser-to-BFF architecture
+
+If you are working on the BFF-backed frontend path, prefer `:2026` when validating end-to-end
+behavior. Direct browser access to Gateway `:8001` is not the intended public contract.
+
+Important current caveat for Gateway mode:
+
+- `make dev-pro` / `./scripts/serve.sh --dev --gateway` starts `Gateway + Frontend + nginx`
+- it does **not** currently start the FastAPI BFF on `:9000`
+- if you are validating `/api/bff/*`, `/workspace/account`, or the BFF-backed chat flow, start
+  the BFF separately
+
+The current `nginx` layer also still proxies many non-BFF browser-visible `/api/*` routes directly
+to Gateway, so the repository is usable but not yet fully aligned to a strict "browser only talks
+to BFF" architecture.
+
 If you prefer running services locally:
 
 Prerequisite: complete the "Configuration" steps above first (`make config` and model API keys). `make dev` requires a valid configuration file (defaults to `config.yaml` in the project root; can be overridden via `DEER_FLOW_CONFIG_PATH`).

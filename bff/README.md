@@ -53,9 +53,9 @@ Out of scope for the first version:
 ## Architecture
 
 ```text
-Frontend
-  -> same-origin /api/bff/*
-    -> BFF (FastAPI)
+Browser
+  -> nginx / Next.js same-origin routes
+    -> /api/bff/* -> BFF (FastAPI)
       -> auth / ownership / rate limit / audit
       -> DeerFlow Gateway (internal)
 ```
@@ -70,9 +70,13 @@ Important current caveat:
 
 - the main chat page already uses BFF conversation semantics
 - the frontend still has a few remaining direct DeerFlow Gateway dependencies, especially model
-  discovery and some artifact/runtime file paths
+  discovery, artifacts, uploads, suggestions, and workspace settings-related APIs
 - because the gateway currently expects `nginx` to handle CORS, direct browser requests to
   `http://127.0.0.1:8001` are not a stable local-development contract
+- in local frontend-only dev, Next.js currently acts as a partial same-origin bridge for some
+  gateway paths, but that is still transitional rather than the final architecture
+- the current `serve.sh --gateway` / `make dev-pro` flow does not yet start the BFF automatically,
+  even though the frontend main chat and auth verification paths already depend on it
 
 This means the current architecture is usable, but not yet fully "frontend only talks to BFF".
 
@@ -241,6 +245,18 @@ make dev-pro
 
 Confirm the BFF can reach the configured DeerFlow Gateway URL.
 
+### 5. Important startup note
+
+Today, `make dev-pro` does not launch the BFF itself.
+
+If you are testing:
+
+- `/workspace/account`
+- `/api/bff/*`
+- the BFF-backed chat route
+
+you still need to run the BFF separately on `:9000`.
+
 ## Frontend Integration Notes
 
 Current recommended frontend path:
@@ -254,6 +270,10 @@ Known integration gaps as of `2026-04-12`:
 - the BFF does not yet expose a model list endpoint
 - the frontend therefore still uses the gateway model list path in some flows
 - upload and artifact proxying are still missing
+- suggestions, memory, MCP, skills, and agents are not yet owned by the BFF boundary
+- the workspace account page is still frontend-auth verification UI rather than a product-facing
+  account/settings page
+- the current dev launcher and nginx path ownership still reflect a mixed BFF/Gateway boundary
 - direct browser calls to the gateway are fragile outside `nginx` because gateway CORS is not the intended public contract
 
 ## Request Flow
@@ -300,4 +320,6 @@ The next BFF-facing product fixes should focus on consistency, not new product s
 
 1. add a BFF `GET /models` route that proxies DeerFlow Gateway `/api/models`
 2. move artifact and upload access behind BFF ownership checks
-3. remove remaining direct frontend-visible DeerFlow Gateway assumptions from local dev flows
+3. migrate suggestions and workspace settings-related APIs behind BFF or same-origin server bridges
+4. align the dev launcher and documented entrypoints with the BFF-backed frontend path
+5. remove remaining direct frontend-visible DeerFlow Gateway assumptions from local dev flows
