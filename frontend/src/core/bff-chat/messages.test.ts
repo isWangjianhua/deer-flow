@@ -249,3 +249,51 @@ void test("keeps reasoning steps interleaved between multiple tool calls", () =>
   );
   assert.equal(messages[7]?.content, "最终回答");
 });
+
+void test("deduplicates snapshot-style reasoning updates before synthesizing UI messages", () => {
+  let state = createInitialChatState();
+
+  const firstReasoning =
+    "用户询问西安天气，但之前的 web_search 工具返回错误（No results found）。让我尝试使用不同的搜索词或网站来获取西安的天气信息。";
+  const secondReasoning =
+    "搜索结果不相关，让我尝试用其他天气网站查询西安天气。";
+  const thirdReasoning =
+    "让我尝试访问中国天气网的西安页面来获取天气数据。";
+
+  state = applyBffChatEvent(state, {
+    type: "message.started",
+    data: { message_id: "assistant-7" },
+  });
+  state = applyBffChatEvent(state, {
+    type: "reasoning.delta",
+    data: { message_id: "assistant-7", delta: firstReasoning },
+  });
+  state = applyBffChatEvent(state, {
+    type: "tool.started",
+    data: {
+      tool_call_id: "tool-7",
+      label: "搜索相关信息",
+      name: "web_search",
+      args: { query: "西安 天气" },
+    },
+  });
+  state = applyBffChatEvent(state, {
+    type: "reasoning.delta",
+    data: { message_id: "assistant-7", delta: secondReasoning },
+  });
+  state = applyBffChatEvent(state, {
+    type: "reasoning.delta",
+    data: {
+      message_id: "assistant-7",
+      delta: `${firstReasoning}${secondReasoning}${thirdReasoning}`,
+    },
+  });
+
+  const messages = toThreadMessages(state, []);
+
+  assert.equal(messages.length, 4);
+  assert.equal(
+    messages[3]?.additional_kwargs?.reasoning_content,
+    `${secondReasoning}${thirdReasoning}`,
+  );
+});

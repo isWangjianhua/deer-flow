@@ -238,3 +238,95 @@ void test("strips repeated historical reasoning prefixes from later post-tool sn
   }
   assert.equal(state.messages[0].steps[4].content, thirdReasoning);
 });
+
+void test("collapses repeated snapshot updates within the same pre-tool reasoning step", () => {
+  let state = createInitialChatState();
+
+  state = applyBffChatEvent(state, {
+    type: "message.started",
+    data: { message_id: "assistant-5" },
+  });
+  state = applyBffChatEvent(state, {
+    type: "reasoning.delta",
+    data: { message_id: "assistant-5", delta: "先判断需要查询西安天气" },
+  });
+  state = applyBffChatEvent(state, {
+    type: "reasoning.delta",
+    data: { message_id: "assistant-5", delta: "先判断需要查询西安天气，再选择可用网站。" },
+  });
+
+  assert.equal(state.messages[0]?.steps.length, 1);
+  assert.equal(state.messages[0]?.steps[0]?.type, "reasoning");
+  if (state.messages[0]?.steps[0]?.type !== "reasoning") {
+    throw new Error("expected the first step to remain a reasoning step");
+  }
+  assert.equal(
+    state.messages[0].steps[0].content,
+    "先判断需要查询西安天气，再选择可用网站。",
+  );
+  assert.equal(
+    state.messages[0]?.reasoning_before_tools,
+    "先判断需要查询西安天气，再选择可用网站。",
+  );
+});
+
+void test("collapses repeated snapshot updates within the same post-tool reasoning step", () => {
+  let state = createInitialChatState();
+
+  const firstReasoning =
+    "用户询问西安天气，但之前的 web_search 工具返回错误（No results found）。让我尝试使用不同的搜索词或网站来获取西安的天气信息。";
+  const secondReasoning =
+    "搜索结果不相关，让我尝试用其他天气网站查询西安天气。";
+  const thirdReasoning =
+    "让我尝试访问中国天气网的西安页面来获取天气数据。";
+  const finalSnapshot = `${firstReasoning}${secondReasoning}${thirdReasoning}`;
+
+  state = applyBffChatEvent(state, {
+    type: "message.started",
+    data: { message_id: "assistant-6" },
+  });
+  state = applyBffChatEvent(state, {
+    type: "reasoning.delta",
+    data: {
+      message_id: "assistant-6",
+      delta: firstReasoning,
+    },
+  });
+  state = applyBffChatEvent(state, {
+    type: "tool.started",
+    data: {
+      tool_call_id: "tool-6a",
+      label: "搜索相关信息",
+      name: "web_search",
+      args: { query: "西安 天气" },
+    },
+  });
+  state = applyBffChatEvent(state, {
+    type: "reasoning.delta",
+    data: {
+      message_id: "assistant-6",
+      delta: secondReasoning,
+    },
+  });
+  state = applyBffChatEvent(state, {
+    type: "reasoning.delta",
+    data: {
+      message_id: "assistant-6",
+      delta: finalSnapshot,
+    },
+  });
+
+  assert.equal(state.messages[0]?.steps.length, 3);
+  assert.equal(state.messages[0]?.steps[2]?.type, "reasoning");
+  if (state.messages[0]?.steps[2]?.type !== "reasoning") {
+    throw new Error("expected the last step to remain a reasoning step");
+  }
+  assert.equal(
+    state.messages[0].steps[2].content,
+    `${secondReasoning}${thirdReasoning}`,
+  );
+  assert.equal(
+    state.messages[0]?.reasoning_after_tools,
+    `${secondReasoning}${thirdReasoning}`,
+  );
+});

@@ -4,15 +4,6 @@ export function createInitialChatState(): BffChatState {
   return { messages: [] };
 }
 
-function appendPostToolReasoning(
-  currentReasoning: string,
-  incomingDelta: string,
-  preToolReasoning: string,
-) {
-  const nextReasoning = currentReasoning + incomingDelta;
-  return trimHistoricalReasoningDelta(nextReasoning, preToolReasoning);
-}
-
 function trimHistoricalReasoningDelta(
   incomingDelta: string,
   historicalReasoning: string,
@@ -53,6 +44,30 @@ function trimHistoricalReasoningDelta(
   return normalizedIncomingDelta;
 }
 
+function trimRepeatedCurrentReasoningPrefix(
+  incomingDelta: string,
+  currentReasoning: string,
+) {
+  const normalizedCurrentReasoning = currentReasoning.trim();
+  let normalizedIncomingDelta = incomingDelta.trim();
+
+  if (!normalizedCurrentReasoning || !normalizedIncomingDelta) {
+    return normalizedIncomingDelta;
+  }
+
+  while (normalizedIncomingDelta.startsWith(normalizedCurrentReasoning)) {
+    const remainder = normalizedIncomingDelta
+      .slice(normalizedCurrentReasoning.length)
+      .trimStart();
+    if (!remainder.startsWith(normalizedCurrentReasoning)) {
+      break;
+    }
+    normalizedIncomingDelta = remainder;
+  }
+
+  return normalizedIncomingDelta;
+}
+
 function collectHistoricalReasoning(
   steps: BffChatState["messages"][number]["steps"],
 ) {
@@ -60,6 +75,73 @@ function collectHistoricalReasoning(
     .filter((step) => step.type === "reasoning")
     .map((step) => step.content)
     .join("");
+}
+
+function collectReasoningBeforeFirstTool(
+  steps: BffChatState["messages"][number]["steps"],
+) {
+  const firstToolIndex = steps.findIndex((step) => step.type === "tool");
+  const boundary = firstToolIndex === -1 ? steps.length : firstToolIndex;
+  return steps
+    .slice(0, boundary)
+    .filter((step) => step.type === "reasoning")
+    .map((step) => step.content)
+    .join("");
+}
+
+function collectReasoningAfterLastTool(
+  steps: BffChatState["messages"][number]["steps"],
+) {
+  for (let index = steps.length - 1; index >= 0; index -= 1) {
+    if (steps[index]?.type === "tool") {
+      return steps
+        .slice(index + 1)
+        .filter((step) => step.type === "reasoning")
+        .map((step) => step.content)
+        .join("");
+    }
+  }
+
+  return "";
+}
+
+function mergeReasoningSnapshot(
+  currentReasoning: string,
+  incomingDelta: string,
+  historicalReasoning: string,
+) {
+  const dedupedIncomingDelta = trimHistoricalReasoningDelta(
+    incomingDelta,
+    historicalReasoning,
+  );
+  const snapshotCandidate = trimRepeatedCurrentReasoningPrefix(
+    dedupedIncomingDelta,
+    currentReasoning,
+  );
+  const normalizedCurrentReasoning = currentReasoning.trim();
+  const normalizedSnapshotCandidate = snapshotCandidate.trim();
+
+  if (!currentReasoning) {
+    return dedupedIncomingDelta;
+  }
+
+  if (!normalizedSnapshotCandidate) {
+    return currentReasoning;
+  }
+
+  if (normalizedSnapshotCandidate === normalizedCurrentReasoning) {
+    return currentReasoning;
+  }
+
+  if (normalizedSnapshotCandidate.startsWith(normalizedCurrentReasoning)) {
+    return snapshotCandidate;
+  }
+
+  if (normalizedCurrentReasoning.startsWith(normalizedSnapshotCandidate)) {
+    return currentReasoning;
+  }
+
+  return currentReasoning + incomingDelta;
 }
 
 export function applyBffChatEvent(
@@ -106,45 +188,39 @@ export function applyBffChatEvent(
           ? message
           : (() => {
               const lastStep = message.steps[message.steps.length - 1];
-              const nextDelta =
+              const historicalReasoning =
                 lastStep?.type === "reasoning"
-                  ? event.data.delta
-                  : trimHistoricalReasoningDelta(
+                  ? collectHistoricalReasoning(message.steps.slice(0, -1))
+                  : collectHistoricalReasoning(message.steps);
+              const nextReasoning =
+                lastStep?.type === "reasoning"
+                  ? mergeReasoningSnapshot(
+                      lastStep.content,
                       event.data.delta,
-                      collectHistoricalReasoning(message.steps),
-                    );
+                      historicalReasoning,
+                    )
+                  : mergeReasoningSnapshot("", event.data.delta, historicalReasoning);
 
               const nextSteps =
-                !nextDelta && lastStep?.type !== "reasoning"
+                !nextReasoning && lastStep?.type !== "reasoning"
                   ? message.steps
                   : lastStep?.type === "reasoning"
                     ? message.steps.map((step, index) =>
                         index === message.steps.length - 1
-                          ? { ...step, content: step.content + nextDelta }
+                          ? { ...step, content: nextReasoning }
                           : step,
                       )
                     : message.steps.concat({
                         type: "reasoning",
-                        content: nextDelta,
+                        content: nextReasoning,
                       });
 
-              return message.tools.length === 0
-                ? {
-                    ...message,
-                    reasoning_before_tools:
-                      message.reasoning_before_tools + event.data.delta,
-                    steps: nextSteps,
-                  }
-                : {
-                    ...message,
-                    reasoning_after_tools:
-                      appendPostToolReasoning(
-                        message.reasoning_after_tools,
-                        event.data.delta,
-                        message.reasoning_before_tools,
-                      ),
-                    steps: nextSteps,
-                  };
+              return {
+                ...message,
+                reasoning_before_tools: collectReasoningBeforeFirstTool(nextSteps),
+                reasoning_after_tools: collectReasoningAfterLastTool(nextSteps),
+                steps: nextSteps,
+              };
             })(),
       ),
     };
