@@ -4,6 +4,43 @@ export function createInitialChatState(): BffChatState {
   return { messages: [] };
 }
 
+function stripLeadingHistoricalReasoningSteps(
+  incomingDelta: string,
+  historicalReasoningSteps: string[],
+) {
+  if (!incomingDelta) {
+    return incomingDelta;
+  }
+
+  let nextDelta = incomingDelta;
+  let changed = true;
+
+  while (changed) {
+    changed = false;
+
+    for (const historicalStep of historicalReasoningSteps) {
+      if (!historicalStep) {
+        continue;
+      }
+
+      if (nextDelta === historicalStep) {
+        return "";
+      }
+
+      if (
+        nextDelta.length > historicalStep.length &&
+        nextDelta.startsWith(historicalStep)
+      ) {
+        nextDelta = nextDelta.slice(historicalStep.length);
+        changed = true;
+        break;
+      }
+    }
+  }
+
+  return nextDelta;
+}
+
 function stripRepeatedRawPrefix(incomingDelta: string, prefix: string) {
   if (!prefix) {
     return incomingDelta;
@@ -89,6 +126,14 @@ function collectHistoricalReasoning(
     .filter((step) => step.type === "reasoning")
     .map((step) => step.content)
     .join("");
+}
+
+function collectHistoricalReasoningSteps(
+  steps: BffChatState["messages"][number]["steps"],
+) {
+  return steps
+    .filter((step) => step.type === "reasoning")
+    .map((step) => step.content);
 }
 
 function collectReasoningBeforeFirstTool(
@@ -202,10 +247,20 @@ export function applyBffChatEvent(
           ? message
           : (() => {
               const lastStep = message.steps[message.steps.length - 1];
-              const fullReasoning = collectHistoricalReasoning(message.steps);
+              const historicalReasoningSteps =
+                lastStep?.type === "reasoning"
+                  ? collectHistoricalReasoningSteps(message.steps.slice(0, -1))
+                  : collectHistoricalReasoningSteps(message.steps);
+              const knownReasoningSteps =
+                lastStep?.type === "reasoning"
+                  ? historicalReasoningSteps.concat(lastStep.content)
+                  : historicalReasoningSteps;
               const dedupedIncomingDelta = stripRepeatedRawPrefix(
-                event.data.delta,
-                fullReasoning,
+                stripLeadingHistoricalReasoningSteps(
+                  event.data.delta,
+                  knownReasoningSteps,
+                ),
+                collectHistoricalReasoning(message.steps),
               );
               const historicalReasoning =
                 lastStep?.type === "reasoning"

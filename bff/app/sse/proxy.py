@@ -111,6 +111,33 @@ def _strip_repeated_prefix(delta: str, prefix: str) -> str:
     return delta
 
 
+def _strip_leading_reasoning_steps(delta: str, reasoning_steps: list[str]) -> str:
+    if not delta:
+        return delta
+
+    next_delta = delta
+    changed = True
+
+    while changed:
+        changed = False
+
+        for reasoning_step in reasoning_steps:
+            if not reasoning_step:
+                continue
+
+            if next_delta == reasoning_step:
+                return ""
+
+            if len(next_delta) > len(reasoning_step) and next_delta.startswith(
+                reasoning_step
+            ):
+                next_delta = next_delta[len(reasoning_step) :]
+                changed = True
+                break
+
+    return next_delta
+
+
 def _tool_started_event(tool_call: dict) -> dict | None:
     tool_call_id = tool_call.get("id")
     if not _is_valid_tool_call_id(tool_call_id):
@@ -149,6 +176,8 @@ class StreamEventNormalizer:
         self.run_failed = False
         self.started_tool_ids: set[str] = set()
         self.completed_tool_ids: set[str] = set()
+        self.completed_reasoning_steps: list[str] = []
+        self.current_reasoning_step = ""
 
     def _ensure_message_started(self, raw_id: str | None) -> list[dict]:
         if self.frontend_message_id is not None:
@@ -209,8 +238,11 @@ class StreamEventNormalizer:
                         reasoning_delta = reasoning[len(self.reasoning_text) :]
                     else:
                         reasoning_delta = reasoning
+                    reasoning_delta = _strip_leading_reasoning_steps(
+                        reasoning_delta, self.completed_reasoning_steps
+                    )
                     reasoning_delta = _strip_repeated_prefix(
-                        reasoning_delta, self.reasoning_text
+                        reasoning_delta, self.current_reasoning_step
                     )
                     if reasoning_delta:
                         events.append(
@@ -222,6 +254,7 @@ class StreamEventNormalizer:
                                 },
                             }
                         )
+                        self.current_reasoning_step += reasoning_delta
                         self.reasoning_text += reasoning_delta
 
                 for tool_call in message_payload.get("tool_calls") or []:
@@ -232,6 +265,11 @@ class StreamEventNormalizer:
                         continue
                     event = _tool_started_event(tool_call)
                     if event is not None:
+                        if self.current_reasoning_step:
+                            self.completed_reasoning_steps.append(
+                                self.current_reasoning_step
+                            )
+                            self.current_reasoning_step = ""
                         events.append(event)
                     self.started_tool_ids.add(tool_call_id)
 
@@ -300,8 +338,11 @@ class StreamEventNormalizer:
                             reasoning_delta = reasoning[len(self.reasoning_text) :]
                         else:
                             reasoning_delta = reasoning
+                        reasoning_delta = _strip_leading_reasoning_steps(
+                            reasoning_delta, self.completed_reasoning_steps
+                        )
                         reasoning_delta = _strip_repeated_prefix(
-                            reasoning_delta, self.reasoning_text
+                            reasoning_delta, self.current_reasoning_step
                         )
                         if reasoning_delta:
                             events.append(
@@ -313,6 +354,7 @@ class StreamEventNormalizer:
                                     },
                                 }
                             )
+                            self.current_reasoning_step += reasoning_delta
                             self.reasoning_text = reasoning
 
                     for tool_call in message.get("tool_calls") or []:

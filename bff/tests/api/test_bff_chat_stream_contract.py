@@ -252,6 +252,144 @@ def test_stream_event_normalizer_strips_repeated_reasoning_prefixes_from_values_
     ]
 
 
+def test_stream_event_normalizer_ignores_repeated_historical_reasoning_steps_in_message_chunks():
+    normalizer = StreamEventNormalizer()
+
+    first_reasoning = "A"
+    second_reasoning = "B"
+    third_reasoning = "C"
+
+    first = normalizer.normalize(
+        "messages",
+        [
+            {
+                "type": "ai",
+                "id": "ai-1",
+                "content": "",
+                "additional_kwargs": {
+                    "reasoning_content": first_reasoning,
+                },
+                "tool_calls": [
+                    {
+                        "id": "tool-1",
+                        "name": "web_search",
+                        "args": {"query": "weather"},
+                    }
+                ],
+            },
+            {"langgraph_node": "agent"},
+        ],
+    )
+    second = normalizer.normalize(
+        "messages",
+        [
+            {
+                "type": "AIMessageChunk",
+                "id": "ai-1",
+                "content": "",
+                "additional_kwargs": {
+                    "reasoning_content": second_reasoning,
+                },
+            },
+            {"langgraph_node": "agent"},
+        ],
+    )
+    third = normalizer.normalize(
+        "messages",
+        [
+            {
+                "type": "ai",
+                "id": "ai-1",
+                "content": "",
+                "tool_calls": [
+                    {
+                        "id": "tool-2",
+                        "name": "web_fetch",
+                        "args": {"url": "https://example.com"},
+                    }
+                ],
+            },
+            {"langgraph_node": "agent"},
+        ],
+    )
+    repeated_first = normalizer.normalize(
+        "messages",
+        [
+            {
+                "type": "AIMessageChunk",
+                "id": "ai-1",
+                "content": "",
+                "additional_kwargs": {
+                    "reasoning_content": first_reasoning,
+                },
+            },
+            {"langgraph_node": "agent"},
+        ],
+    )
+    repeated_second = normalizer.normalize(
+        "messages",
+        [
+            {
+                "type": "AIMessageChunk",
+                "id": "ai-1",
+                "content": "",
+                "additional_kwargs": {
+                    "reasoning_content": second_reasoning,
+                },
+            },
+            {"langgraph_node": "agent"},
+        ],
+    )
+    new_reasoning = normalizer.normalize(
+        "messages",
+        [
+            {
+                "type": "AIMessageChunk",
+                "id": "ai-1",
+                "content": "",
+                "additional_kwargs": {
+                    "reasoning_content": third_reasoning,
+                },
+            },
+            {"langgraph_node": "agent"},
+        ],
+    )
+
+    assert first[0] == {
+        "event": "message.started",
+        "data": {"message_id": "ai-1"},
+    }
+    assert first[1] == {
+        "event": "reasoning.delta",
+        "data": {"message_id": "ai-1", "delta": first_reasoning},
+    }
+    assert second == [
+        {
+            "event": "reasoning.delta",
+            "data": {"message_id": "ai-1", "delta": second_reasoning},
+        }
+    ]
+    assert third == [
+        {
+            "event": "tool.started",
+            "data": {
+                "tool_call_id": "tool-2",
+                "label": "web_fetch",
+                "name": "web_fetch",
+                "args": {"url": "https://example.com"},
+            },
+        }
+    ]
+    assert repeated_first == []
+    assert repeated_second == []
+    assert new_reasoning == [
+        {
+            "event": "reasoning.delta",
+            "data": {"message_id": "ai-1", "delta": third_reasoning},
+        }
+    ]
+
+
 def test_stream_event_normalizer_keeps_true_reasoning_extensions_from_values_snapshot():
     normalizer = StreamEventNormalizer()
 

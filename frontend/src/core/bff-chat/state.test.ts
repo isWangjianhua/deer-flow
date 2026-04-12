@@ -366,6 +366,67 @@ void test("collapses repeated snapshot updates within the same post-tool reasoni
   );
 });
 
+void test("ignores repeated historical reasoning steps that the BFF re-emits after a new tool starts", () => {
+  let state = createInitialChatState();
+
+  const firstReasoning =
+    "用户查询上海明天天气，当前日期是 2026-04-12，明天就是 2026-04-13。我需要使用 web_search 工具来搜索上海明天的天气预报信息。";
+  const secondReasoning =
+    "搜索结果中有些信息不够准确或日期混乱，需要访问中国天气网 (weather.com.cn) 获取更准确的上海明天 (4 月 13 日) 天气预报详情。";
+  const thirdReasoning =
+    "第一次 web_fetch 失败了，我需要尝试访问另一个天气网站来获取上海明天的天气预报信息。";
+
+  state = applyBffChatEvent(state, {
+    type: "message.started",
+    data: { message_id: "assistant-live-1" },
+  });
+  state = applyBffChatEvent(state, {
+    type: "reasoning.delta",
+    data: { message_id: "assistant-live-1", delta: firstReasoning },
+  });
+  state = applyBffChatEvent(state, {
+    type: "tool.started",
+    data: {
+      tool_call_id: "tool-search",
+      label: "搜索相关信息",
+      name: "web_search",
+      args: { query: "上海 4 月 13 日 天气" },
+    },
+  });
+  state = applyBffChatEvent(state, {
+    type: "reasoning.delta",
+    data: { message_id: "assistant-live-1", delta: secondReasoning },
+  });
+  state = applyBffChatEvent(state, {
+    type: "tool.started",
+    data: {
+      tool_call_id: "tool-fetch",
+      label: "查看网页",
+      name: "web_fetch",
+      args: { url: "https://www.weather.com.cn/weather/101020100.shtml" },
+    },
+  });
+  state = applyBffChatEvent(state, {
+    type: "reasoning.delta",
+    data: { message_id: "assistant-live-1", delta: firstReasoning },
+  });
+  state = applyBffChatEvent(state, {
+    type: "reasoning.delta",
+    data: { message_id: "assistant-live-1", delta: secondReasoning },
+  });
+  state = applyBffChatEvent(state, {
+    type: "reasoning.delta",
+    data: { message_id: "assistant-live-1", delta: thirdReasoning },
+  });
+
+  assert.equal(state.messages[0]?.steps.length, 5);
+  assert.equal(state.messages[0]?.steps[4]?.type, "reasoning");
+  if (state.messages[0]?.steps[4]?.type !== "reasoning") {
+    throw new Error("expected the final step to be a reasoning step");
+  }
+  assert.equal(state.messages[0].steps[4].content, thirdReasoning);
+});
+
 void test("strips repeated full-turn reasoning snapshots before the next tool boundary", () => {
   let state = createInitialChatState();
 
