@@ -5,6 +5,7 @@ import type { WorkspaceThreadStream } from "@/core/threads";
 export interface ThreadContextType {
   thread: WorkspaceThreadStream;
   isMock?: boolean;
+  apiMode?: "gateway" | "bff";
 }
 
 export const ThreadContext = createContext<ThreadContextType | undefined>(

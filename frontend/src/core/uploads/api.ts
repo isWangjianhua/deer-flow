@@ -4,6 +4,8 @@
 
 import { getBackendBaseURL } from "../config";
 
+export type UploadAPIMode = "gateway" | "bff";
+
 export interface UploadedFileInfo {
   filename: string;
   size: number;
@@ -37,13 +39,22 @@ async function readErrorDetail(
   return error.detail ?? fallback;
 }
 
+function uploadsBasePath(threadId: string, apiMode: UploadAPIMode) {
+  if (apiMode === "bff") {
+    return `/api/bff/conversations/${threadId}/uploads`;
+  }
+  return `${getBackendBaseURL()}/api/threads/${threadId}/uploads`;
+}
+
 /**
  * Upload files to a thread
  */
 export async function uploadFiles(
   threadId: string,
   files: File[],
+  options: { apiMode?: UploadAPIMode } = {},
 ): Promise<UploadResponse> {
+  const { apiMode = "gateway" } = options;
   const formData = new FormData();
 
   files.forEach((file) => {
@@ -51,7 +62,7 @@ export async function uploadFiles(
   });
 
   const response = await fetch(
-    `${getBackendBaseURL()}/api/threads/${threadId}/uploads`,
+    uploadsBasePath(threadId, apiMode),
     {
       method: "POST",
       body: formData,
@@ -70,10 +81,10 @@ export async function uploadFiles(
  */
 export async function listUploadedFiles(
   threadId: string,
+  options: { apiMode?: UploadAPIMode } = {},
 ): Promise<ListFilesResponse> {
-  const response = await fetch(
-    `${getBackendBaseURL()}/api/threads/${threadId}/uploads/list`,
-  );
+  const { apiMode = "gateway" } = options;
+  const response = await fetch(uploadsBasePath(threadId, apiMode));
 
   if (!response.ok) {
     throw new Error(
@@ -90,9 +101,11 @@ export async function listUploadedFiles(
 export async function deleteUploadedFile(
   threadId: string,
   filename: string,
+  options: { apiMode?: UploadAPIMode } = {},
 ): Promise<{ success: boolean; message: string }> {
+  const { apiMode = "gateway" } = options;
   const response = await fetch(
-    `${getBackendBaseURL()}/api/threads/${threadId}/uploads/${filename}`,
+    `${uploadsBasePath(threadId, apiMode)}/${filename}`,
     {
       method: "DELETE",
     },

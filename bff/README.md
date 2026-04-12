@@ -123,11 +123,14 @@ Public-facing rules:
 - `GET /conversations`
 - `GET /conversations/{conversation_id}`
 - `POST /conversations/{conversation_id}/messages/stream`
+- `POST /conversations/{conversation_id}/suggestions`
+- `GET /conversations/{conversation_id}/artifacts/{path}`
+- `POST /conversations/{conversation_id}/uploads`
+- `GET /conversations/{conversation_id}/uploads`
+- `DELETE /conversations/{conversation_id}/uploads/{filename}`
 
 Deferred:
 
-- `POST /conversations/{conversation_id}/uploads`
-- `GET /conversations/{conversation_id}/artifacts/{path}`
 - `DELETE /conversations/{conversation_id}`
 
 ## Core Modules
@@ -319,6 +322,6 @@ Recommended test layers:
 The next BFF-facing product fixes should focus on consistency, not new product surface area:
 
 1. move artifact and upload access behind BFF ownership checks
-2. migrate suggestions and workspace settings-related APIs behind BFF or same-origin server bridges
+2. migrate workspace settings-related APIs behind BFF or same-origin server bridges
 3. align the dev launcher and documented entrypoints with the BFF-backed frontend path
 4. remove remaining direct frontend-visible DeerFlow Gateway assumptions from local dev flows

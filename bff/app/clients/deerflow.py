@@ -22,6 +22,62 @@ class DeerFlowClient:
             response.raise_for_status()
             return response.json()
 
+    async def generate_suggestions(self, thread_id: str, payload: dict) -> dict:
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.post(
+                f"{self.base_url}/api/threads/{thread_id}/suggestions",
+                json=payload,
+            )
+            response.raise_for_status()
+            return response.json()
+
+    async def get_artifact(
+        self,
+        thread_id: str,
+        path: str,
+        *,
+        download: bool = False,
+    ) -> httpx.Response:
+        async with httpx.AsyncClient(timeout=None) as client:
+            response = await client.get(
+                f"{self.base_url}/api/threads/{thread_id}/artifacts/{path}",
+                params={"download": "true"} if download else None,
+            )
+            response.raise_for_status()
+            await response.aread()
+            return response
+
+    async def upload_files(
+        self,
+        thread_id: str,
+        files: list[tuple[str, bytes, str | None]],
+    ) -> dict:
+        payload = [
+            ("files", (filename, content, content_type or "application/octet-stream"))
+            for filename, content, content_type in files
+        ]
+        async with httpx.AsyncClient(timeout=None) as client:
+            response = await client.post(
+                f"{self.base_url}/api/threads/{thread_id}/uploads",
+                files=payload,
+            )
+            response.raise_for_status()
+            return response.json()
+
+    async def list_uploaded_files(self, thread_id: str) -> dict:
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.get(f"{self.base_url}/api/threads/{thread_id}/uploads/list")
+            response.raise_for_status()
+            return response.json()
+
+    async def delete_uploaded_file(self, thread_id: str, filename: str) -> dict:
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.delete(
+                f"{self.base_url}/api/threads/{thread_id}/uploads/{filename}",
+            )
+            response.raise_for_status()
+            return response.json()
+
     async def stream_message(
         self,
         thread_id: str,

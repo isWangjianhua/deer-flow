@@ -116,6 +116,8 @@ Suggested branch:
 
 ## 4. Upload and Artifact Proxy
 
+Status: implemented for the main BFF-backed chat path
+
 Status: next recommended branch
 
 Priority: medium
@@ -141,7 +143,7 @@ Suggested branch:
 
 ## 5. Conversation Lifecycle Completion
 
-Status: next after uploads/artifacts
+Status: next after uploads/artifacts and suggestions
 
 Priority: medium
 

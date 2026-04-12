@@ -6,16 +6,23 @@ export async function loadArtifactContent({
   filepath,
   threadId,
   isMock,
+  apiMode,
 }: {
   filepath: string;
   threadId: string;
   isMock?: boolean;
+  apiMode?: "gateway" | "bff";
 }) {
   let enhancedFilepath = filepath;
   if (filepath.endsWith(".skill")) {
     enhancedFilepath = filepath + "/SKILL.md";
   }
-  const url = urlOfArtifact({ filepath: enhancedFilepath, threadId, isMock });
+  const url = urlOfArtifact({
+    filepath: enhancedFilepath,
+    threadId,
+    isMock,
+    apiMode,
+  });
   const response = await fetch(url);
   const text = await response.text();
   return { content: text, url };

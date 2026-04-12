@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils";
 
 import { CopyButton } from "../copy-button";
 
+import { useThread } from "./context";
 import { MarkdownContent } from "./markdown-content";
 import {
   WorkspaceMessage,
@@ -89,6 +90,7 @@ function MessageImage({
   threadId: string;
   maxWidth?: string;
 }) {
+  const { apiMode = "gateway" } = useThread();
   if (!src) return null;
 
   const imgClassName = cn("overflow-hidden rounded-lg", `max-w-[${maxWidth}]`);
@@ -97,7 +99,9 @@ function MessageImage({
     return <img className={imgClassName} src={src} alt={alt} {...props} />;
   }
 
-  const url = src.startsWith("/mnt/") ? resolveArtifactURL(src, threadId) : src;
+  const url = src.startsWith("/mnt/")
+    ? resolveArtifactURL(src, threadId, apiMode)
+    : src;
 
   return (
     <a href={url} target="_blank" rel="noopener noreferrer">
@@ -307,6 +311,7 @@ function RichFileCard({
   threadId: string;
 }) {
   const { t } = useI18n();
+  const { apiMode = "gateway" } = useThread();
   const isUploading = file.status === "uploading";
   const isImage = isImageFile(file.filename);
 
@@ -339,7 +344,7 @@ function RichFileCard({
 
   if (!file.path) return null;
 
-  const fileUrl = resolveArtifactURL(file.path, threadId);
+  const fileUrl = resolveArtifactURL(file.path, threadId, apiMode);
 
   if (isImage) {
     return (

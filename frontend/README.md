@@ -114,8 +114,10 @@ Current behavior:
 - chat create/list/detail/stream goes through same-origin `/api/bff/*`
 - browser auth state and `/me` also go through same-origin `/api/bff/*`
 - model discovery now goes through same-origin `/api/bff/models`
-- artifact and some runtime file paths still depend on DeerFlow Gateway `/api/threads/*`
-- memory, MCP, skills, agents, uploads, and follow-up suggestion APIs still use Gateway-facing paths
+- main chat artifact viewing/downloading now goes through same-origin `/api/bff/conversations/*/artifacts/*`
+- main chat follow-up suggestions now go through same-origin `/api/bff/conversations/*/suggestions`
+- main chat attachment uploads now go through same-origin `/api/bff/conversations/*/uploads`
+- memory, MCP, skills, agents, and some non-chat runtime paths still use Gateway-facing paths
 
 Current startup caveat:
 
@@ -234,16 +236,13 @@ The main workspace chat path now uses a BFF-owned protocol rather than frontend-
 
 Current chat limitations:
 
-- uploads and artifact retrieval are not yet migrated onto the BFF-backed path
-- follow-up suggestions on the input box still depend on a Gateway thread route
 - memory, MCP, skills, and agents still use Gateway-facing frontend APIs
 - conversation rename/delete/archive actions are not yet exposed
 - agent-specific chat paths still retain more legacy runtime semantics than the main chat path
 
 Recommended next follow-up for the BFF chat path:
 
-- move artifact and upload access behind the same BFF ownership boundary
-- migrate suggestions, memory, MCP, skills, and agents behind BFF or same-origin server bridges
+- migrate memory, MCP, skills, and agents behind BFF or same-origin server bridges
 - turn `/workspace/account` from a verification screen into a product account/settings page
 - reduce remaining frontend-visible gateway assumptions in direct `pnpm dev` flows
 

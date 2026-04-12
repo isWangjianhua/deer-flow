@@ -48,3 +48,38 @@ class StreamMessageRequest(BaseModel):
     is_plan_mode: bool | None = None
     subagent_enabled: bool | None = None
     reasoning_effort: Literal["minimal", "low", "medium", "high"] | None = None
+
+
+class SuggestionMessage(BaseModel):
+    role: str
+    content: str
+
+
+class SuggestionsRequest(BaseModel):
+    messages: list[SuggestionMessage]
+    n: int = 3
+    model_name: str | None = None
+
+
+class SuggestionsResponse(BaseModel):
+    suggestions: list[str] = []
+
+
+class UploadFileInfo(BaseModel):
+    filename: str
+    size: str
+    path: str
+    virtual_path: str
+    artifact_url: str
+    extension: str | None = None
+    modified: int | None = None
+    markdown_file: str | None = None
+    markdown_path: str | None = None
+    markdown_virtual_path: str | None = None
+    markdown_artifact_url: str | None = None
+
+
+class UploadResponse(BaseModel):
+    success: bool
+    files: list[UploadFileInfo]
+    message: str

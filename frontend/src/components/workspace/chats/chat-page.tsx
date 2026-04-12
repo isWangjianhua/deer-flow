@@ -97,7 +97,7 @@ function MockChatPageContent({
     : undefined;
 
   return (
-    <ThreadContext.Provider value={{ thread, isMock: true }}>
+    <ThreadContext.Provider value={{ thread, isMock: true, apiMode: "gateway" }}>
       <ChatBox threadId={threadId}>
         <div className="relative flex size-full min-h-0 justify-between">
           <header
@@ -261,7 +261,7 @@ function BffChatPageContent({
     : undefined;
 
   return (
-    <ThreadContext.Provider value={{ thread, isMock: false }}>
+    <ThreadContext.Provider value={{ thread, isMock: false, apiMode: "bff" }}>
       <ChatBox threadId={threadId}>
         <div className="relative flex size-full min-h-0 justify-between">
           <header

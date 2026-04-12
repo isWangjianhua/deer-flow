@@ -93,7 +93,7 @@ export function ArtifactFileDetail({
 
   const [viewMode, setViewMode] = useState<"code" | "preview">("code");
   const [isInstalling, setIsInstalling] = useState(false);
-  const { isMock } = useThread();
+  const { isMock, apiMode = "gateway" } = useThread();
   useEffect(() => {
     if (isSupportPreview) {
       setViewMode("preview");
@@ -194,7 +194,7 @@ export function ArtifactFileDetail({
                 tooltip={t.common.openInNewWindow}
                 onClick={() => {
                   const w = window.open(
-                    urlOfArtifact({ filepath, threadId }),
+                    urlOfArtifact({ filepath, threadId, apiMode }),
                     "_blank",
                     "noopener,noreferrer",
                   );
@@ -226,7 +226,12 @@ export function ArtifactFileDetail({
                 tooltip={t.common.download}
                 onClick={() => {
                   const w = window.open(
-                    urlOfArtifact({ filepath, threadId, download: true }),
+                    urlOfArtifact({
+                      filepath,
+                      threadId,
+                      download: true,
+                      apiMode,
+                    }),
                     "_blank",
                     "noopener,noreferrer",
                   );
@@ -264,7 +269,7 @@ export function ArtifactFileDetail({
         {!isCodeFile && (
           <iframe
             className="size-full"
-            src={urlOfArtifact({ filepath, threadId, isMock })}
+            src={urlOfArtifact({ filepath, threadId, isMock, apiMode })}
           />
         )}
       </ArtifactContent>

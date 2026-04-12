@@ -6,8 +6,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
+import type { FileInMessage } from "@/core/messages/utils";
 import type { LocalSettings } from "@/core/settings";
 import type { AgentThreadState, WorkspaceThreadStream } from "@/core/threads";
+import { promptInputFilePartToFile, uploadFiles } from "@/core/uploads";
 
 import { createConversation, getConversation, streamMessage } from "./api";
 import { createHumanMessage, toThreadMessages } from "./messages";
@@ -97,6 +99,7 @@ export function useBffThreadStream({
     createEmptyThreadState([]),
   );
   const [isLoading, setIsLoading] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [isThreadLoading, setIsThreadLoading] = useState(false);
   const [error, setError] = useState<unknown>(undefined);
   const queryClient = useQueryClient();
@@ -150,6 +153,7 @@ export function useBffThreadStream({
     setChatState(createInitialChatState());
     setBaseValues(createEmptyThreadState([]));
     setIsLoading(false);
+    setIsUploading(false);
     setIsThreadLoading(false);
     setError(undefined);
     abortControllerRef.current = null;
@@ -201,19 +205,24 @@ export function useBffThreadStream({
       }
 
       const text = message.text.trim();
-      if (!text) {
-        return;
-      }
-
-      if ((message.files?.length ?? 0) > 0) {
-        toast.error("Attachments are not supported in BFF chat yet.");
+      const hasFiles = (message.files?.length ?? 0) > 0;
+      if (!text && !hasFiles) {
         return;
       }
 
       sendInFlightRef.current = true;
       setError(undefined);
-      setHumanMessages((current) => current.concat(createHumanMessage(text)));
       setIsLoading(true);
+      const humanMessageId = `bff-human-${Date.now()}`;
+      const optimisticFiles: FileInMessage[] =
+        message.files?.map((file) => ({
+          filename: file.filename ?? file.file?.name ?? "attachment",
+          size: file.file?.size ?? 0,
+          status: "uploading",
+        })) ?? [];
+      setHumanMessages((current) =>
+        current.concat(createHumanMessage(text, optimisticFiles, humanMessageId)),
+      );
 
       try {
         let resolvedConversationId = activeConversationIdRef.current;
@@ -223,6 +232,49 @@ export function useBffThreadStream({
           activeConversationIdRef.current = resolvedConversationId;
           void queryClient.invalidateQueries({ queryKey: ["bff", "conversations"] });
           onStart?.(resolvedConversationId);
+        }
+
+        if (hasFiles) {
+          setIsUploading(true);
+          try {
+            const messageFiles = message.files ?? [];
+            const conversionResults = await Promise.all(
+              messageFiles.map((file) => promptInputFilePartToFile(file)),
+            );
+            const files = conversionResults.filter(
+              (file): file is File => file !== null,
+            );
+            const failedConversions = conversionResults.length - files.length;
+
+            if (failedConversions > 0) {
+              throw new Error(
+                `Failed to prepare ${failedConversions} attachment(s) for upload. Please retry.`,
+              );
+            }
+
+            const uploadResponse =
+              files.length > 0
+                ? await uploadFiles(resolvedConversationId, files, { apiMode: "bff" })
+                : { files: [] };
+            const uploadedFiles: FileInMessage[] = uploadResponse.files.map(
+              (info) => ({
+                filename: info.filename,
+                size: Number(info.size) || 0,
+                path: info.virtual_path,
+                status: "uploaded" as const,
+              }),
+            );
+
+            setHumanMessages((current) =>
+              current.map((entry) =>
+                entry.id === humanMessageId
+                  ? createHumanMessage(text, uploadedFiles, humanMessageId)
+                  : entry,
+              ),
+            );
+          } finally {
+            setIsUploading(false);
+          }
         }
 
         const abortController = new AbortController();
@@ -263,6 +315,9 @@ export function useBffThreadStream({
         ) {
           return;
         }
+        setHumanMessages((current) =>
+          current.filter((entry) => entry.id !== humanMessageId),
+        );
         setError(streamError);
         toast.error(
           streamError instanceof Error
@@ -311,5 +366,5 @@ export function useBffThreadStream({
     }
   }, [baseValues, chatState, finishThread, humanMessages, queryClient]);
 
-  return [thread, sendMessage, false];
+  return [thread, sendMessage, isUploading];
 }

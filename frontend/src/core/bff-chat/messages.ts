@@ -1,5 +1,7 @@
 import type { Message } from "@langchain/langgraph-sdk";
 
+import type { FileInMessage } from "@/core/messages/utils";
+
 import type { BffChatState } from "./types";
 
 function buildToolStatusSummary(
@@ -17,11 +19,16 @@ function buildToolStatusSummary(
   return "Running";
 }
 
-export function createHumanMessage(text: string): Message {
+export function createHumanMessage(
+  text: string,
+  files?: FileInMessage[],
+  id?: string,
+): Message {
   return {
     type: "human",
-    id: `bff-human-${Date.now()}`,
+    id: id ?? `bff-human-${Date.now()}`,
     content: [{ type: "text", text }],
+    additional_kwargs: files && files.length > 0 ? { files } : undefined,
   };
 }
 
