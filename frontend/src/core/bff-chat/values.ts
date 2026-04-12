@@ -24,3 +24,15 @@ export function mergeConversationMetadata(
     todos: conversation.values.todos ?? current.todos,
   };
 }
+
+export function mergeConversationState(
+  current: AgentThreadState,
+  conversation: BffConversationDetail,
+): AgentThreadState {
+  return {
+    title: conversation.values.title ?? conversation.title ?? current.title,
+    messages: conversation.values.messages ?? current.messages,
+    artifacts: conversation.values.artifacts ?? current.artifacts,
+    todos: conversation.values.todos ?? current.todos,
+  };
+}

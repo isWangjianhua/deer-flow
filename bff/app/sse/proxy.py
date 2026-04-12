@@ -1,13 +1,17 @@
 from collections.abc import AsyncIterator
 import json
+import re
 
 import httpx
+
+THINK_TAG_RE = re.compile(r"<think>\s*([\s\S]*?)\s*</think>")
 
 
 def normalize_stream_event(event: dict) -> dict:
     mapping = {
         "message_start": "message.started",
         "message_delta": "message.delta",
+        "reasoning_delta": "reasoning.delta",
         "message_complete": "message.completed",
         "tool_start": "tool.started",
         "tool_progress": "tool.progress",
@@ -33,6 +37,37 @@ def _extract_text_content(content: object) -> str:
                 if isinstance(text, str):
                     parts.append(text)
         return "".join(parts)
+    return ""
+
+
+def _extract_reasoning_content(message_payload: dict) -> str:
+    additional_kwargs = message_payload.get("additional_kwargs")
+    if isinstance(additional_kwargs, dict):
+        reasoning_content = additional_kwargs.get("reasoning_content")
+        if isinstance(reasoning_content, str):
+            return reasoning_content
+
+    content = message_payload.get("content")
+    if isinstance(content, list):
+        parts: list[str] = []
+        for item in content:
+            if not isinstance(item, dict):
+                continue
+            thinking = item.get("thinking")
+            if isinstance(thinking, str):
+                parts.append(thinking)
+                continue
+            if item.get("type") == "thinking":
+                text = item.get("text")
+                if isinstance(text, str):
+                    parts.append(text)
+        return "".join(parts)
+
+    if isinstance(content, str):
+        matches = THINK_TAG_RE.findall(content)
+        if matches:
+            return "\n\n".join(match.strip() for match in matches if match.strip())
+
     return ""
 
 
@@ -100,6 +135,7 @@ class StreamEventNormalizer:
     def __init__(self) -> None:
         self.frontend_message_id: str | None = None
         self.message_text = ""
+        self.reasoning_text = ""
         self.message_completed = False
         self.run_failed = False
         self.started_tool_ids: set[str] = set()
@@ -121,6 +157,7 @@ class StreamEventNormalizer:
         if event_name in {
             "message_start",
             "message_delta",
+            "reasoning_delta",
             "message_complete",
             "tool_start",
             "tool_progress",
@@ -154,6 +191,26 @@ class StreamEventNormalizer:
             if event_type in {"ai", "AIMessageChunk"}:
                 raw_id = message_payload.get("id")
                 events.extend(self._ensure_message_started(raw_id if isinstance(raw_id, str) else None))
+
+                reasoning = _extract_reasoning_content(message_payload)
+                if reasoning and self.frontend_message_id is not None:
+                    if reasoning == self.reasoning_text:
+                        reasoning_delta = ""
+                    elif reasoning.startswith(self.reasoning_text):
+                        reasoning_delta = reasoning[len(self.reasoning_text) :]
+                    else:
+                        reasoning_delta = reasoning
+                    if reasoning_delta:
+                        events.append(
+                            {
+                                "event": "reasoning.delta",
+                                "data": {
+                                    "message_id": self.frontend_message_id,
+                                    "delta": reasoning_delta,
+                                },
+                            }
+                        )
+                        self.reasoning_text += reasoning_delta
 
                 for tool_call in message_payload.get("tool_calls") or []:
                     if not isinstance(tool_call, dict):
@@ -220,6 +277,28 @@ class StreamEventNormalizer:
                             raw_id if isinstance(raw_id, str) else None
                         )
                     )
+
+                    reasoning = _extract_reasoning_content(message)
+                    if (
+                        reasoning
+                        and self.frontend_message_id is not None
+                        and reasoning != self.reasoning_text
+                    ):
+                        if reasoning.startswith(self.reasoning_text):
+                            reasoning_delta = reasoning[len(self.reasoning_text) :]
+                        else:
+                            reasoning_delta = reasoning
+                        if reasoning_delta:
+                            events.append(
+                                {
+                                    "event": "reasoning.delta",
+                                    "data": {
+                                        "message_id": self.frontend_message_id,
+                                        "delta": reasoning_delta,
+                                    },
+                                }
+                            )
+                            self.reasoning_text = reasoning
 
                     for tool_call in message.get("tool_calls") or []:
                         if not isinstance(tool_call, dict):

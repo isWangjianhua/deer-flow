@@ -220,6 +220,7 @@ function BffChatPageContent({
 
   const [thread, sendMessage, isUploading] = useBffThreadStream({
     conversationId: isNewThread ? undefined : threadId,
+    context: settings.context,
     onStart: (createdConversationId) => {
       setThreadId(createdConversationId);
       setIsNewThread(false);

@@ -1,4 +1,5 @@
 import { FilesIcon, XIcon } from "lucide-react";
+import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { GroupImperativeHandle } from "react-resizable-panels";
@@ -13,15 +14,25 @@ import {
 import { env } from "@/env";
 import { cn } from "@/lib/utils";
 
-import {
-  ArtifactFileDetail,
-  ArtifactFileList,
-  useArtifacts,
-} from "../artifacts";
+import { ArtifactFileList } from "../artifacts/artifact-file-list";
+import { useArtifacts } from "../artifacts/context";
 import { useThread } from "../messages/context";
 
 const CLOSE_MODE = { chat: 100, artifacts: 0 };
 const OPEN_MODE = { chat: 60, artifacts: 40 };
+const ArtifactFileDetail = dynamic(
+  () =>
+    import("../artifacts/artifact-file-detail").then((module) => ({
+      default: module.ArtifactFileDetail,
+    })),
+  {
+    loading: () => (
+      <div className="text-muted-foreground flex size-full items-center justify-center text-sm">
+        Loading artifact...
+      </div>
+    ),
+  },
+);
 
 const ChatBox: React.FC<{ children: React.ReactNode; threadId: string }> = ({
   children,

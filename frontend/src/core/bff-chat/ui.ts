@@ -1,5 +1,5 @@
-export const BFF_NEW_CHAT_PATH = "/workspace/chat/new";
-export const BFF_NEW_CHAT_LEGACY_PATH = "/workspace/chats/new";
+export const BFF_NEW_CHAT_PATH = "/workspace/chats/new";
+export const BFF_NEW_CHAT_LEGACY_PATH = "/workspace/chat/new";
 
 export function isBffChatRoute(pathname: string) {
   return (

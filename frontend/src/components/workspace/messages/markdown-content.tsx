@@ -1,76 +1,68 @@
 "use client";
 
-import { useMemo } from "react";
-import type { AnchorHTMLAttributes } from "react";
+import { lazy, Suspense } from "react";
 
-import {
-  MessageResponse,
-  type MessageResponseProps,
-} from "@/components/ai-elements/message";
-import { streamdownPlugins } from "@/core/streamdown";
 import { cn } from "@/lib/utils";
 
-import { CitationLink } from "../citations/citation-link";
+import { needsRichMarkdownRendering } from "./markdown-content-heuristics";
 
-function isExternalUrl(href: string | undefined): boolean {
-  return !!href && /^https?:\/\//.test(href);
-}
+const RichMarkdownContent = lazy(async () => {
+  const richModule = await import("./markdown-content-rich");
+  return { default: richModule.RichMarkdownContent };
+});
 
 export type MarkdownContentProps = {
   content: string;
   isLoading: boolean;
-  rehypePlugins: MessageResponseProps["rehypePlugins"];
   className?: string;
-  remarkPlugins?: MessageResponseProps["remarkPlugins"];
-  components?: MessageResponseProps["components"];
+  components?: Record<string, unknown>;
+  rehypePlugins?: readonly unknown[];
+  remarkPlugins?: readonly unknown[];
+  variant?: "assistant" | "human";
 };
 
 /** Renders markdown content. */
 export function MarkdownContent({
   content,
-  rehypePlugins,
   className,
-  remarkPlugins = streamdownPlugins.remarkPlugins,
-  components: componentsFromProps,
+  components,
+  rehypePlugins,
+  remarkPlugins,
+  variant = "assistant",
+  isLoading,
 }: MarkdownContentProps) {
-  const components = useMemo(() => {
-    return {
-      a: (props: AnchorHTMLAttributes<HTMLAnchorElement>) => {
-        if (typeof props.children === "string") {
-          const match = /^citation:(.+)$/.exec(props.children);
-          if (match) {
-            const [, text] = match;
-            return <CitationLink {...props}>{text}</CitationLink>;
-          }
-        }
-        const { className, target, rel, ...rest } = props;
-        const external = isExternalUrl(props.href);
-        return (
-          <a
-            {...rest}
-            className={cn(
-              "text-primary decoration-primary/30 hover:decoration-primary/60 underline underline-offset-2 transition-colors",
-              className,
-            )}
-            target={target ?? (external ? "_blank" : undefined)}
-            rel={rel ?? (external ? "noopener noreferrer" : undefined)}
-          />
-        );
-      },
-      ...componentsFromProps,
-    };
-  }, [componentsFromProps]);
-
   if (!content) return null;
 
+  const useRichRenderer =
+    isLoading ||
+    needsRichMarkdownRendering(content) ||
+    Boolean(remarkPlugins?.length) ||
+    Boolean(rehypePlugins?.length);
+
+  if (!useRichRenderer) {
+    return (
+      <div className={cn("whitespace-pre-wrap break-words", className)}>
+        {content}
+      </div>
+    );
+  }
+
   return (
-    <MessageResponse
-      className={className}
-      remarkPlugins={remarkPlugins}
-      rehypePlugins={rehypePlugins}
-      components={components}
+    <Suspense
+      fallback={
+        <div className={cn("whitespace-pre-wrap break-words", className)}>
+          {content}
+        </div>
+      }
     >
-      {content}
-    </MessageResponse>
+      <RichMarkdownContent
+        className={className}
+        components={components}
+        content={content}
+        rehypePlugins={rehypePlugins}
+        remarkPlugins={remarkPlugins}
+        variant={variant}
+      />
+    </Suspense>
   );
 }

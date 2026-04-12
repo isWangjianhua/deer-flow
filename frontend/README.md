@@ -104,6 +104,36 @@ For local development without OIDC, use the BFF local auth provider instead:
 - keep `BFF_AUTH_PROVIDER=local` in `bff/.env`
 - sign in from `/workspace/account` with the seeded dev user `demo / demo123`
 
+### Current BFF Dev Caveats
+
+The main chat UI now uses the BFF conversation and streaming path, but not every runtime-facing
+frontend dependency has been moved behind the BFF yet.
+
+Current behavior:
+
+- chat create/list/detail/stream goes through same-origin `/api/bff/*`
+- browser auth state and `/me` also go through same-origin `/api/bff/*`
+- model discovery still comes from the DeerFlow Gateway `/api/models`
+- artifact and some runtime file paths still depend on DeerFlow Gateway `/api/threads/*`
+
+Recommended local setup today:
+
+- prefer same-origin proxying through `nginx` or the built-in Next.js rewrites
+- do not point the browser directly at `http://127.0.0.1:8001` unless you also provide a matching
+  reverse proxy or CORS layer
+
+Why this matters:
+
+- the gateway currently assumes CORS is handled by `nginx`
+- direct browser requests to `8001` can succeed in `curl` but still fail in the browser
+- when `/api/models` fails in the browser, the model selector and mode selector can render as
+  visually empty controls because their labels depend on the loaded model list
+
+Canonical BFF chat routes:
+
+- `/workspace/chats/new` is the canonical new-chat route
+- `/workspace/chat/new` is only kept as a compatibility alias
+
 ## Project Structure
 
 ```
@@ -191,9 +221,17 @@ The main workspace chat path now uses a BFF-owned protocol rather than frontend-
 
 Current chat limitations:
 
+- model discovery is not yet proxied by the BFF; the frontend still depends on the gateway
+  `GET /api/models` path
 - uploads and artifact retrieval are not yet migrated onto the BFF-backed path
 - conversation rename/delete/archive actions are not yet exposed
 - agent-specific chat paths still retain more legacy runtime semantics than the main chat path
+
+Recommended next follow-up for the BFF chat path:
+
+- add a BFF-owned model list endpoint such as `/api/bff/models`
+- move artifact and upload access behind the same BFF ownership boundary
+- reduce remaining frontend-visible gateway assumptions in direct `pnpm dev` flows
 
 ## Chat E2E
 

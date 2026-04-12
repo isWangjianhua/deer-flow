@@ -3,6 +3,7 @@ import {
   isLocalDevAuthMode,
   readLocalBffAccessToken,
 } from "@/core/auth/local";
+import type { AgentThreadContext } from "@/core/threads";
 
 import type {
   BffConversationDetail,
@@ -15,6 +16,14 @@ type FetchLike = typeof fetch;
 type StreamMessageInput = {
   conversationId: string;
   message: string;
+  context?: Pick<
+    AgentThreadContext,
+    | "model_name"
+    | "thinking_enabled"
+    | "is_plan_mode"
+    | "subagent_enabled"
+    | "reasoning_effort"
+  >;
   signal?: AbortSignal;
 };
 
@@ -86,6 +95,7 @@ export async function streamMessage(
       signal: input.signal,
       body: JSON.stringify({
         message: input.message,
+        context: input.context,
       }),
     },
   );

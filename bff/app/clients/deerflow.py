@@ -16,15 +16,23 @@ class DeerFlowClient:
             payload = response.json()
             return payload["thread_id"]
 
-    async def stream_message(self, thread_id: str, message: str) -> tuple[httpx.AsyncClient, httpx.Response]:
+    async def stream_message(
+        self,
+        thread_id: str,
+        message: str,
+        context: dict | None = None,
+    ) -> tuple[httpx.AsyncClient, httpx.Response]:
         client = httpx.AsyncClient(timeout=None)
+        payload = {
+            "input": {"messages": [{"role": "user", "content": message}]},
+            "stream_mode": ["messages-tuple", "values"],
+        }
+        if context:
+            payload["context"] = context
         request = client.build_request(
             "POST",
             f"{self.base_url}/api/threads/{thread_id}/runs/stream",
-            json={
-                "input": {"messages": [{"role": "user", "content": message}]},
-                "stream_mode": ["messages-tuple", "values"],
-            },
+            json=payload,
         )
         response = await client.send(request, stream=True)
         response.raise_for_status()

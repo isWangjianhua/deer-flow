@@ -4,6 +4,35 @@ export function createInitialChatState(): BffChatState {
   return { messages: [] };
 }
 
+function appendPostToolReasoning(
+  currentReasoning: string,
+  incomingDelta: string,
+  preToolReasoning: string,
+) {
+  const nextReasoning = currentReasoning + incomingDelta;
+  const normalizedPreToolReasoning = preToolReasoning.trim();
+  const normalizedNextReasoning = nextReasoning.trim();
+
+  if (!normalizedPreToolReasoning) {
+    return nextReasoning;
+  }
+
+  if (normalizedNextReasoning === normalizedPreToolReasoning) {
+    return "";
+  }
+
+  if (
+    normalizedNextReasoning.length > normalizedPreToolReasoning.length &&
+    normalizedNextReasoning.endsWith(normalizedPreToolReasoning)
+  ) {
+    return normalizedNextReasoning
+      .slice(0, normalizedNextReasoning.length - normalizedPreToolReasoning.length)
+      .trimEnd();
+  }
+
+  return nextReasoning;
+}
+
 export function applyBffChatEvent(
   state: BffChatState,
   event: BffChatEvent,
@@ -15,6 +44,8 @@ export function applyBffChatEvent(
         id: event.data.message_id,
         role: "assistant",
         content: "",
+        reasoning_before_tools: "",
+        reasoning_after_tools: "",
         status: "streaming",
         tools: [],
       }),
@@ -32,6 +63,31 @@ export function applyBffChatEvent(
       messages: state.messages.map((message) =>
         message.id === event.data.message_id
           ? { ...message, content: message.content + event.data.delta }
+          : message,
+      ),
+    };
+  }
+
+  if (event.type === "reasoning.delta") {
+    return {
+      ...state,
+      messages: state.messages.map((message) =>
+        message.id === event.data.message_id
+          ? message.tools.length === 0
+            ? {
+                ...message,
+                reasoning_before_tools:
+                  message.reasoning_before_tools + event.data.delta,
+              }
+            : {
+                ...message,
+                reasoning_after_tools:
+                  appendPostToolReasoning(
+                    message.reasoning_after_tools,
+                    event.data.delta,
+                    message.reasoning_before_tools,
+                  ),
+              }
           : message,
       ),
     };

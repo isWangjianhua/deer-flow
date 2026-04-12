@@ -34,6 +34,7 @@ What is now true:
 
 What still remains for the next product loop:
 
+- full "frontend only talks to BFF" consistency for model and runtime asset access
 - uploads and artifact access on the BFF-backed chat path
 - richer conversation lifecycle actions
 - usage governance and production hardening
@@ -88,7 +89,31 @@ Suggested branch:
 
 - `feat/frontend-bff-chat-stream`
 
-## 3. Upload and Artifact Proxy
+## 3. Model and Runtime Boundary Cleanup
+
+Status: next recommended branch
+
+Priority: medium
+
+Why this matters:
+
+- the main chat flow already uses BFF conversation semantics
+- the browser still has some direct DeerFlow Gateway dependencies
+- this creates local-dev inconsistency and can surface as CORS-shaped failures when the browser
+  tries to call the gateway directly
+
+Recommended scope:
+
+- add a BFF model list endpoint
+- bridge frontend model selection onto `/api/bff/*`
+- remove direct browser dependence on DeerFlow Gateway `/api/models`
+- define the intended split between BFF-owned and gateway-internal asset paths
+
+Suggested branch:
+
+- `feat/bff-runtime-boundary-cleanup`
+
+## 4. Upload and Artifact Proxy
 
 Status: next recommended branch
 
@@ -112,7 +137,7 @@ Suggested branch:
 
 - `feat/bff-uploads-artifacts`
 
-## 4. Conversation Lifecycle Completion
+## 5. Conversation Lifecycle Completion
 
 Status: next after uploads/artifacts
 
@@ -134,7 +159,7 @@ Suggested branch:
 
 - `feat/bff-conversation-lifecycle`
 
-## 5. Usage Controls and Service Governance
+## 6. Usage Controls and Service Governance
 
 Status: after practical workflow support
 
@@ -156,7 +181,7 @@ Suggested branch:
 
 - `feat/bff-usage-guardrails`
 
-## 6. Production Data and Ops Hardening
+## 7. Production Data and Ops Hardening
 
 Status: after governance basics
 
@@ -210,12 +235,13 @@ Stability follow-through now complete:
 
 ### Milestone C: Practical Workflow Support
 
+- `feat/bff-runtime-boundary-cleanup`
 - `feat/bff-uploads-artifacts`
 - `feat/bff-conversation-lifecycle`
 
 Outcome:
 
-- users can manage richer conversations and retrieve generated outputs
+- users get a more consistent BFF-owned browser contract and can manage richer conversations and retrieve generated outputs
 
 Status: current focus
 
@@ -232,7 +258,8 @@ Outcome:
 
 If only one next branch should be started now, choose:
 
-1. `feat/bff-uploads-artifacts`
-2. `feat/bff-conversation-lifecycle`
+1. `feat/bff-runtime-boundary-cleanup`
+2. `feat/bff-uploads-artifacts`
+3. `feat/bff-conversation-lifecycle`
 
-This sequence extends the now-working auth and chat baseline into a practical workflow before governance and infrastructure hardening.
+This sequence first removes the remaining browser/runtime boundary mismatch, then extends the now-working auth and chat baseline into a practical workflow before governance and infrastructure hardening.

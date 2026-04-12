@@ -57,6 +57,18 @@ const config = {
         source: "/api/agents/:path*",
         destination: `${gatewayURL}/api/agents/:path*`,
       });
+      rewrites.push({
+        source: "/api/models",
+        destination: `${gatewayURL}/api/models`,
+      });
+      rewrites.push({
+        source: "/api/threads",
+        destination: `${gatewayURL}/api/threads`,
+      });
+      rewrites.push({
+        source: "/api/threads/:path*",
+        destination: `${gatewayURL}/api/threads/:path*`,
+      });
     }
 
     return rewrites;

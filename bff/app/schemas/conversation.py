@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
@@ -42,3 +43,8 @@ class ConversationDetailResponse(BaseModel):
 
 class StreamMessageRequest(BaseModel):
     message: str
+    model_name: str | None = None
+    thinking_enabled: bool | None = None
+    is_plan_mode: bool | None = None
+    subagent_enabled: bool | None = None
+    reasoning_effort: Literal["minimal", "low", "medium", "high"] | None = None

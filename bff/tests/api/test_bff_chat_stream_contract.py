@@ -141,6 +141,77 @@ def test_stream_event_normalizer_reads_final_ai_text_from_values_snapshot():
     }
 
 
+def test_stream_event_normalizer_emits_reasoning_from_values_snapshot():
+    normalizer = StreamEventNormalizer()
+
+    events = normalizer.normalize(
+        "values",
+        {
+            "messages": [
+                {"type": "human", "content": "hi", "id": "h-1"},
+                {
+                    "type": "ai",
+                    "id": "ai-1",
+                    "content": "Final answer",
+                    "additional_kwargs": {
+                        "reasoning_content": "First inspect the request."
+                    },
+                },
+            ],
+        },
+    )
+
+    assert events[0] == {
+        "event": "message.started",
+        "data": {"message_id": "ai-1"},
+    }
+    assert events[1] == {
+        "event": "reasoning.delta",
+        "data": {
+            "message_id": "ai-1",
+            "delta": "First inspect the request.",
+        },
+    }
+    assert events[2] == {
+        "event": "message.delta",
+        "data": {
+            "message_id": "ai-1",
+            "delta": "Final answer",
+        },
+    }
+
+
+def test_stream_event_normalizer_emits_reasoning_from_message_chunks():
+    normalizer = StreamEventNormalizer()
+
+    events = normalizer.normalize(
+        "messages",
+        [
+            {
+                "type": "AIMessageChunk",
+                "id": "ai-1",
+                "content": "",
+                "additional_kwargs": {
+                    "reasoning_content": "Thinking step 1.",
+                },
+            },
+            {"langgraph_node": "agent"},
+        ],
+    )
+
+    assert events[0] == {
+        "event": "message.started",
+        "data": {"message_id": "ai-1"},
+    }
+    assert events[1] == {
+        "event": "reasoning.delta",
+        "data": {
+            "message_id": "ai-1",
+            "delta": "Thinking step 1.",
+        },
+    }
+
+
 def test_stream_event_normalizer_ignores_previous_turn_history_in_values_snapshot():
     normalizer = StreamEventNormalizer()
 

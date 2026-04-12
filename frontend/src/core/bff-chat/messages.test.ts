@@ -106,3 +106,75 @@ void test("keeps an assistant placeholder message during tool-driven streaming",
   assert.equal(messages[2]?.type, "ai");
   assert.equal(messages[2]?.id, "assistant-3");
 });
+
+void test("preserves assistant reasoning on the synthesized langgraph messages", () => {
+  let state = createInitialChatState();
+  state = applyBffChatEvent(state, {
+    type: "message.started",
+    data: { message_id: "assistant-4" },
+  });
+  state = applyBffChatEvent(state, {
+    type: "reasoning.delta",
+    data: { message_id: "assistant-4", delta: "Think first." },
+  });
+  state = applyBffChatEvent(state, {
+    type: "message.delta",
+    data: { message_id: "assistant-4", delta: "Final answer" },
+  });
+
+  const messages = toThreadMessages(state, []);
+
+  assert.equal(messages.length, 1);
+  assert.equal(messages[0]?.type, "ai");
+  assert.equal(messages[0]?.content, "Final answer");
+  assert.equal(
+    messages[0]?.additional_kwargs?.reasoning_content,
+    "Think first.",
+  );
+});
+
+void test("keeps post-tool reasoning after the tool lifecycle in synthesized messages", () => {
+  let state = createInitialChatState();
+  state = applyBffChatEvent(state, {
+    type: "message.started",
+    data: { message_id: "assistant-5" },
+  });
+  state = applyBffChatEvent(state, {
+    type: "reasoning.delta",
+    data: { message_id: "assistant-5", delta: "Need the Chengdu forecast." },
+  });
+  state = applyBffChatEvent(state, {
+    type: "tool.started",
+    data: {
+      tool_call_id: "tool-5",
+      label: "查看网页",
+      name: "web_fetch",
+      args: { url: "https://example.com/weather" },
+    },
+  });
+  state = applyBffChatEvent(state, {
+    type: "tool.progress",
+    data: { tool_call_id: "tool-5", message: "成都市天气预报24小时" },
+  });
+  state = applyBffChatEvent(state, {
+    type: "reasoning.delta",
+    data: {
+      message_id: "assistant-5",
+      delta: "已经拿到结果，现在整理成最终回答。",
+    },
+  });
+
+  const messages = toThreadMessages(state, []);
+
+  assert.equal(messages.length, 4);
+  assert.equal(
+    messages[0]?.additional_kwargs?.reasoning_content,
+    "Need the Chengdu forecast.",
+  );
+  assert.equal(messages[1]?.tool_calls?.[0]?.name, "web_fetch");
+  assert.equal(messages[2]?.type, "tool");
+  assert.equal(
+    messages[3]?.additional_kwargs?.reasoning_content,
+    "已经拿到结果，现在整理成最终回答。",
+  );
+});

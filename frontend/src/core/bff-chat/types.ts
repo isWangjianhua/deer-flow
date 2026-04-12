@@ -33,6 +33,10 @@ export type BffChatEvent =
       data: { message_id: string; delta: string };
     }
   | {
+      type: "reasoning.delta";
+      data: { message_id: string; delta: string };
+    }
+  | {
       type: "message.completed";
       data: { message_id: string };
     }
@@ -75,6 +79,8 @@ export type BffChatMessageState = {
   id: string;
   role: "assistant";
   content: string;
+  reasoning_before_tools: string;
+  reasoning_after_tools: string;
   status: "streaming" | "completed";
   tools: BffChatToolState[];
 };

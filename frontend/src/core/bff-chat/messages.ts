@@ -32,6 +32,24 @@ export function toThreadMessages(
   const assistantMessages = chatState.messages.flatMap<Message>(
     (assistantMessage) => {
       const messages: Message[] = [];
+      const hasPreToolReasoning =
+        assistantMessage.reasoning_before_tools.length > 0;
+      const hasPostToolReasoning =
+        assistantMessage.reasoning_after_tools.length > 0;
+      const hasVisibleAssistantContent = hasPostToolReasoning
+        ? true
+        : assistantMessage.content.length > 0;
+
+      if (hasPreToolReasoning && assistantMessage.tools.length > 0) {
+        messages.push({
+          type: "ai",
+          id: `${assistantMessage.id}-reasoning-before-tools`,
+          content: "",
+          additional_kwargs: {
+            reasoning_content: assistantMessage.reasoning_before_tools,
+          },
+        });
+      }
 
       if (assistantMessage.tools.length > 0) {
         messages.push({
@@ -62,16 +80,34 @@ export function toThreadMessages(
         }
       }
 
+      if (hasPostToolReasoning) {
+        messages.push({
+          type: "ai",
+          id: `${assistantMessage.id}-reasoning-after-tools`,
+          content: "",
+          additional_kwargs: {
+            reasoning_content: assistantMessage.reasoning_after_tools,
+          },
+        });
+      }
+
       if (
         assistantMessage.content ||
-        assistantMessage.status === "streaming" ||
-        assistantMessage.status === "completed" ||
+        (!hasVisibleAssistantContent &&
+          (assistantMessage.status === "streaming" ||
+            assistantMessage.status === "completed")) ||
         messages.length === 0
       ) {
         messages.push({
           type: "ai",
           id: assistantMessage.id,
           content: assistantMessage.content,
+          additional_kwargs:
+            assistantMessage.tools.length === 0
+              ? hasPreToolReasoning
+                ? { reasoning_content: assistantMessage.reasoning_before_tools }
+                : undefined
+              : undefined,
         });
       }
 

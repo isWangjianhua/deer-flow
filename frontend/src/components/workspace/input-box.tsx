@@ -147,8 +147,8 @@ export function InputBox({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [modelDialogOpen, setModelDialogOpen] = useState(false);
-  const legacyControlsEnabled = !isBffChatRoute(pathname);
-  const { models } = useModels({ enabled: legacyControlsEnabled });
+  const suggestionsEnabled = !isBffChatRoute(pathname);
+  const { models } = useModels();
   const { thread, isMock } = useThread();
   const { textInput } = usePromptInputController();
   const promptRootRef = useRef<HTMLDivElement | null>(null);
@@ -369,7 +369,7 @@ export function InputBox({
       return;
     }
 
-    if (disabled || isMock || !legacyControlsEnabled) {
+    if (disabled || isMock || !suggestionsEnabled) {
       return;
     }
 
@@ -434,7 +434,7 @@ export function InputBox({
     context.model_name,
     disabled,
     isMock,
-    legacyControlsEnabled,
+    suggestionsEnabled,
     status,
     thread.messages,
     threadId,

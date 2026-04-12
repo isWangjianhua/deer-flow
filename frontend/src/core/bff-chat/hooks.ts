@@ -6,16 +6,18 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
+import type { LocalSettings } from "@/core/settings";
 import type { AgentThreadState, WorkspaceThreadStream } from "@/core/threads";
 
 import { createConversation, getConversation, streamMessage } from "./api";
 import { createHumanMessage, toThreadMessages } from "./messages";
 import { createInitialChatState, applyBffChatEvent } from "./state";
 import { createBffStreamDecoder } from "./stream";
-import { mergeConversationMetadata, toConversationThreadState } from "./values";
+import { mergeConversationState, toConversationThreadState } from "./values";
 
 type BffThreadStreamOptions = {
   conversationId?: string | null | undefined;
+  context: LocalSettings["context"];
   onStart?: (conversationId: string) => void;
   onFinish?: (state: AgentThreadState) => void;
 };
@@ -50,6 +52,24 @@ function createEmptyThreadState(messages: Message[]): AgentThreadState {
   };
 }
 
+function toBffRequestContext(context: LocalSettings["context"]) {
+  return {
+    model_name: context.model_name ?? undefined,
+    thinking_enabled: context.mode !== "flash",
+    is_plan_mode: context.mode === "pro" || context.mode === "ultra",
+    subagent_enabled: context.mode === "ultra",
+    reasoning_effort:
+      context.reasoning_effort ??
+      (context.mode === "ultra"
+        ? "high"
+        : context.mode === "pro"
+          ? "medium"
+          : context.mode === "thinking"
+            ? "low"
+            : "minimal"),
+  };
+}
+
 function mergeStableMessages(
   baseValues: AgentThreadState,
   chatState: ReturnType<typeof createInitialChatState>,
@@ -63,6 +83,7 @@ function mergeStableMessages(
 
 export function useBffThreadStream({
   conversationId,
+  context,
   onStart,
   onFinish,
 }: BffThreadStreamOptions): [
@@ -83,6 +104,12 @@ export function useBffThreadStream({
   const abortControllerRef = useRef<AbortController | null>(null);
   const sendInFlightRef = useRef(false);
   const lastFinishedIdRef = useRef<string | null>(null);
+  const finishThread = useCallback(
+    (state: AgentThreadState) => {
+      onFinish?.(state);
+    },
+    [onFinish],
+  );
 
   const messages = useMemo(() => {
     return [
@@ -203,6 +230,7 @@ export function useBffThreadStream({
         const stream = await streamMessage({
           conversationId: resolvedConversationId,
           message: text,
+          context: toBffRequestContext(context),
           signal: abortController.signal,
         });
         const decoder = createBffStreamDecoder();
@@ -247,7 +275,7 @@ export function useBffThreadStream({
         setIsLoading(false);
       }
     },
-    [onStart, queryClient],
+    [context, onStart, queryClient],
   );
 
   useEffect(() => {
@@ -262,22 +290,26 @@ export function useBffThreadStream({
       setHumanMessages([]);
       setChatState(createInitialChatState());
       void queryClient.invalidateQueries({ queryKey: ["bff", "conversations"] });
-      onFinish?.(nextValues);
 
       const activeConversationId = activeConversationIdRef.current;
       if (activeConversationId) {
         void getConversation(activeConversationId)
           .then((conversation) => {
-            setBaseValues((current) =>
-              mergeConversationMetadata(current, conversation),
+            const refreshedValues = mergeConversationState(
+              nextValues,
+              conversation,
             );
+            setBaseValues(refreshedValues);
+            finishThread(refreshedValues);
           })
           .catch(() => {
-            // Keep the streamed messages even if the metadata refresh fails.
+            finishThread(nextValues);
           });
+      } else {
+        finishThread(nextValues);
       }
     }
-  }, [baseValues, chatState, humanMessages, onFinish, queryClient]);
+  }, [baseValues, chatState, finishThread, humanMessages, queryClient]);
 
   return [thread, sendMessage, false];
 }

@@ -29,12 +29,13 @@ Current scope:
 
 - login session validation
 - current user lookup
-- conversation create/list
+- conversation create/list/detail
 - SSE chat proxy
 - local SQLite-backed conversation mapping
 - seeded local demo user bootstrap
 - provider-oriented auth internals with `local` and `oidc` auth modes
 - OIDC bearer `id_token` validation for protected requests
+- forwarding selected chat context fields such as `model_name` and reasoning settings to DeerFlow Gateway
 - preparation for future browser-based OIDC redirect/callback flows, without enabling them yet
 
 Out of scope for the first version:
@@ -46,15 +47,17 @@ Out of scope for the first version:
 - deep business workflow orchestration
 - upload proxy
 - artifact download proxy
+- model list proxy
 - conversation deletion
 
 ## Architecture
 
 ```text
 Frontend
-  -> BFF (FastAPI)
-    -> auth / ownership / rate limit / audit
-    -> DeerFlow Gateway (internal)
+  -> same-origin /api/bff/*
+    -> BFF (FastAPI)
+      -> auth / ownership / rate limit / audit
+      -> DeerFlow Gateway (internal)
 ```
 
 Key rule:
@@ -62,6 +65,16 @@ Key rule:
 - the frontend only sees `conversation_id`
 - DeerFlow `thread_id` is never exposed to the frontend
 - BFF owns the mapping between them
+
+Important current caveat:
+
+- the main chat page already uses BFF conversation semantics
+- the frontend still has a few remaining direct DeerFlow Gateway dependencies, especially model
+  discovery and some artifact/runtime file paths
+- because the gateway currently expects `nginx` to handle CORS, direct browser requests to
+  `http://127.0.0.1:8001` are not a stable local-development contract
+
+This means the current architecture is usable, but not yet fully "frontend only talks to BFF".
 
 ## Directory Layout
 
@@ -97,16 +110,18 @@ Public-facing rules:
 - preserve streaming behavior for chat
 - avoid leaking internal DeerFlow implementation details
 
-## Initial Endpoints
+## Current Endpoints
 
 - `POST /auth/login`
 - `GET /me`
 - `POST /conversations`
 - `GET /conversations`
+- `GET /conversations/{conversation_id}`
 - `POST /conversations/{conversation_id}/messages/stream`
 
 Deferred:
 
+- `GET /models`
 - `POST /conversations/{conversation_id}/uploads`
 - `GET /conversations/{conversation_id}/artifacts/{path}`
 - `DELETE /conversations/{conversation_id}`
@@ -226,6 +241,21 @@ make dev-pro
 
 Confirm the BFF can reach the configured DeerFlow Gateway URL.
 
+## Frontend Integration Notes
+
+Current recommended frontend path:
+
+- browser code should prefer same-origin `/api/bff/*`
+- Next.js server routes should forward to the internal BFF base URL
+- any remaining gateway-specific browser path should be treated as transitional
+
+Known integration gaps as of `2026-04-12`:
+
+- the BFF does not yet expose a model list endpoint
+- the frontend therefore still uses the gateway model list path in some flows
+- upload and artifact proxying are still missing
+- direct browser calls to the gateway are fragile outside `nginx` because gateway CORS is not the intended public contract
+
 ## Request Flow
 
 ### Create conversation
@@ -241,9 +271,10 @@ Confirm the BFF can reach the configured DeerFlow Gateway URL.
 1. frontend calls BFF stream endpoint with `conversation_id`
 2. BFF validates ownership
 3. BFF loads mapped DeerFlow `thread_id`
-4. BFF calls DeerFlow streaming endpoint
-5. BFF forwards SSE events to frontend
-6. BFF logs request and result metadata
+4. BFF forwards supported chat context fields to DeerFlow Gateway
+5. BFF calls DeerFlow streaming endpoint
+6. BFF forwards SSE events to frontend
+7. BFF logs request and result metadata
 
 ## Security Rules
 
@@ -259,33 +290,14 @@ Recommended test layers:
 - `tests/clients/`
   - DeerFlow client behavior
 - `tests/services/`
-  - ownership and business rules
+  - auth and conversation orchestration
 - `tests/api/`
-  - auth, conversations, SSE endpoints
+  - HTTP and SSE contract coverage
 
-Run tests:
+## Near-Term Follow-Up
 
-```bash
-cd bff
-uv run pytest -q
-```
+The next BFF-facing product fixes should focus on consistency, not new product surface area:
 
-## Future Work
-
-Possible next steps after the first version:
-
-- external identity provider integration
-- subscription and quota model
-- richer audit events
-- background tasks for cleanup
-- usage analytics
-- admin tooling
-- uploads and artifact proxy routes
-- conversation deletion
-
-## Additional Docs
-
-- `docs/README.md` - BFF documentation index
-- `docs/ARCHITECTURE.md` - service boundaries, request flow, and deployment model
-- `docs/API.md` - public API contract and downstream mapping rules
-- `docs/DEVELOPMENT.md` - local development workflow and implementation notes
+1. add a BFF `GET /models` route that proxies DeerFlow Gateway `/api/models`
+2. move artifact and upload access behind BFF ownership checks
+3. remove remaining direct frontend-visible DeerFlow Gateway assumptions from local dev flows

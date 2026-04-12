@@ -6,11 +6,6 @@ import {
   getLocalBffHeaderName,
   isLocalDevAuthMode,
 } from "@/core/auth/local";
-import {
-  getOidcAccount,
-  getOidcIdTokenFromAccount,
-  getSession,
-} from "@/server/better-auth";
 
 export function buildBearerHeaders(token: string, contentType?: string) {
   const headers = new Headers({
@@ -42,6 +37,8 @@ export async function requireBffAuth(request: NextRequest) {
     return { bearerToken: localToken };
   }
 
+  const { getOidcAccount, getOidcIdTokenFromAccount, getSession } =
+    await import("@/server/better-auth");
   const session = await getSession();
   if (!session?.session) {
     return {

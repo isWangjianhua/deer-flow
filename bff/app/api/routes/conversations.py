@@ -63,9 +63,18 @@ async def stream_message(
 ) -> StreamingResponse:
     service = ConversationService(db)
     conversation = service.require_owned_conversation(user_id, conversation_id)
+    context = {
+        "model_name": payload.model_name,
+        "thinking_enabled": payload.thinking_enabled,
+        "is_plan_mode": payload.is_plan_mode,
+        "subagent_enabled": payload.subagent_enabled,
+        "reasoning_effort": payload.reasoning_effort,
+    }
+    normalized_context = {key: value for key, value in context.items() if value is not None}
     client, response = await DeerFlowClient().stream_message(
         thread_id=conversation.deerflow_thread_id,
         message=payload.message,
+        context=normalized_context or None,
     )
 
     async def stream_only():

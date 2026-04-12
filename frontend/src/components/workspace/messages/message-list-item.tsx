@@ -1,15 +1,8 @@
 import type { Message } from "@langchain/langgraph-sdk";
 import { FileIcon, Loader2Icon } from "lucide-react";
 import { memo, useMemo, type ImgHTMLAttributes } from "react";
-import rehypeKatex from "rehype-katex";
 
 import { Loader } from "@/components/ai-elements/loader";
-import {
-  Message as AIElementMessage,
-  MessageContent as AIElementMessageContent,
-  MessageResponse as AIElementMessageResponse,
-  MessageToolbar,
-} from "@/components/ai-elements/message";
 import {
   Reasoning,
   ReasoningContent,
@@ -27,12 +20,16 @@ import {
   type FileInMessage,
 } from "@/core/messages/utils";
 import { useRehypeSplitWordsIntoSpans } from "@/core/rehype";
-import { humanMessagePlugins } from "@/core/streamdown";
 import { cn } from "@/lib/utils";
 
 import { CopyButton } from "../copy-button";
 
 import { MarkdownContent } from "./markdown-content";
+import {
+  WorkspaceMessage,
+  WorkspaceMessageContent,
+  WorkspaceMessageToolbar,
+} from "./message-shell";
 
 export function MessageListItem({
   className,
@@ -47,7 +44,7 @@ export function MessageListItem({
 }) {
   const isHuman = message.type === "human";
   return (
-    <AIElementMessage
+    <WorkspaceMessage
       className={cn("group/conversation-message relative w-full", className)}
       from={isHuman ? "user" : "assistant"}
     >
@@ -58,7 +55,7 @@ export function MessageListItem({
         threadId={threadId}
       />
       {!isLoading && (
-        <MessageToolbar
+        <WorkspaceMessageToolbar
           className={cn(
             isHuman ? "-bottom-9 justify-end" : "-bottom-8",
             "absolute right-0 left-0 z-20 opacity-0 transition-opacity delay-200 duration-300 group-hover/conversation-message:opacity-100",
@@ -73,9 +70,9 @@ export function MessageListItem({
               }
             />
           </div>
-        </MessageToolbar>
+        </WorkspaceMessageToolbar>
       )}
-    </AIElementMessage>
+    </WorkspaceMessage>
   );
 }
 
@@ -120,7 +117,6 @@ function MessageContent_({
   isLoading?: boolean;
   threadId: string;
 }) {
-  const { t } = useI18n();
   const rehypePlugins = useRehypeSplitWordsIntoSpans(isLoading);
   const isHuman = message.type === "human";
   const components = useMemo(
@@ -162,7 +158,7 @@ function MessageContent_({
   // Uploading state: mock AI message shown while files upload
   if (message.additional_kwargs?.element === "task") {
     return (
-      <AIElementMessageContent className={className}>
+      <WorkspaceMessageContent className={className}>
         <Task defaultOpen={false}>
           <TaskTrigger title="">
             <div className="text-muted-foreground flex w-full cursor-default items-center gap-2 text-sm select-none">
@@ -171,66 +167,55 @@ function MessageContent_({
             </div>
           </TaskTrigger>
         </Task>
-      </AIElementMessageContent>
+      </WorkspaceMessageContent>
     );
   }
 
   // Reasoning-only AI message (no main response content yet)
   if (!isHuman && reasoningContent && !rawContent) {
     return (
-      <AIElementMessageContent className={className}>
+      <WorkspaceMessageContent className={className}>
         <Reasoning isStreaming={isLoading}>
           <ReasoningTrigger />
           <ReasoningContent>{reasoningContent}</ReasoningContent>
         </Reasoning>
-      </AIElementMessageContent>
-    );
-  }
-
-  if (!isHuman && isLoading && !contentToDisplay) {
-    return (
-      <AIElementMessageContent className={className}>
-        <div className="text-muted-foreground flex items-center gap-2 text-sm">
-          <Loader className="size-4" />
-          <span>{t.common.thinking}</span>
-        </div>
-      </AIElementMessageContent>
+      </WorkspaceMessageContent>
     );
   }
 
   if (isHuman) {
     const messageResponse = contentToDisplay ? (
-      <AIElementMessageResponse
-        remarkPlugins={humanMessagePlugins.remarkPlugins}
-        rehypePlugins={humanMessagePlugins.rehypePlugins}
+      <MarkdownContent
+        content={contentToDisplay}
+        isLoading={false}
+        rehypePlugins={[]}
+        variant="human"
         components={components}
-      >
-        {contentToDisplay}
-      </AIElementMessageResponse>
+      />
     ) : null;
     return (
       <div className={cn("ml-auto flex flex-col gap-2", className)}>
         {filesList}
         {messageResponse && (
-          <AIElementMessageContent className="w-fit">
+          <WorkspaceMessageContent className="w-fit">
             {messageResponse}
-          </AIElementMessageContent>
+          </WorkspaceMessageContent>
         )}
       </div>
     );
   }
 
   return (
-    <AIElementMessageContent className={className}>
+    <WorkspaceMessageContent className={className}>
       {filesList}
       <MarkdownContent
         content={contentToDisplay}
         isLoading={isLoading}
-        rehypePlugins={[...rehypePlugins, [rehypeKatex, { output: "html" }]]}
+        rehypePlugins={rehypePlugins}
         className="my-3"
         components={components}
       />
-    </AIElementMessageContent>
+    </WorkspaceMessageContent>
   );
 }
 
