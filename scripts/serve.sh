@@ -18,9 +18,9 @@
 #   --restart   Stop all services, then start with the given mode flags
 #
 # Examples:
-#   ./scripts/serve.sh --dev                 # Standard dev (4 processes)
-#   ./scripts/serve.sh --dev --gateway       # Gateway dev  (3 processes)
-#   ./scripts/serve.sh --prod --gateway      # Gateway prod (3 processes)
+#   ./scripts/serve.sh --dev                 # Standard dev (5 processes)
+#   ./scripts/serve.sh --dev --gateway       # Gateway dev  (4 processes)
+#   ./scripts/serve.sh --prod --gateway      # Gateway prod (4 processes)
 #   ./scripts/serve.sh --dev --daemon        # Standard dev, background
 #   ./scripts/serve.sh --dev --gateway --daemon  # Gateway dev, background
 #   ./scripts/serve.sh --stop                # Stop all services
@@ -72,6 +72,7 @@ stop_all() {
     echo "Stopping all services..."
     pkill -f "langgraph dev" 2>/dev/null || true
     pkill -f "uvicorn app.gateway.app:app" 2>/dev/null || true
+    pkill -f "uvicorn app.main:app" 2>/dev/null || true
     pkill -f "next dev" 2>/dev/null || true
     pkill -f "next start" 2>/dev/null || true
     pkill -f "next-server" 2>/dev/null || true
@@ -166,6 +167,7 @@ fi
 if ! $SKIP_INSTALL; then
     echo "Syncing dependencies..."
     (cd backend && uv sync --quiet) || { echo "✗ Backend dependency install failed"; exit 1; }
+    (cd bff && uv sync --quiet) || { echo "✗ BFF dependency install failed"; exit 1; }
     (cd frontend && pnpm install --silent) || { echo "✗ Frontend dependency install failed"; exit 1; }
     echo "✓ Dependencies synced"
 else
@@ -212,6 +214,7 @@ if ! $GATEWAY_MODE; then
     echo "    LangGraph   → localhost:2024  (agent runtime)"
 fi
 echo "    Gateway     → localhost:8001  (REST API$(if $GATEWAY_MODE; then echo " + agent runtime"; fi))"
+echo "    BFF         → localhost:9000  (frontend API boundary)"
 echo "    Frontend    → localhost:3000  (Next.js)"
 echo "    Nginx       → localhost:2026  (reverse proxy)"
 echo ""
@@ -277,12 +280,17 @@ run_service "Gateway" \
     "cd backend && PYTHONPATH=. uv run uvicorn app.gateway.app:app --host 0.0.0.0 --port 8001 $GATEWAY_EXTRA_FLAGS > ../logs/gateway.log 2>&1" \
     8001 30
 
-# 3. Frontend
+# 3. BFF
+run_service "BFF" \
+    "cd bff && uv run uvicorn app.main:app --host 0.0.0.0 --port 9000 $GATEWAY_EXTRA_FLAGS > ../logs/bff.log 2>&1" \
+    9000 30
+
+# 4. Frontend
 run_service "Frontend" \
     "cd frontend && $FRONTEND_CMD > ../logs/frontend.log 2>&1" \
     3000 120
 
-# 4. Nginx
+# 5. Nginx
 run_service "Nginx" \
     "nginx -g 'daemon off;' -c '$REPO_ROOT/docker/nginx/nginx.local.conf' -p '$REPO_ROOT' > logs/nginx.log 2>&1" \
     2026 10
@@ -297,15 +305,16 @@ echo ""
 echo "  🌐 http://localhost:2026"
 echo ""
 if $GATEWAY_MODE; then
-    echo "  Routing: Frontend → Nginx → Gateway (embedded runtime)"
+    echo "  Routing: Frontend → Nginx → BFF + Gateway (embedded runtime)"
     echo "  API:     /api/langgraph-compat/*  →  Gateway agent runtime"
 else
-    echo "  Routing: Frontend → Nginx → LangGraph + Gateway"
+    echo "  Routing: Frontend → Nginx → LangGraph + BFF + Gateway"
     echo "  API:     /api/langgraph/*  →  LangGraph server (2024)"
 fi
+echo "           /api/bff/*          →  Frontend bridge → BFF (9000)"
 echo "           /api/*              →  Gateway REST API (8001)"
 echo ""
-echo "  📋 Logs: logs/{langgraph,gateway,frontend,nginx}.log"
+echo "  📋 Logs: logs/{langgraph,gateway,bff,frontend,nginx}.log"
 echo ""
 
 if $DAEMON_MODE; then

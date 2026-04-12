@@ -247,7 +247,7 @@ Confirm the BFF can reach the configured DeerFlow Gateway URL.
 
 ### 5. Important startup note
 
-Today, `make dev-pro` does not launch the BFF itself.
+`make dev-pro` now launches the BFF as part of the gateway-mode local stack.
 
 If you are testing:
 
@@ -255,7 +255,7 @@ If you are testing:
 - `/api/bff/*`
 - the BFF-backed chat route
 
-you still need to run the BFF separately on `:9000`.
+the default gateway-mode launcher should now provide the required BFF process on `:9000`.
 
 ## Frontend Integration Notes
 

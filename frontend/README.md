@@ -119,9 +119,8 @@ Current behavior:
 
 Current startup caveat:
 
-- `make dev-pro` and `./scripts/serve.sh --dev --gateway` do not currently start the FastAPI BFF
-- BFF-backed frontend flows therefore still require a separate `bff` process on `:9000`
-- this especially affects `/workspace/account` and the main BFF-backed chat path
+- `make dev-pro` and `./scripts/serve.sh --dev --gateway` now start the FastAPI BFF on `:9000`
+- the canonical gateway-mode local launcher is now aligned with the BFF-backed account and chat flows
 
 Recommended local setup today:
 
@@ -142,7 +141,6 @@ Why this matters:
 - when `/api/models` fails in the browser, the model selector and mode selector can render as
   visually empty controls because their labels depend on the loaded model list
 - the remaining direct Gateway dependencies make local behavior differ between `:3000` and `:2026`
-- the current startup scripts do not yet match the frontend's BFF-first chat/auth architecture
 
 Canonical BFF chat routes:
 
@@ -243,7 +241,6 @@ Current chat limitations:
 - uploads and artifact retrieval are not yet migrated onto the BFF-backed path
 - follow-up suggestions on the input box still depend on a Gateway thread route
 - memory, MCP, skills, and agents still use Gateway-facing frontend APIs
-- the canonical dev launcher still does not bootstrap the BFF automatically
 - conversation rename/delete/archive actions are not yet exposed
 - agent-specific chat paths still retain more legacy runtime semantics than the main chat path
 

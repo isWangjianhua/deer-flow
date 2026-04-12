@@ -285,10 +285,9 @@ behavior. Direct browser access to Gateway `:8001` is not the intended public co
 
 Important current caveat for Gateway mode:
 
-- `make dev-pro` / `./scripts/serve.sh --dev --gateway` starts `Gateway + Frontend + nginx`
-- it does **not** currently start the FastAPI BFF on `:9000`
-- if you are validating `/api/bff/*`, `/workspace/account`, or the BFF-backed chat flow, start
-  the BFF separately
+- `make dev-pro` / `./scripts/serve.sh --dev --gateway` now starts `Gateway + BFF + Frontend + nginx`
+- this aligns the default gateway-mode launcher with `/api/bff/*`, `/workspace/account`, and the
+  BFF-backed chat flow
 
 The current `nginx` layer also still proxies many non-BFF browser-visible `/api/*` routes directly
 to Gateway, so the repository is usable but not yet fully aligned to a strict "browser only talks
