@@ -104,14 +104,11 @@ Why this matters:
 
 Recommended scope:
 
-- add a BFF model list endpoint
-- bridge frontend model selection onto `/api/bff/*`
-- remove direct browser dependence on DeerFlow Gateway `/api/models`
 - define the intended split between BFF-owned and gateway-internal asset paths
 - document `nginx` and Next.js bridge routes as the current same-origin entrypoints rather than
   treating them as incidental plumbing
-- fix the startup mismatch where `make dev-pro` does not launch the BFF even though the frontend
-  main path already depends on it
+- continue removing the remaining direct browser-visible DeerFlow Gateway routes after models and
+  startup alignment
 
 Suggested branch:
 

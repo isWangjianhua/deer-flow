@@ -118,6 +118,7 @@ Public-facing rules:
 
 - `POST /auth/login`
 - `GET /me`
+- `GET /models`
 - `POST /conversations`
 - `GET /conversations`
 - `GET /conversations/{conversation_id}`
@@ -125,7 +126,6 @@ Public-facing rules:
 
 Deferred:
 
-- `GET /models`
 - `POST /conversations/{conversation_id}/uploads`
 - `GET /conversations/{conversation_id}/artifacts/{path}`
 - `DELETE /conversations/{conversation_id}`
@@ -318,8 +318,7 @@ Recommended test layers:
 
 The next BFF-facing product fixes should focus on consistency, not new product surface area:
 
-1. add a BFF `GET /models` route that proxies DeerFlow Gateway `/api/models`
-2. move artifact and upload access behind BFF ownership checks
-3. migrate suggestions and workspace settings-related APIs behind BFF or same-origin server bridges
-4. align the dev launcher and documented entrypoints with the BFF-backed frontend path
-5. remove remaining direct frontend-visible DeerFlow Gateway assumptions from local dev flows
+1. move artifact and upload access behind BFF ownership checks
+2. migrate suggestions and workspace settings-related APIs behind BFF or same-origin server bridges
+3. align the dev launcher and documented entrypoints with the BFF-backed frontend path
+4. remove remaining direct frontend-visible DeerFlow Gateway assumptions from local dev flows

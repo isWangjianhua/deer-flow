@@ -16,6 +16,12 @@ class DeerFlowClient:
             payload = response.json()
             return payload["thread_id"]
 
+    async def get_models(self) -> dict:
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.get(f"{self.base_url}/api/models")
+            response.raise_for_status()
+            return response.json()
+
     async def stream_message(
         self,
         thread_id: str,

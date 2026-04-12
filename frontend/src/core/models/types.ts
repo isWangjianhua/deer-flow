@@ -1,5 +1,5 @@
 export interface Model {
-  id: string;
+  id?: string;
   name: string;
   model: string;
   display_name: string;
