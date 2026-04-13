@@ -108,6 +108,8 @@ export function InputBox({
   isNewThread,
   threadId,
   initialValue,
+  restoredText,
+  onRestoredTextApplied,
   onContextChange,
   onFollowupsVisibilityChange,
   onSubmit,
@@ -128,6 +130,8 @@ export function InputBox({
   isNewThread?: boolean;
   threadId: string;
   initialValue?: string;
+  restoredText?: string | null;
+  onRestoredTextApplied?: () => void;
   onContextChange?: (
     context: Omit<
       AgentThreadContext,
@@ -138,7 +142,9 @@ export function InputBox({
     },
   ) => void;
   onFollowupsVisibilityChange?: (visible: boolean) => void;
-  onSubmit?: (message: PromptInputMessage) => void;
+  onSubmit?: (
+    message: PromptInputMessage,
+  ) => boolean | void | Promise<boolean | void>;
   onStop?: () => void;
 }) {
   const { t } = useI18n();
@@ -159,6 +165,15 @@ export function InputBox({
   const [pendingSuggestion, setPendingSuggestion] = useState<string | null>(
     null,
   );
+
+  useEffect(() => {
+    if (restoredText == null) {
+      return;
+    }
+
+    textInput.setInput(restoredText);
+    onRestoredTextApplied?.();
+  }, [onRestoredTextApplied, restoredText, textInput]);
 
   useEffect(() => {
     if (models.length === 0) {
@@ -269,11 +284,13 @@ export function InputBox({
             selectedModel?.supports_thinking ?? false,
           ),
         });
-        setTimeout(() => onSubmit?.(message), 0);
+        setTimeout(() => {
+          void onSubmit?.(message);
+        }, 0);
         return;
       }
 
-      onSubmit?.(message);
+      return onSubmit?.(message);
     },
     [
       context,
@@ -283,6 +300,7 @@ export function InputBox({
       resolvedModelName,
       selectedModel?.supports_thinking,
       status,
+      textInput,
     ],
   );
 

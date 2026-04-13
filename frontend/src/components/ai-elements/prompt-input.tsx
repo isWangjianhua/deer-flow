@@ -465,7 +465,7 @@ export type PromptInputProps = Omit<
   onSubmit: (
     message: PromptInputMessage,
     event: FormEvent<HTMLFormElement>,
-  ) => void | Promise<void>;
+  ) => boolean | void | Promise<boolean | void>;
 };
 
 export const PromptInput = ({
@@ -789,24 +789,25 @@ export const PromptInput = ({
         try {
           const result = onSubmit({ text, files: convertedFiles }, event);
 
-          // Handle both sync and async onSubmit
-          if (result instanceof Promise) {
-            result
-              .then(() => {
-                clear();
-                if (usingProvider) {
-                  controller.textInput.clear();
-                }
-              })
-              .catch(() => {
-                // Don't clear on error - user may want to retry
-              });
-          } else {
-            // Sync function completed without throwing, clear attachments
+          const clearComposer = (shouldClear?: boolean | void) => {
+            if (shouldClear === false) {
+              return;
+            }
             clear();
             if (usingProvider) {
               controller.textInput.clear();
             }
+          };
+
+          // Handle both sync and async onSubmit
+          if (result instanceof Promise) {
+            result
+              .then((shouldClear) => clearComposer(shouldClear))
+              .catch(() => {
+                // Don't clear on error - user may want to retry
+              });
+          } else {
+            clearComposer(result);
           }
         } catch {
           // Don't clear on error - user may want to retry

@@ -16,12 +16,10 @@ const MOCK_AUTH_EVENT = "deer-flow:auth-mock-changed";
 const MOCK_AUTH_STORAGE_KEY = "deer-flow:auth-mock-session";
 
 type BrowserAuthSession = {
-  data:
-    | {
-        session?: { id: string };
-        user: { id: string; email?: string | null; name?: string | null };
-      }
-    | null;
+  data: {
+    session?: { id: string };
+    user: { id: string; email?: string | null; name?: string | null };
+  } | null;
   isPending: boolean;
   error: { message?: string } | null;
 };
@@ -166,7 +164,7 @@ export function useBrowserAuthSession(): BrowserAuthSession {
   });
 }
 
-export async function signInWithOidc() {
+export async function signInWithOidc(callbackURL = "/workspace/account") {
   if (isLocalDevAuthMode()) {
     throw new Error("Use signInWithLocalPassword in local dev auth mode.");
   }
@@ -178,7 +176,7 @@ export async function signInWithOidc() {
 
   await authClient.signIn.oauth2({
     providerId: getOidcProviderId(),
-    callbackURL: "/workspace/account",
+    callbackURL,
   });
 }
 

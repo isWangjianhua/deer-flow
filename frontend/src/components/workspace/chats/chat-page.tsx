@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { type PromptInputMessage } from "@/components/ai-elements/prompt-input";
+import { LoginRequiredDialog } from "@/components/auth/login-required-dialog";
+import { useLoginRequiredSubmit } from "@/components/auth/use-login-required-submit";
 import { PromptInputProvider } from "@/components/ai-elements/prompt-input";
 import { ArtifactTrigger } from "@/components/workspace/artifacts";
 import { ArtifactsProvider } from "@/components/workspace/artifacts";
@@ -48,6 +50,16 @@ function MockChatPageContent({
   const [settings, setSettings] = useThreadSettings(threadId);
   const [mounted, setMounted] = useState(false);
   const { showNotification } = useNotification();
+  const {
+    dialogOpen,
+    setDialogOpen,
+    callbackURL,
+    restoredText,
+    handleRestoredTextApplied,
+    handleAuthenticated,
+    handleBeforeOidcRedirect,
+    guardSubmit,
+  } = useLoginRequiredSubmit();
 
   useEffect(() => {
     setMounted(true);
@@ -82,9 +94,11 @@ function MockChatPageContent({
 
   const handleSubmit = useCallback(
     (message: PromptInputMessage) => {
-      void sendMessage(threadId, message);
+      return guardSubmit(message, async (nextMessage) => {
+        await sendMessage(threadId, nextMessage);
+      });
     },
-    [sendMessage, threadId],
+    [guardSubmit, sendMessage, threadId],
   );
 
   const handleStop = useCallback(async () => {
@@ -97,7 +111,9 @@ function MockChatPageContent({
     : undefined;
 
   return (
-    <ThreadContext.Provider value={{ thread, isMock: true, apiMode: "gateway" }}>
+    <ThreadContext.Provider
+      value={{ thread, isMock: true, apiMode: "gateway" }}
+    >
       <ChatBox threadId={threadId}>
         <div className="relative flex size-full min-h-0 justify-between">
           <header
@@ -161,6 +177,8 @@ function MockChatPageContent({
                           : "ready"
                     }
                     context={settings.context}
+                    restoredText={restoredText}
+                    onRestoredTextApplied={handleRestoredTextApplied}
                     extraHeader={
                       isNewThread && <Welcome mode={settings.context.mode} />
                     }
@@ -183,6 +201,13 @@ function MockChatPageContent({
                     )}
                   />
                 )}
+                <LoginRequiredDialog
+                  open={dialogOpen}
+                  onOpenChange={setDialogOpen}
+                  onAuthenticated={handleAuthenticated}
+                  callbackURL={callbackURL}
+                  onBeforeOidcRedirect={handleBeforeOidcRedirect}
+                />
                 {env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true" && (
                   <div className="text-muted-foreground/67 w-full translate-y-12 text-center text-xs">
                     {t.common.notAvailableInDemoMode}
@@ -213,6 +238,16 @@ function BffChatPageContent({
   const [settings, setSettings] = useThreadSettings(threadId);
   const [mounted, setMounted] = useState(false);
   const { showNotification } = useNotification();
+  const {
+    dialogOpen,
+    setDialogOpen,
+    callbackURL,
+    restoredText,
+    handleRestoredTextApplied,
+    handleAuthenticated,
+    handleBeforeOidcRedirect,
+    guardSubmit,
+  } = useLoginRequiredSubmit();
 
   useEffect(() => {
     setMounted(true);
@@ -224,7 +259,11 @@ function BffChatPageContent({
     onStart: (createdConversationId) => {
       setThreadId(createdConversationId);
       setIsNewThread(false);
-      history.replaceState(null, "", `/workspace/chats/${createdConversationId}`);
+      history.replaceState(
+        null,
+        "",
+        `/workspace/chats/${createdConversationId}`,
+      );
     },
     onFinish: (state) => {
       if (document.hidden || !document.hasFocus()) {
@@ -246,9 +285,11 @@ function BffChatPageContent({
 
   const handleSubmit = useCallback(
     (message: PromptInputMessage) => {
-      void sendMessage(threadId, message);
+      return guardSubmit(message, async (nextMessage) => {
+        await sendMessage(threadId, nextMessage);
+      });
     },
-    [sendMessage, threadId],
+    [guardSubmit, sendMessage, threadId],
   );
 
   const handleStop = useCallback(async () => {
@@ -325,6 +366,8 @@ function BffChatPageContent({
                           : "ready"
                     }
                     context={settings.context}
+                    restoredText={restoredText}
+                    onRestoredTextApplied={handleRestoredTextApplied}
                     extraHeader={
                       isNewThread && <Welcome mode={settings.context.mode} />
                     }
@@ -347,6 +390,13 @@ function BffChatPageContent({
                     )}
                   />
                 )}
+                <LoginRequiredDialog
+                  open={dialogOpen}
+                  onOpenChange={setDialogOpen}
+                  onAuthenticated={handleAuthenticated}
+                  callbackURL={callbackURL}
+                  onBeforeOidcRedirect={handleBeforeOidcRedirect}
+                />
                 {env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true" && (
                   <div className="text-muted-foreground/67 w-full translate-y-12 text-center text-xs">
                     {t.common.notAvailableInDemoMode}

@@ -5,6 +5,8 @@ import { useParams, useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 
 import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
+import { LoginRequiredDialog } from "@/components/auth/login-required-dialog";
+import { useLoginRequiredSubmit } from "@/components/auth/use-login-required-submit";
 import { Button } from "@/components/ui/button";
 import { AgentWelcome } from "@/components/workspace/agent-welcome";
 import { ArtifactTrigger } from "@/components/workspace/artifacts";
@@ -33,6 +35,16 @@ import { cn } from "@/lib/utils";
 export default function AgentChatPage() {
   const { t } = useI18n();
   const [showFollowups, setShowFollowups] = useState(false);
+  const {
+    dialogOpen,
+    setDialogOpen,
+    callbackURL,
+    restoredText,
+    handleRestoredTextApplied,
+    handleAuthenticated,
+    handleBeforeOidcRedirect,
+    guardSubmit,
+  } = useLoginRequiredSubmit();
   const router = useRouter();
 
   const { agent_name } = useParams<{
@@ -79,9 +91,11 @@ export default function AgentChatPage() {
 
   const handleSubmit = useCallback(
     (message: PromptInputMessage) => {
-      void sendMessage(threadId, message, { agent_name });
+      return guardSubmit(message, async (nextMessage) => {
+        await sendMessage(threadId, nextMessage, { agent_name });
+      });
     },
-    [sendMessage, threadId, agent_name],
+    [agent_name, guardSubmit, sendMessage, threadId],
   );
 
   const handleStop = useCallback(async () => {
@@ -179,6 +193,8 @@ export default function AgentChatPage() {
                         : "ready"
                   }
                   context={settings.context}
+                  restoredText={restoredText}
+                  onRestoredTextApplied={handleRestoredTextApplied}
                   extraHeader={
                     isNewThread && (
                       <AgentWelcome agent={agent} agentName={agent_name} />
@@ -189,6 +205,13 @@ export default function AgentChatPage() {
                   onFollowupsVisibilityChange={setShowFollowups}
                   onSubmit={handleSubmit}
                   onStop={handleStop}
+                />
+                <LoginRequiredDialog
+                  open={dialogOpen}
+                  onOpenChange={setDialogOpen}
+                  onAuthenticated={handleAuthenticated}
+                  callbackURL={callbackURL}
+                  onBeforeOidcRedirect={handleBeforeOidcRedirect}
                 />
                 {env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true" && (
                   <div className="text-muted-foreground/67 w-full translate-y-12 text-center text-xs">

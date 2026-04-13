@@ -315,6 +315,81 @@ export const enUS: Translations = {
     toggleSidebar: "Toggle Sidebar",
   },
 
+  auth: {
+    accountTitle: "Account",
+    accountDescription:
+      "Choose your sign-in method, switch language, and review session health without digging through debug-heavy screens.",
+    accessTitle: "Sign in and continue",
+    accessDescriptionLocal:
+      "Use local sign-in or create a dedicated test account for this workspace.",
+    accessDescriptionOidc:
+      "Sign in with the configured identity provider to unlock workspace actions.",
+    authModeLocal: "Local BFF auth",
+    authModeOidc: "OIDC browser session",
+    languageLabel: "Language",
+    login: "Login",
+    register: "Register",
+    signIn: "Sign in",
+    signInWithLocal: "Sign in with local BFF auth",
+    createLocalAccount: "Create local account",
+    signingIn: "Signing in...",
+    creatingAccount: "Creating account...",
+    defaultCredentials: "Default dev credentials:",
+    registrationLocalOnly:
+      "Registration is only available in local BFF auth mode.",
+    oidcRedirectHint:
+      "You will be redirected to the configured identity provider.",
+    loginRequiredTitle: "Sign in to send this message",
+    loginRequiredDescription:
+      "Your draft stays in the composer. Finish sign-in here, then return to send when you are ready.",
+    usernamePasswordRequired: "Username and password are required",
+    confirmPasswordRequired: "Please confirm your password",
+    passwordsDoNotMatch: "Passwords do not match",
+    signInFailedTitle: "Sign-in failed",
+    registerFailedTitle: "Local registration failed",
+    signedInReadyTitle: "You are already signed in",
+    signedInReadyDescription:
+      "Your session is active. You can switch language here and review the verified BFF connection on the right.",
+    signedInAs: "Signed in as",
+    sessionTitle: "Session and access",
+    sessionDescription:
+      "Review your browser sign-in state, verify the authenticated BFF connection, and keep diagnostics tucked away until you need them.",
+    browserSessionIssue: "Browser session issue",
+    browserSession: "Browser session",
+    bffConnection: "BFF connection",
+    signInMode: "Sign-in mode",
+    userId: "User ID",
+    email: "Email",
+    name: "Name",
+    bridgeEndpoint: "Bridge endpoint",
+    bffUserId: "BFF user ID",
+    bffUsername: "BFF username",
+    bffEmail: "BFF email",
+    signedIn: "Signed in",
+    checking: "Checking",
+    signedOut: "Signed out",
+    needsAttention: "Needs attention",
+    connected: "Connected",
+    waitingForSignIn: "Waiting for sign-in",
+    browserSummaryAuthenticated:
+      "Your browser session is active and ready to call the BFF.",
+    browserSummaryLoading:
+      "Checking whether an existing browser session can be restored.",
+    browserSummarySignedOut:
+      "Sign in to unlock authenticated workspace actions.",
+    bffSummarySignedOut: "The BFF health check runs after you sign in.",
+    bffSummaryConnected: "The BFF /me bridge responded successfully.",
+    bffSummaryLoading: "Loading the authenticated BFF profile now.",
+    bffLoadFailed: "Failed to load BFF user",
+    diagnosticsTitle: "Diagnostics",
+    diagnosticsDescription:
+      "Raw session and BFF payloads stay collapsed by default so the page remains useful outside debugging.",
+    showDetails: "Show details",
+    hideDetails: "Hide details",
+    browserPayload: "Browser session payload",
+    bffPayload: "BFF /me payload",
+  },
+
   // Settings
   settings: {
     title: "Settings",
