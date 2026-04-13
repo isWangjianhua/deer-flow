@@ -18,8 +18,8 @@ void test("auth panel exposes shared page and dialog auth UI primitives", async 
     "expected AuthPanel to notify callers when authentication succeeds",
   );
   assert.ok(
-    source.includes("changeLocale"),
-    "expected AuthPanel to expose direct language switching",
+    !source.includes("Languages"),
+    "expected AuthPanel to avoid embedding a language switcher",
   );
   assert.ok(
     source.includes("signUpWithLocalPassword"),

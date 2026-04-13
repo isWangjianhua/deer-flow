@@ -72,7 +72,7 @@ export function WorkspaceHeader({ className }: { className?: string }) {
           >
             <Link className="text-muted-foreground" href="/workspace/account">
               <UserRound size={16} />
-              <span>Account</span>
+              <span>{t.sidebar.account}</span>
             </Link>
           </SidebarMenuButton>
         </SidebarMenuItem>

@@ -166,6 +166,7 @@ export const zhCN: Translations = {
     recentChats: "最近的对话",
     demoChats: "演示对话",
     agents: "智能体",
+    account: "账号",
   },
 
   // Agents
@@ -303,7 +304,7 @@ export const zhCN: Translations = {
   auth: {
     accountTitle: "账户",
     accountDescription:
-      "在这里选择登录方式、切换语言，并快速确认当前会话和 BFF 连接状态，不必再翻调试信息。",
+      "在这里选择登录方式，并快速确认当前会话和 BFF 连接状态，不必再翻调试信息。",
     accessTitle: "登录并继续",
     accessDescriptionLocal:
       "使用本地账户登录，或为当前工作区创建一个新的测试账号。",
@@ -331,7 +332,7 @@ export const zhCN: Translations = {
     registerFailedTitle: "本地注册失败",
     signedInReadyTitle: "你已经登录",
     signedInReadyDescription:
-      "当前会话已激活。你可以在这里切换语言，并在右侧查看经过验证的 BFF 连接状态。",
+      "当前会话已激活，右侧也会展示已经验证通过的 BFF 连接状态。",
     signedInAs: "当前登录身份",
     sessionTitle: "会话与访问状态",
     sessionDescription:

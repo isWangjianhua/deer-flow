@@ -172,6 +172,7 @@ export const enUS: Translations = {
     recentChats: "Recent chats",
     demoChats: "Demo chats",
     agents: "Agents",
+    account: "Account",
   },
 
   // Agents
@@ -318,7 +319,7 @@ export const enUS: Translations = {
   auth: {
     accountTitle: "Account",
     accountDescription:
-      "Choose your sign-in method, switch language, and review session health without digging through debug-heavy screens.",
+      "Choose your sign-in method and review session health without digging through debug-heavy screens.",
     accessTitle: "Sign in and continue",
     accessDescriptionLocal:
       "Use local sign-in or create a dedicated test account for this workspace.",
@@ -349,7 +350,7 @@ export const enUS: Translations = {
     registerFailedTitle: "Local registration failed",
     signedInReadyTitle: "You are already signed in",
     signedInReadyDescription:
-      "Your session is active. You can switch language here and review the verified BFF connection on the right.",
+      "Your session is active and the verified BFF connection is ready on the right.",
     signedInAs: "Signed in as",
     sessionTitle: "Session and access",
     sessionDescription:

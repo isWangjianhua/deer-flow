@@ -1,6 +1,6 @@
 "use client";
 
-import { ShieldCheck, Sparkles } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 
 import { AuthPanel } from "@/components/auth/auth-panel";
 import { AccountSessionCard } from "@/components/auth/account-session-card";
@@ -21,10 +21,6 @@ export default function WorkspaceAccountPage() {
             <Badge variant="secondary">
               <ShieldCheck className="mr-1 size-3.5" />
               {localMode ? t.auth.authModeLocal : t.auth.authModeOidc}
-            </Badge>
-            <Badge variant="outline">
-              <Sparkles className="mr-1 size-3.5" />
-              {t.auth.languageLabel}
             </Badge>
           </div>
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)] lg:items-end">

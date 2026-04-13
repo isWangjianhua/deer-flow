@@ -1,6 +1,6 @@
 "use client";
 
-import { CircleAlert, Languages } from "lucide-react";
+import { CircleAlert } from "lucide-react";
 import type { FormEvent } from "react";
 import { useState } from "react";
 
@@ -8,13 +8,6 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import {
   signInWithLocalPassword,
@@ -24,13 +17,7 @@ import {
 } from "@/core/auth/browser";
 import { isLocalDevAuthMode } from "@/core/auth/local";
 import { toAuthSessionState } from "@/core/auth/session";
-import { enUS, isLocale, zhCN, type Locale } from "@/core/i18n";
 import { useI18n } from "@/core/i18n/hooks";
-
-const languageOptions: { value: Locale; label: string }[] = [
-  { value: "en-US", label: enUS.locale.localName },
-  { value: "zh-CN", label: zhCN.locale.localName },
-];
 
 export function AuthPanel({
   mode = "page",
@@ -45,7 +32,7 @@ export function AuthPanel({
   callbackURL?: string;
   onBeforeOidcRedirect?: () => void;
 }) {
-  const { locale, changeLocale, t } = useI18n();
+  const { t } = useI18n();
   const session = useBrowserAuthSession();
   const sessionState = toAuthSessionState(session);
   const localMode = isLocalDevAuthMode();
@@ -122,38 +109,13 @@ export function AuthPanel({
       className={mode === "dialog" ? "space-y-4" : "rounded-xl border p-4"}
     >
       <div className="space-y-1">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="space-y-1">
-            <h3 className="text-sm font-semibold">{t.auth.accessTitle}</h3>
-            <p className="text-muted-foreground text-sm">
-              {localMode
-                ? t.auth.accessDescriptionLocal
-                : t.auth.accessDescriptionOidc}
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Languages className="text-muted-foreground size-4" />
-            <span className="sr-only">{t.auth.languageLabel}</span>
-            <Select
-              value={locale}
-              onValueChange={(value) => {
-                if (isLocale(value)) {
-                  changeLocale(value);
-                }
-              }}
-            >
-              <SelectTrigger className="w-[116px]" size="sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {languageOptions.map((item) => (
-                  <SelectItem key={item.value} value={item.value}>
-                    {item.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+        <div className="space-y-1">
+          <h3 className="text-sm font-semibold">{t.auth.accessTitle}</h3>
+          <p className="text-muted-foreground text-sm">
+            {localMode
+              ? t.auth.accessDescriptionLocal
+              : t.auth.accessDescriptionOidc}
+          </p>
         </div>
       </div>
       {mode === "page" ? <Separator className="my-4" /> : null}

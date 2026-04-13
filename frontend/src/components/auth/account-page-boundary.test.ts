@@ -20,6 +20,10 @@ void test("account page composes the shared auth panel and session card", async 
     source.includes("radial-gradient"),
     "expected the account page hero to use an intentional visual treatment",
   );
+  assert.ok(
+    !source.includes("t.auth.languageLabel"),
+    "expected the account page to stop advertising language switching",
+  );
 });
 
 void test("account session card keeps structured status sections and collapsible diagnostics", async () => {
@@ -46,15 +50,15 @@ void test("account session card keeps structured status sections and collapsible
   );
 });
 
-void test("auth panel keeps direct language switching on the account surface", async () => {
+void test("auth panel focuses on authentication instead of account-level language settings", async () => {
   const source = await readFile(
     new URL("./auth-panel.tsx", import.meta.url),
     "utf8",
   );
 
   assert.ok(
-    source.includes("SelectTrigger"),
-    "expected the auth panel to expose the language switcher directly",
+    !source.includes("changeLocale"),
+    "expected the auth panel to stop changing locale directly",
   );
   assert.ok(
     source.includes("signedInReadyTitle"),
