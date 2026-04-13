@@ -22,6 +22,17 @@
 # Access: http://localhost:${PORT:-2026}
 
 services:
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: deer-flow-qdrant
+    ports:
+      - "6333:6333"
+    volumes:
+      - ${DEER_FLOW_HOME}/qdrant:/qdrant/storage
+    networks:
+      - deer-flow
+    restart: unless-stopped
+
   # ── Reverse Proxy ──────────────────────────────────────────────────────────
   nginx:
     image: nginx:alpine
@@ -111,6 +122,8 @@ services:
       - ../.env
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    depends_on:
+      - qdrant
     networks:
       - deer-flow
     restart: unless-stopped
@@ -162,6 +175,8 @@ services:
       - ../.env
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    depends_on:
+      - qdrant
     networks:
       - deer-flow
     restart: unless-stopped

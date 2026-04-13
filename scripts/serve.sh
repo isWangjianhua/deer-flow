@@ -174,6 +174,8 @@ else
     echo "⏩ Skipping dependency install (--skip-install)"
 fi
 
+"$REPO_ROOT/scripts/ensure-qdrant.sh" --mode=dev
+
 # ── Sync frontend .env.local ─────────────────────────────────────────────────
 # Next.js .env.local takes precedence over process env vars.
 # The script manages the NEXT_PUBLIC_LANGGRAPH_BASE_URL line to ensure

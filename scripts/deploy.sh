@@ -176,6 +176,99 @@ detect_sandbox_mode() {
     fi
 }
 
+prepare_qdrant_runtime_config() {
+    local runtime_config_path="$DEER_FLOW_CONFIG_PATH"
+
+    if [ "${QDRANT_REQUIRED:-0}" != "1" ]; then
+        echo "$runtime_config_path"
+        return
+    fi
+
+    case "${QDRANT_HOST:-}" in
+        localhost|127.0.0.1|0.0.0.0) ;;
+        *)
+            echo "$runtime_config_path"
+            return
+            ;;
+    esac
+
+    runtime_config_path="$DEER_FLOW_HOME/config.deploy.runtime.yaml"
+
+    awk '
+        {
+            line = $0
+            match($0, /^[[:space:]]*/)
+            indent = RLENGTH
+
+            if ($0 ~ /^[[:space:]]*memory:[[:space:]]*$/) {
+                in_memory = 1
+                memory_indent = indent
+                in_mem0 = 0
+                in_vector_store = 0
+                in_vector_config = 0
+                print line
+                next
+            }
+
+            if (in_memory && indent <= memory_indent && $0 !~ /^[[:space:]]*$/) {
+                in_memory = 0
+                in_mem0 = 0
+                in_vector_store = 0
+                in_vector_config = 0
+            }
+
+            if (in_memory && $0 ~ /^[[:space:]]*mem0_config:[[:space:]]*$/) {
+                in_mem0 = 1
+                mem0_indent = indent
+                in_vector_store = 0
+                in_vector_config = 0
+                print line
+                next
+            }
+
+            if (in_mem0 && indent <= mem0_indent && $0 !~ /^[[:space:]]*$/) {
+                in_mem0 = 0
+                in_vector_store = 0
+                in_vector_config = 0
+            }
+
+            if (in_mem0 && $0 ~ /^[[:space:]]*vector_store:[[:space:]]*$/) {
+                in_vector_store = 1
+                vector_store_indent = indent
+                in_vector_config = 0
+                print line
+                next
+            }
+
+            if (in_vector_store && indent <= vector_store_indent && $0 !~ /^[[:space:]]*$/) {
+                in_vector_store = 0
+                in_vector_config = 0
+            }
+
+            if (in_vector_store && $0 ~ /^[[:space:]]*config:[[:space:]]*$/) {
+                in_vector_config = 1
+                vector_config_indent = indent
+                print line
+                next
+            }
+
+            if (in_vector_config && indent <= vector_config_indent && $0 !~ /^[[:space:]]*$/) {
+                in_vector_config = 0
+            }
+
+            if (in_vector_config && indent == vector_config_indent + 2 && $0 ~ /^[[:space:]]*host:[[:space:]]*/) {
+                sub(/host:[[:space:]]*.*/, "host: qdrant", line)
+                print line
+                next
+            }
+
+            print line
+        }
+    ' "$DEER_FLOW_CONFIG_PATH" > "$runtime_config_path"
+
+    echo "$runtime_config_path"
+}
+
 # ── down ──────────────────────────────────────────────────────────────────────
 
 if [ "$CMD" = "down" ]; then
@@ -219,6 +312,16 @@ fi
 
 # ── Banner ────────────────────────────────────────────────────────────────────
 
+eval "$("$REPO_ROOT/scripts/ensure-qdrant.sh" --mode=prod --print-required)"
+if [ "${QDRANT_REQUIRED:-0}" = "1" ]; then
+    echo -e "${BLUE}Qdrant required: ${QDRANT_HOST:-localhost}:${QDRANT_PORT:-6333}${NC}"
+fi
+
+DEER_FLOW_RUNTIME_CONFIG_PATH="$(prepare_qdrant_runtime_config)"
+export DEER_FLOW_CONFIG_PATH="$DEER_FLOW_RUNTIME_CONFIG_PATH"
+
+"$REPO_ROOT/scripts/ensure-qdrant.sh" --mode=prod
+
 echo "=========================================="
 echo "  DeerFlow Production Deployment"
 echo "=========================================="
@@ -242,6 +345,10 @@ case "$RUNTIME_MODE" in
         services="frontend gateway langgraph nginx"
         ;;
 esac
+
+if [ "${QDRANT_REQUIRED:-0}" = "1" ]; then
+    services="$services qdrant"
+fi
 
 if [ "$sandbox_mode" = "provisioner" ]; then
     services="$services provisioner"

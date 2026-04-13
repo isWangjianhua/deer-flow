@@ -192,6 +192,8 @@ export OPENAI_API_KEY="your-api-key-here"
 make dev  # Starts LangGraph + Gateway + Frontend + Nginx
 ```
 
+If `memory.provider=mem0` with a Qdrant vector store, `make dev` / `scripts/serve.sh` now preflight Qdrant automatically and will start a local `deer-flow-qdrant` container on `localhost:6333` when the port is unavailable.
+
 Access at: http://localhost:2026
 
 **Backend Only** (from backend directory):

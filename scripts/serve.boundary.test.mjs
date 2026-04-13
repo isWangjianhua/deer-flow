@@ -25,4 +25,9 @@ void test("serve.sh syncs, starts, and stops the BFF service", async () => {
     /uv run uvicorn app\.main:app --host 0\.0\.0\.0 --port 9000/,
     "expected serve.sh to run the BFF on port 9000",
   );
+  assert.match(
+    source,
+    /"\$REPO_ROOT\/scripts\/ensure-qdrant\.sh" --mode=dev/,
+    "expected serve.sh to ensure Qdrant before starting services",
+  );
 });
