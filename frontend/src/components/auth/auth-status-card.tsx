@@ -25,6 +25,7 @@ import { Separator } from "@/components/ui/separator";
 import { loadBffUser, type BffUserResponse } from "@/core/auth/bff-user";
 import {
   signInWithLocalPassword,
+  signUpWithLocalPassword,
   useBrowserAuthSession,
 } from "@/core/auth/browser";
 import { isLocalDevAuthMode } from "@/core/auth/local";
@@ -101,9 +102,11 @@ export function AuthStatusCard() {
   const state = toAuthSessionState(session);
   const [bffUser, setBffUser] = useState<BffUserResponse | null>(null);
   const [bffError, setBffError] = useState<string | null>(null);
+  const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [username, setUsername] = useState("demo");
   const [password, setPassword] = useState("demo123");
-  const [localLoginError, setLocalLoginError] = useState<string | null>(null);
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [localAuthError, setLocalAuthError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
   const localMode = isLocalDevAuthMode();
@@ -137,17 +140,39 @@ export function AuthStatusCard() {
     };
   }, [state.status]);
 
-  async function handleLocalLogin(event: FormEvent<HTMLFormElement>) {
+  async function handleLocalAuthSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setIsSubmitting(true);
-    setLocalLoginError(null);
+    setLocalAuthError(null);
 
     try {
-      await signInWithLocalPassword(username, password);
+      if (!username.trim() || !password) {
+        setLocalAuthError("Username and password are required");
+        return;
+      }
+
+      if (authMode === "register") {
+        if (!confirmPassword) {
+          setLocalAuthError("Please confirm your password");
+          return;
+        }
+        if (password !== confirmPassword) {
+          setLocalAuthError("Passwords do not match");
+          return;
+        }
+
+        await signUpWithLocalPassword(username, password);
+      } else {
+        await signInWithLocalPassword(username, password);
+      }
       window.location.reload();
     } catch (error) {
-      setLocalLoginError(
-        error instanceof Error ? error.message : "Failed to sign in",
+      setLocalAuthError(
+        error instanceof Error
+          ? error.message
+          : authMode === "register"
+            ? "Failed to register"
+            : "Failed to sign in",
       );
     } finally {
       setIsSubmitting(false);
@@ -264,41 +289,94 @@ export function AuthStatusCard() {
             <h3 className="text-sm font-semibold">Access actions</h3>
             <p className="text-muted-foreground text-sm">
               Use the same auth mode configured for this environment. Local
-              development can sign in with the seeded BFF user.
+              development can sign in with the seeded BFF user or create a new
+              local account for multi-user testing.
             </p>
           </div>
           <Separator className="my-4" />
 
           {state.status === "unauthenticated" && localMode ? (
-            <form className="space-y-3" onSubmit={handleLocalLogin}>
+            <form className="space-y-3" onSubmit={handleLocalAuthSubmit}>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant={authMode === "login" ? "default" : "outline"}
+                  onClick={() => {
+                    setAuthMode("login");
+                    setLocalAuthError(null);
+                  }}
+                >
+                  Login
+                </Button>
+                <Button
+                  type="button"
+                  variant={authMode === "register" ? "default" : "outline"}
+                  onClick={() => {
+                    setAuthMode("register");
+                    setLocalAuthError(null);
+                  }}
+                >
+                  Register
+                </Button>
+              </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <Input
                   autoComplete="username"
+                  required
                   value={username}
                   onChange={(event) => setUsername(event.target.value)}
-                  placeholder="demo"
+                  placeholder={authMode === "register" ? "new-user" : "demo"}
                 />
                 <Input
-                  autoComplete="current-password"
+                  autoComplete={
+                    authMode === "register" ? "new-password" : "current-password"
+                  }
                   type="password"
+                  required
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
-                  placeholder="demo123"
+                  placeholder={authMode === "register" ? "secret123" : "demo123"}
                 />
+                {authMode === "register" ? (
+                  <Input
+                    autoComplete="new-password"
+                    type="password"
+                    required
+                    value={confirmPassword}
+                    onChange={(event) => setConfirmPassword(event.target.value)}
+                    placeholder="Confirm password"
+                  />
+                ) : null}
               </div>
               <div className="flex flex-wrap items-center gap-3">
                 <Button disabled={isSubmitting} type="submit">
-                  {isSubmitting ? "Signing in..." : "Sign in with local BFF auth"}
+                  {isSubmitting
+                    ? authMode === "register"
+                      ? "Creating account..."
+                      : "Signing in..."
+                    : authMode === "register"
+                      ? "Create local account"
+                      : "Sign in with local BFF auth"}
                 </Button>
-                <span className="text-muted-foreground text-sm">
-                  Default dev credentials: <code>demo</code> / <code>demo123</code>
-                </span>
+                {authMode === "login" ? (
+                  <span className="text-muted-foreground text-sm">
+                    Default dev credentials: <code>demo</code> / <code>demo123</code>
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground text-sm">
+                    Registration is only available in local BFF auth mode.
+                  </span>
+                )}
               </div>
-              {localLoginError ? (
+              {localAuthError ? (
                 <Alert variant="destructive">
                   <CircleAlert />
-                  <AlertTitle>Local sign-in failed</AlertTitle>
-                  <AlertDescription>{localLoginError}</AlertDescription>
+                  <AlertTitle>
+                    {authMode === "register"
+                      ? "Local registration failed"
+                      : "Local sign-in failed"}
+                  </AlertTitle>
+                  <AlertDescription>{localAuthError}</AlertDescription>
                 </Alert>
               ) : null}
             </form>

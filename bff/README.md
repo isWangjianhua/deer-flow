@@ -78,6 +78,9 @@ Important current caveat:
 - the current `serve.sh --gateway` / `make dev-pro` flow now starts the BFF automatically
 - nginx route ownership has been aligned so browser-visible bridge-owned API paths fall through to
   `frontend` instead of being explicitly proxied to Gateway
+- local self-registration is available only when `BFF_AUTH_PROVIDER=local`
+- the first registration slice supports username/password only
+- email verification and password reset are intentionally deferred
 
 This means the current architecture is usable and much closer to the target boundary, but it is not
 yet fully "frontend only talks to BFF".
@@ -119,6 +122,7 @@ Public-facing rules:
 ## Current Endpoints
 
 - `POST /auth/login`
+- `POST /auth/register`
 - `GET /me`
 - `GET /models`
 - `POST /conversations`

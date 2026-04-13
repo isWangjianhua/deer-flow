@@ -39,5 +39,13 @@ void test(
       source.includes("Collapsible"),
       "expected diagnostics to be placed behind a collapsible",
     );
+    assert.ok(
+      source.includes("Register"),
+      "expected local auth mode to expose a register path",
+    );
+    assert.ok(
+      source.includes('autoComplete="new-password"'),
+      "expected register mode to include a confirm-password field",
+    );
   },
 );

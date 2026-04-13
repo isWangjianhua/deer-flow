@@ -90,6 +90,17 @@ Current next slice:
 - `local` uses the seeded demo user and BFF-issued JWTs
 - `oidc` validates external bearer `id_token` credentials and maps them to local BFF users
 
+When `BFF_AUTH_PROVIDER=local`, the BFF now exposes both:
+
+- `POST /auth/login` for existing local users
+- `POST /auth/register` for self-service username/password registration
+
+Current registration scope is intentionally narrow:
+
+- username/password only
+- no email collection or verification
+- no forgot-password or password-reset flow
+
 When `BFF_AUTH_PROVIDER=oidc`, configure all of the following:
 
 - `BFF_OIDC_ISSUER`

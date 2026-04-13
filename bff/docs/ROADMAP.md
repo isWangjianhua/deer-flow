@@ -43,11 +43,13 @@ What is now true:
 - route-level BFF pytest is stable again after removing the hanging sync test path
 - gateway-mode local startup launches `Gateway + BFF + Frontend + nginx`
 - `/workspace/account` now works as a product-facing account/status page
+- local BFF auth now supports self-service username/password registration from `/workspace/account`
 - nginx now lets bridge-owned browser-visible API routes fall through to `frontend`
 
 What still remains for the next product loop:
 
 - deciding which same-origin bridge routes should become fully BFF-owned APIs
+- email verification, password reset, and stronger password policy for local registration
 - richer conversation lifecycle actions
 - usage governance and production hardening
 - browser-automation coverage for the live BFF streaming path once the local Playwright setup is dependable

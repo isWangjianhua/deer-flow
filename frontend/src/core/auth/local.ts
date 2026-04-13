@@ -2,7 +2,7 @@ import { env } from "../../env.js";
 
 import type { BffUserResponse } from "./bff-user";
 
-type BrowserSession = {
+export type BrowserSession = {
   session: {
     id: string;
     createdAt: Date;
@@ -10,17 +10,17 @@ type BrowserSession = {
     userId: string;
     expiresAt: Date;
     token: string;
-    ipAddress: null;
-    userAgent: string;
+    ipAddress?: string | null;
+    userAgent?: string | null;
   };
   user: {
     id: string;
-    email: string | null;
-    name: string | null;
+    email?: string | null;
+    name?: string | null;
     emailVerified: boolean;
     createdAt: Date;
     updatedAt: Date;
-    image: null;
+    image?: string | null;
   };
 };
 

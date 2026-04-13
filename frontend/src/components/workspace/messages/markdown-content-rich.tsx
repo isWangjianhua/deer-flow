@@ -37,6 +37,8 @@ export function RichMarkdownContent({
 }: RichMarkdownContentProps) {
   const defaults =
     variant === "human" ? humanMessagePlugins : streamdownPlugins;
+  const defaultRehypePlugins = defaults.rehypePlugins ?? [];
+  const extraRehypePlugins = rehypePlugins ?? [];
   const components = useMemo(() => {
     return {
       a: (props: AnchorHTMLAttributes<HTMLAnchorElement>) => {
@@ -70,9 +72,7 @@ export function RichMarkdownContent({
       className={className}
       components={components as MessageResponseProps["components"]}
       rehypePlugins={
-        (rehypePlugins
-          ? [...defaults.rehypePlugins, ...rehypePlugins]
-          : defaults.rehypePlugins) as MessageResponseProps["rehypePlugins"]
+        [...defaultRehypePlugins, ...extraRehypePlugins] as MessageResponseProps["rehypePlugins"]
       }
       remarkPlugins={
         (remarkPlugins ?? defaults.remarkPlugins) as MessageResponseProps["remarkPlugins"]

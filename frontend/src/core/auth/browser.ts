@@ -5,26 +5,32 @@ import { useEffect, useState } from "react";
 import { resolveStoredBrowserAuthSession } from "@/core/auth/browser-state";
 import { getOidcProviderId } from "@/core/auth/config";
 import {
+  type BrowserSession,
   isLocalDevAuthMode,
   readLocalDevSession,
   writeLocalDevSession,
 } from "@/core/auth/local";
-import { authClient, type Session } from "@/server/better-auth/client";
+import { authClient } from "@/server/better-auth/client";
 
 const MOCK_AUTH_EVENT = "deer-flow:auth-mock-changed";
 const MOCK_AUTH_STORAGE_KEY = "deer-flow:auth-mock-session";
 
 type BrowserAuthSession = {
-  data: Session | null;
+  data:
+    | {
+        session?: { id: string };
+        user: { id: string; email?: string | null; name?: string | null };
+      }
+    | null;
   isPending: boolean;
-  error: Error | null;
+  error: { message?: string } | null;
 };
 
 function toDate(value: unknown) {
   return value instanceof Date ? value : new Date(String(value));
 }
 
-function normalizeMockSession(value: unknown): Session | null {
+function normalizeStoredSession(value: unknown): BrowserSession | null {
   if (!value || typeof value !== "object") {
     return null;
   }
@@ -50,7 +56,7 @@ function normalizeMockSession(value: unknown): Session | null {
       createdAt: toDate(candidate.user.createdAt),
       updatedAt: toDate(candidate.user.updatedAt),
     },
-  } as Session;
+  } as BrowserSession;
 }
 
 function isMockAuthEnabled() {
@@ -68,13 +74,13 @@ function readMockSession() {
   }
 
   try {
-    return normalizeMockSession(JSON.parse(stored));
+    return normalizeStoredSession(JSON.parse(stored));
   } catch {
     return null;
   }
 }
 
-function writeMockSession(session: Session | null) {
+function writeMockSession(session: BrowserSession | null) {
   if (typeof window === "undefined") {
     return;
   }
@@ -88,7 +94,7 @@ function writeMockSession(session: Session | null) {
   window.dispatchEvent(new Event(MOCK_AUTH_EVENT));
 }
 
-function buildMockSession(): Session {
+function buildMockSession(): BrowserSession {
   return {
     session: {
       id: "mock-session",
@@ -114,8 +120,8 @@ function buildMockSession(): Session {
 
 export function useBrowserAuthSession(): BrowserAuthSession {
   const liveSession = authClient.useSession();
-  const [mockSession, setMockSession] = useState<Session | null>(null);
-  const [localSession, setLocalSession] = useState<Session | null>(null);
+  const [mockSession, setMockSession] = useState<BrowserSession | null>(null);
+  const [localSession, setLocalSession] = useState<BrowserSession | null>(null);
   const [isHydrated, setIsHydrated] = useState(false);
 
   useEffect(() => {
@@ -212,7 +218,34 @@ export async function signInWithLocalPassword(
     accessToken?: string;
     session?: unknown;
   };
-  const session = normalizeMockSession(payload.session);
+  const session = normalizeStoredSession(payload.session);
+  writeLocalDevSession(session, payload.accessToken ?? null);
+  return session;
+}
+
+export async function signUpWithLocalPassword(
+  username: string,
+  password: string,
+) {
+  const response = await fetch("/api/auth/local/register", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+    },
+    credentials: "same-origin",
+    body: JSON.stringify({ username, password }),
+  });
+
+  if (!response.ok) {
+    const payload = (await response.json()) as { message?: string };
+    throw new Error(payload.message ?? "Local registration failed");
+  }
+
+  const payload = (await response.json()) as {
+    accessToken?: string;
+    session?: unknown;
+  };
+  const session = normalizeStoredSession(payload.session);
   writeLocalDevSession(session, payload.accessToken ?? null);
   return session;
 }
