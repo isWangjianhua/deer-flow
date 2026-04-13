@@ -84,10 +84,10 @@ class DeerFlowClient:
         each ``stream()`` / ``chat()`` call is stateless — ``thread_id``
         is only used for file isolation (uploads / artifacts).
 
-        The system prompt (including date, memory, and skills context) is
-        generated when the internal agent is first created and cached until
-        the configuration key changes. Call :meth:`reset_agent` to force
-        a refresh in long-running processes.
+        The cached system prompt includes static context like date and skills.
+        Long-term memory is injected at request time by middleware using the
+        runtime context (for example ``user_id``). Call :meth:`reset_agent` to
+        refresh cached prompt content in long-running processes.
 
     Example::
 

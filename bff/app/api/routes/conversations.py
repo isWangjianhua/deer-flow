@@ -64,6 +64,7 @@ async def stream_message(
     service = ConversationService(db)
     conversation = service.require_owned_conversation(user_id, conversation_id)
     context = {
+        "user_id": user_id,
         "model_name": payload.model_name,
         "thinking_enabled": payload.thinking_enabled,
         "is_plan_mode": payload.is_plan_mode,

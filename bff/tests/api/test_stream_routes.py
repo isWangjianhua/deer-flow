@@ -56,7 +56,7 @@ def test_stream_route_returns_sse_for_owned_conversation(client, db_session, mon
 
     async def mock_stream_message(self, thread_id: str, message: str, context=None):
         assert message == WEATHER_PROMPT
-        assert context is None
+        assert context == {"user_id": me.json()["id"]}
         return FakeClient(), FakeResponse()
 
     async def mock_get_thread_history(self, thread_id: str, limit: int = 1) -> list[dict]:
@@ -280,6 +280,7 @@ def test_stream_route_forwards_model_context_to_deerflow(client, db_session, mon
     assert captured["thread_id"] == "thread-owned"
     assert captured["message"] == "hello"
     assert captured["context"] == {
+        "user_id": me.json()["id"],
         "model_name": "deepseek-v3",
         "thinking_enabled": True,
         "reasoning_effort": "high",

@@ -59,7 +59,6 @@ Agents must preserve these boundaries:
 
 ### Same-origin Next.js bridge paths that still proxy Gateway-facing APIs
 
-- `/api/memory`
 - `/api/mcp`
 - `/api/skills`
 - `/api/agents`

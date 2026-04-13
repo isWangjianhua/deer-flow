@@ -18,8 +18,8 @@ def test_queue_add_preserves_existing_correction_flag_for_same_thread() -> None:
         patch("deerflow.agents.memory.queue.get_memory_config", return_value=_memory_config(enabled=True)),
         patch.object(queue, "_reset_timer"),
     ):
-        queue.add(thread_id="thread-1", messages=["first"], correction_detected=True)
-        queue.add(thread_id="thread-1", messages=["second"], correction_detected=False)
+        queue.add(thread_id="thread-1", user_id=None, messages=["first"], correction_detected=True)
+        queue.add(thread_id="thread-1", user_id=None, messages=["second"], correction_detected=False)
 
     assert len(queue._queue) == 1
     assert queue._queue[0].messages == ["second"]
@@ -31,6 +31,7 @@ def test_process_queue_forwards_correction_flag_to_updater() -> None:
     queue._queue = [
         ConversationContext(
             thread_id="thread-1",
+            user_id="user-1",
             messages=["conversation"],
             agent_name="lead_agent",
             correction_detected=True,
@@ -45,6 +46,7 @@ def test_process_queue_forwards_correction_flag_to_updater() -> None:
     mock_updater.update_memory.assert_called_once_with(
         messages=["conversation"],
         thread_id="thread-1",
+        user_id="user-1",
         agent_name="lead_agent",
         correction_detected=True,
         reinforcement_detected=False,
@@ -58,8 +60,8 @@ def test_queue_add_preserves_existing_reinforcement_flag_for_same_thread() -> No
         patch("deerflow.agents.memory.queue.get_memory_config", return_value=_memory_config(enabled=True)),
         patch.object(queue, "_reset_timer"),
     ):
-        queue.add(thread_id="thread-1", messages=["first"], reinforcement_detected=True)
-        queue.add(thread_id="thread-1", messages=["second"], reinforcement_detected=False)
+        queue.add(thread_id="thread-1", user_id=None, messages=["first"], reinforcement_detected=True)
+        queue.add(thread_id="thread-1", user_id=None, messages=["second"], reinforcement_detected=False)
 
     assert len(queue._queue) == 1
     assert queue._queue[0].messages == ["second"]
@@ -71,6 +73,7 @@ def test_process_queue_forwards_reinforcement_flag_to_updater() -> None:
     queue._queue = [
         ConversationContext(
             thread_id="thread-1",
+            user_id="user-2",
             messages=["conversation"],
             agent_name="lead_agent",
             reinforcement_detected=True,
@@ -85,6 +88,7 @@ def test_process_queue_forwards_reinforcement_flag_to_updater() -> None:
     mock_updater.update_memory.assert_called_once_with(
         messages=["conversation"],
         thread_id="thread-1",
+        user_id="user-2",
         agent_name="lead_agent",
         correction_detected=False,
         reinforcement_detected=True,

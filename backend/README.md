@@ -1,6 +1,6 @@
 # DeerFlow Backend
 
-DeerFlow is a LangGraph-based AI super agent with sandbox execution, persistent memory, and extensible tool integration. The backend enables AI agents to execute code, browse the web, manage files, delegate tasks to subagents, and retain context across conversations - all in isolated, per-thread environments.
+DeerFlow is a LangGraph-based AI super agent with sandbox execution, runtime long-term memory, and extensible tool integration. The backend enables AI agents to execute code, browse the web, manage files, delegate tasks to subagents, and retain context across conversations - all in isolated, per-thread environments.
 
 ---
 
@@ -19,7 +19,7 @@ DeerFlow is a LangGraph-based AI super agent with sandbox execution, persistent 
                │    (Port 2024)     │  │   FastAPI REST         │
                │                    │  │                        │
                │ ┌────────────────┐ │  │ Models, MCP, Skills,   │
-               │ │  Lead Agent    │ │  │ Memory, Uploads,       │
+               │ │  Lead Agent    │ │  │ Uploads,               │
                │ │  ┌──────────┐  │ │  │ Artifacts              │
                │ │  │Middleware│  │ │  └────────────────────────┘
                │ │  │  Chain   │  │ │
@@ -36,7 +36,7 @@ DeerFlow is a LangGraph-based AI super agent with sandbox execution, persistent 
 
 **Request Routing** (via Nginx):
 - `/api/langgraph/*` → LangGraph Server - agent interactions, threads, streaming
-- `/api/*` (other) → Gateway API - models, MCP, skills, memory, artifacts, uploads, thread-local cleanup
+- `/api/*` (other) → Gateway API - models, MCP, skills, artifacts, uploads, thread-local cleanup
 - `/` (non-API) → Frontend - Next.js web interface
 
 ---
@@ -51,7 +51,7 @@ The single LangGraph agent (`lead_agent`) is the runtime entry point, created vi
 - **Middleware chain** for cross-cutting concerns (9 middlewares)
 - **Tool system** with sandbox, MCP, community, and built-in tools
 - **Subagent delegation** for parallel task execution
-- **System prompt** with skills injection, memory context, and working directory guidance
+- **System prompt** with skills injection and working directory guidance
 
 ### Middleware Chain
 
@@ -92,13 +92,13 @@ Async task delegation with concurrent execution:
 
 ### Memory System
 
-LLM-powered persistent context retention across conversations:
+Mem0-backed user-scoped long-term memory inside the harness:
 
-- **Automatic extraction**: Analyzes conversations for user context, facts, and preferences
-- **Structured storage**: User context (work, personal, top-of-mind), history, and confidence-scored facts
-- **Debounced updates**: Batches updates to minimize LLM calls (configurable wait time)
-- **System prompt injection**: Top facts + context injected into agent prompts
-- **Storage**: JSON file with mtime-based cache invalidation
+- **User scope**: Memory is keyed by authenticated `user_id` and shared across that user's agents
+- **Request-time retrieval**: `MemoryMiddleware` retrieves relevant memories before model calls
+- **Debounced writes**: Post-run updates are queued and persisted asynchronously
+- **Provider switch**: `memory.provider` selects `file` or `mem0`; runtime-focused deployments now target `mem0`
+- **No browser CRUD**: Gateway and frontend no longer expose `/api/memory`
 
 ### Tool Ecosystem
 
@@ -120,10 +120,6 @@ FastAPI application providing REST endpoints for frontend integration:
 | `GET/PUT /api/mcp/config` | Manage MCP server configurations |
 | `GET/PUT /api/skills` | List and manage skills |
 | `POST /api/skills/install` | Install skill from `.skill` archive |
-| `GET /api/memory` | Retrieve memory data |
-| `POST /api/memory/reload` | Force memory reload |
-| `GET /api/memory/config` | Memory configuration |
-| `GET /api/memory/status` | Combined config + data |
 | `POST /api/threads/{id}/uploads` | Upload files (auto-converts PDF/PPT/Excel/Word to Markdown, rejects directory paths) |
 | `GET /api/threads/{id}/uploads/list` | List uploaded files |
 | `DELETE /api/threads/{id}` | Delete DeerFlow-managed local thread data after LangGraph thread deletion; unexpected failures are logged server-side and return a generic 500 detail |
@@ -267,7 +263,7 @@ Key sections:
 - `title` - Auto-title generation settings
 - `summarization` - Context summarization settings
 - `subagents` - Subagent system (enabled/disabled)
-- `memory` - Memory system settings (enabled, storage, debounce, facts limits)
+- `memory` - Runtime long-term memory settings (`provider`, Mem0 search/write controls, debounce)
 
 Provider note:
 - `models[*].use` references provider classes by module path (for example `langchain_openai:ChatOpenAI`).

@@ -1,5 +1,7 @@
 """Configuration for memory mechanism."""
 
+from typing import Any, Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -22,6 +24,10 @@ class MemoryConfig(BaseModel):
             "the file will now be resolved as `{base_dir}/.deer-flow/memory.json`; "
             "migrate existing data or use an absolute path to preserve the old location."
         ),
+    )
+    provider: Literal["file", "mem0"] = Field(
+        default="file",
+        description="Memory backend provider.",
     )
     storage_class: str = Field(
         default="deerflow.agents.memory.storage.FileMemoryStorage",
@@ -58,6 +64,20 @@ class MemoryConfig(BaseModel):
         ge=100,
         le=8000,
         description="Maximum tokens to use for memory injection",
+    )
+    mem0_config: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Configuration passed to the Mem0 OSS Python SDK.",
+    )
+    mem0_search_limit: int = Field(
+        default=8,
+        ge=1,
+        le=20,
+        description="Maximum number of Mem0 memories to retrieve for prompt injection.",
+    )
+    write_enabled: bool = Field(
+        default=True,
+        description="Whether runtime memory writes are enabled.",
     )
 
 

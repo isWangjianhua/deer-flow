@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from deerflow.agents.memory.mem0_client import Mem0MemoryClient
 from deerflow.config.agents_config import AGENT_NAME_PATTERN
 from deerflow.config.memory_config import get_memory_config
 from deerflow.config.paths import get_paths
@@ -163,11 +164,11 @@ class FileMemoryStorage(MemoryStorage):
             return False
 
 
-_storage_instance: MemoryStorage | None = None
+_storage_instance: MemoryStorage | Mem0MemoryClient | None = None
 _storage_lock = threading.Lock()
 
 
-def get_memory_storage() -> MemoryStorage:
+def get_memory_storage() -> MemoryStorage | Mem0MemoryClient:
     """Get the configured memory storage instance."""
     global _storage_instance
     if _storage_instance is not None:
@@ -178,6 +179,10 @@ def get_memory_storage() -> MemoryStorage:
             return _storage_instance
 
         config = get_memory_config()
+        if config.provider == "mem0":
+            _storage_instance = Mem0MemoryClient(config)
+            return _storage_instance
+
         storage_class_path = config.storage_class
 
         try:

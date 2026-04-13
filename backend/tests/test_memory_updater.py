@@ -1,5 +1,7 @@
 from unittest.mock import MagicMock, patch
 
+from langchain_core.messages import AIMessage, HumanMessage
+
 from deerflow.agents.memory.prompt import format_conversation_for_update
 from deerflow.agents.memory.updater import (
     MemoryUpdater,
@@ -75,6 +77,52 @@ def test_apply_updates_skips_existing_duplicate_and_preserves_removals() -> None
 
     assert [fact["content"] for fact in result["facts"]] == ["User likes Python"]
     assert all(fact["id"] != "fact_remove" for fact in result["facts"])
+
+
+def test_update_memory_uses_mem0_storage_with_user_scope() -> None:
+    storage = MagicMock()
+    updater = MemoryUpdater()
+    messages = [
+        HumanMessage(content="Remember that I like sci-fi books."),
+        AIMessage(content="I'll remember that."),
+    ]
+
+    with (
+        patch(
+            "deerflow.agents.memory.updater.get_memory_config",
+            return_value=_memory_config(provider="mem0", write_enabled=True),
+        ),
+        patch("deerflow.agents.memory.updater.get_memory_storage", return_value=storage),
+    ):
+        result = updater.update_memory(messages=messages, thread_id="thread-1", user_id="user-42")
+
+    assert result is True
+    storage.add_messages.assert_called_once_with(
+        user_id="user-42",
+        messages=[
+            {"role": "user", "content": "Remember that I like sci-fi books."},
+            {"role": "assistant", "content": "I'll remember that."},
+        ],
+        metadata={"thread_id": "thread-1", "agent_name": None},
+    )
+
+
+def test_update_memory_skips_mem0_write_without_user_id() -> None:
+    storage = MagicMock()
+    updater = MemoryUpdater()
+    messages = [HumanMessage(content="Remember this.")]
+
+    with (
+        patch(
+            "deerflow.agents.memory.updater.get_memory_config",
+            return_value=_memory_config(provider="mem0", write_enabled=True),
+        ),
+        patch("deerflow.agents.memory.updater.get_memory_storage", return_value=storage),
+    ):
+        result = updater.update_memory(messages=messages, thread_id="thread-1")
+
+    assert result is False
+    storage.add_messages.assert_not_called()
 
 
 def test_apply_updates_skips_same_batch_duplicates_and_keeps_source_metadata() -> None:

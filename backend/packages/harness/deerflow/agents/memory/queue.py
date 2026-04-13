@@ -17,6 +17,7 @@ class ConversationContext:
     """Context for a conversation to be processed for memory update."""
 
     thread_id: str
+    user_id: str | None
     messages: list[Any]
     timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
     agent_name: str | None = None
@@ -42,6 +43,7 @@ class MemoryUpdateQueue:
     def add(
         self,
         thread_id: str,
+        user_id: str | None,
         messages: list[Any],
         agent_name: str | None = None,
         correction_detected: bool = False,
@@ -51,6 +53,7 @@ class MemoryUpdateQueue:
 
         Args:
             thread_id: The thread ID.
+            user_id: The current user ID for user-scoped memory backends.
             messages: The conversation messages.
             agent_name: If provided, memory is stored per-agent. If None, uses global memory.
             correction_detected: Whether recent turns include an explicit correction signal.
@@ -69,6 +72,7 @@ class MemoryUpdateQueue:
             merged_reinforcement_detected = reinforcement_detected or (existing_context.reinforcement_detected if existing_context is not None else False)
             context = ConversationContext(
                 thread_id=thread_id,
+                user_id=user_id or (existing_context.user_id if existing_context is not None else None),
                 messages=messages,
                 agent_name=agent_name,
                 correction_detected=merged_correction_detected,
@@ -133,6 +137,7 @@ class MemoryUpdateQueue:
                     success = updater.update_memory(
                         messages=context.messages,
                         thread_id=context.thread_id,
+                        user_id=context.user_id,
                         agent_name=context.agent_name,
                         correction_detected=context.correction_detected,
                         reinforcement_detected=context.reinforcement_detected,

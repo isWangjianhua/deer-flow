@@ -620,17 +620,21 @@ summarization:
 # ============================================================================
 # Memory Configuration
 # ============================================================================
-# Global memory mechanism
-# Stores user context and conversation history for personalized responses
+# Runtime long-term memory
+# Resolved and persisted inside deerflow-harness. Browser-facing memory CRUD is disabled.
 memory:
   enabled: true
-  storage_path: memory.json # Path relative to backend directory
+  provider: mem0 # file | mem0
   debounce_seconds: 30 # Wait time before processing queued updates
+  write_enabled: true # Whether post-run memory writes are enabled
+  mem0_search_limit: 8 # Maximum number of memories retrieved per request
   model_name: null # Use default model
+  storage_path: memory.json # Used only by provider=file
   max_facts: 100 # Maximum number of facts to store
   fact_confidence_threshold: 0.7 # Minimum confidence for storing facts
-  injection_enabled: true # Whether to inject memory into system prompt
+  injection_enabled: true # Whether to inject retrieved memory at request time
   max_injection_tokens: 2000 # Maximum tokens for memory injection
+  mem0_config: {} # Mem0 OSS Python SDK config passed to Memory.from_config(...)
 
 # ============================================================================
 # Skill Self-Evolution Configuration
@@ -685,7 +689,7 @@ checkpointer:
 #   #   langgraph_url: http://langgraph:2024
 #   #   gateway_url: http://gateway:8001
 #   langgraph_url: http://localhost:2024
-#   # Gateway API URL for auxiliary queries like /models, /memory (default: http://localhost:8001)
+#   # Gateway API URL for auxiliary queries like /models (default: http://localhost:8001)
 #   gateway_url: http://localhost:8001
 #   #
 #   # Docker Compose note:

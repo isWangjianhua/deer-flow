@@ -3,7 +3,9 @@ import logging
 import threading
 from datetime import datetime
 from functools import lru_cache
+from typing import Any
 
+from deerflow.agents.memory.prompt import _count_tokens
 from deerflow.config.agents_config import load_agent_soul
 from deerflow.skills import load_skills
 from deerflow.skills.types import Skill
@@ -505,35 +507,26 @@ combined with a FastAPI gateway for REST API access [citation:FastAPI](https://f
 
 
 def _get_memory_context(agent_name: str | None = None) -> str:
-    """Get memory context for injection into system prompt.
+    """Long-term memory is injected at request time via middleware, not here."""
+    return ""
 
-    Args:
-        agent_name: If provided, loads per-agent memory. If None, loads global memory.
 
-    Returns:
-        Formatted memory context string wrapped in XML tags, or empty string if disabled.
-    """
-    try:
-        from deerflow.agents.memory import format_memory_for_injection, get_memory_data
-        from deerflow.config.memory_config import get_memory_config
-
-        config = get_memory_config()
-        if not config.enabled or not config.injection_enabled:
-            return ""
-
-        memory_data = get_memory_data(agent_name)
-        memory_content = format_memory_for_injection(memory_data, max_tokens=config.max_injection_tokens)
-
-        if not memory_content.strip():
-            return ""
-
-        return f"""<memory>
-{memory_content}
-</memory>
-"""
-    except Exception as e:
-        logger.error("Failed to load memory context: %s", e)
-        return ""
+def format_mem0_memories_for_injection(results: list[dict[str, Any]], max_tokens: int) -> str:
+    """Format Mem0 search results into a bounded bullet list for runtime injection."""
+    selected_lines: list[str] = []
+    for entry in results:
+        raw_memory = entry.get("memory") or entry.get("text") or entry.get("content")
+        if not isinstance(raw_memory, str):
+            continue
+        memory = raw_memory.strip()
+        if not memory:
+            continue
+        candidate_lines = [*selected_lines, f"- {memory}"]
+        candidate_block = "\n".join(candidate_lines)
+        if _count_tokens(candidate_block) > max_tokens:
+            break
+        selected_lines.append(f"- {memory}")
+    return "\n".join(selected_lines)
 
 
 @lru_cache(maxsize=32)

@@ -123,14 +123,14 @@ Current same-origin browser behavior:
 - main chat artifact viewing/downloading goes through `/api/bff/conversations/*/artifacts/*`
 - main chat follow-up suggestions go through `/api/bff/conversations/*/suggestions`
 - main chat attachment uploads go through `/api/bff/conversations/*/uploads`
-- memory, MCP, skills, and agents go through same-origin Next.js bridge routes
+- MCP, skills, and agents go through same-origin Next.js bridge routes
 - `/workspace/account` is now a product-facing account/status page with a shared auth panel, session diagnostics, and unauthenticated chat recovery
 
 What still remains mixed:
 
 - some older non-chat runtime surfaces still use Gateway-facing thread semantics behind server bridges
 - direct `:3000` development still behaves differently from the canonical `:2026` nginx entrypoint
-- memory, MCP, skills, and agents are same-origin, but not yet BFF-owned APIs
+- MCP, skills, and agents are same-origin, but not yet BFF-owned APIs
 
 Current startup story:
 
@@ -140,8 +140,8 @@ Current startup story:
 
 Current nginx ownership:
 
-- browser-visible `/api/models`, `/api/memory`, `/api/mcp`, `/api/skills`, `/api/agents`, and
-  `/api/threads/*` now fall through to `frontend`
+- browser-visible `/api/models`, `/api/mcp`, `/api/skills`, `/api/agents`, and `/api/threads/*`
+  now fall through to `frontend`
 - Next.js same-origin route handlers own those browser entrypoints
 - direct browser access to `http://127.0.0.1:8001` is still non-canonical because the gateway expects
   CORS to be handled by `nginx`
@@ -241,13 +241,13 @@ The main workspace chat path now uses a BFF-owned protocol rather than frontend-
 
 Current chat limitations:
 
-- memory, MCP, skills, and agents are same-origin server bridges today, not BFF-owned APIs
+- MCP, skills, and agents are same-origin server bridges today, not BFF-owned APIs
 - conversation rename/delete/archive actions are not yet exposed
 - agent-specific chat paths still retain more legacy runtime semantics than the main chat path
 
 Recommended next follow-up for the BFF chat path:
 
-- decide which memory, MCP, skills, and agents paths should move from same-origin bridges into BFF ownership
+- decide which MCP, skills, and agents paths should move from same-origin bridges into BFF ownership
 - decide whether more protected workspace actions should reuse the login-required dialog pattern
 - reduce remaining frontend-visible gateway assumptions in direct `pnpm dev` flows
 

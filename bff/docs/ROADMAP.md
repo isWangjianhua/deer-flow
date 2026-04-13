@@ -128,13 +128,13 @@ Recommended scope:
   treating them as incidental plumbing
 - continue removing or formalizing the remaining legacy runtime-thread dependencies after startup
   alignment, model proxying, same-origin settings bridges, and nginx cleanup
-- define a real owner model for `memory`, `MCP`, `skills`, and `agents`
+- define a real owner model for `MCP`, `skills`, and `agents`
 - make user-state resources cross a BFF ownership boundary before resolving internal runtime
   `thread_id` values
 - remove browser-visible dependency on Gateway `/api/threads/*` for user-facing workflows
-- redesign memory as user-scoped storage keyed by `user_id` instead of a single global runtime file
-- keep the memory implementation replaceable so a provider such as `mem0` can be adopted later
-  behind the same BFF contract
+- keep long-term memory runtime-owned in `deerflow-harness` and pass authenticated `user_id`
+  through the BFF stream contract
+- treat browser-facing `/api/memory` as removed rather than a future BFF product surface
 
 Suggested branch:
 
@@ -256,8 +256,8 @@ What is intentionally not duplicated there:
 Status: completed for the current same-origin bridge model
 
 `nginx.local.conf` and `nginx.conf` now let browser-visible bridge-owned API routes fall through to
-`frontend` instead of explicitly proxying `/api/models`, `/api/memory`, `/api/mcp`, `/api/skills`,
-`/api/agents`, and `/api/threads/*` to Gateway.
+`frontend` instead of explicitly proxying `/api/models`, `/api/mcp`, `/api/skills`, `/api/agents`,
+and `/api/threads/*` to Gateway.
 
 What still remains here is architectural follow-up, not the initial cleanup:
 

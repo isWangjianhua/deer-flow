@@ -252,6 +252,21 @@ def _fact_content_key(content: Any) -> str | None:
     return stripped.casefold()
 
 
+def _message_to_mem0_dict(message: Any) -> dict[str, str] | None:
+    role = getattr(message, "type", None)
+    if role == "human":
+        role = "user"
+    elif role == "ai":
+        role = "assistant"
+    elif role not in {"user", "assistant", "system"}:
+        return None
+
+    content = _extract_text(getattr(message, "content", "")).strip()
+    if not content:
+        return None
+    return {"role": role, "content": content}
+
+
 class MemoryUpdater:
     """Updates memory using LLM based on conversation context."""
 
@@ -273,6 +288,7 @@ class MemoryUpdater:
         self,
         messages: list[Any],
         thread_id: str | None = None,
+        user_id: str | None = None,
         agent_name: str | None = None,
         correction_detected: bool = False,
         reinforcement_detected: bool = False,
@@ -297,6 +313,26 @@ class MemoryUpdater:
             return False
 
         try:
+            if config.provider == "mem0":
+                if not config.write_enabled or not user_id:
+                    return False
+
+                payload = [item for item in (_message_to_mem0_dict(message) for message in messages) if item is not None]
+                if not payload:
+                    return False
+
+                storage = get_memory_storage()
+                if not hasattr(storage, "add_messages"):
+                    return False
+
+                return bool(
+                    storage.add_messages(
+                        user_id=user_id,
+                        messages=payload,
+                        metadata={"thread_id": thread_id, "agent_name": agent_name},
+                    )
+                )
+
             # Get current memory
             current_memory = get_memory_data(agent_name)
 
@@ -452,6 +488,7 @@ class MemoryUpdater:
 def update_memory_from_conversation(
     messages: list[Any],
     thread_id: str | None = None,
+    user_id: str | None = None,
     agent_name: str | None = None,
     correction_detected: bool = False,
     reinforcement_detected: bool = False,
@@ -469,4 +506,11 @@ def update_memory_from_conversation(
         True if successful, False otherwise.
     """
     updater = MemoryUpdater()
-    return updater.update_memory(messages, thread_id, agent_name, correction_detected, reinforcement_detected)
+    return updater.update_memory(
+        messages=messages,
+        thread_id=thread_id,
+        user_id=user_id,
+        agent_name=agent_name,
+        correction_detected=correction_detected,
+        reinforcement_detected=reinforcement_detected,
+    )

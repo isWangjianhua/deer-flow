@@ -881,8 +881,6 @@ class ChannelManager:
             reply = f"Active thread: {thread_id}" if thread_id else "No active conversation."
         elif command == "models":
             reply = await self._fetch_gateway("/api/models", "models")
-        elif command == "memory":
-            reply = await self._fetch_gateway("/api/memory", "memory")
         elif command == "help":
             reply = (
                 "Available commands:\n"
@@ -890,7 +888,6 @@ class ChannelManager:
                 "/new — Start a new conversation\n"
                 "/status — Show current thread info\n"
                 "/models — List available models\n"
-                "/memory — Show memory status\n"
                 "/help — Show this help"
             )
         else:
@@ -922,9 +919,6 @@ class ChannelManager:
         if kind == "models":
             names = [m["name"] for m in data.get("models", [])]
             return ("Available models:\n" + "\n".join(f"• {n}" for n in names)) if names else "No models configured."
-        elif kind == "memory":
-            facts = data.get("facts", [])
-            return f"Memory contains {len(facts)} fact(s)."
         return str(data)
 
     # -- error helper ------------------------------------------------------

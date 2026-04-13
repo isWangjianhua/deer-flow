@@ -46,7 +46,8 @@ Out of scope for the first version:
 - admin back office
 - deep business workflow orchestration
 - conversation deletion
-- broader BFF ownership for memory, MCP, skills, and agents
+- broader BFF ownership for MCP, skills, and agents
+- runtime-owned long-term memory internals
 
 ## Architecture
 
@@ -69,8 +70,10 @@ Important current caveat:
 - the main chat page already uses BFF conversation semantics
 - the main frontend chat/account/model/resource path no longer requires direct browser access to the
   DeerFlow Gateway
-- memory, MCP, skills, and agents are now same-origin from the browser, but they are still Next.js
+- MCP, skills, and agents are now same-origin from the browser, but they are still Next.js
   bridge routes rather than BFF-owned APIs
+- long-term memory is no longer a browser-facing surface; BFF only forwards authenticated `user_id`
+  into the runtime stream context so deerflow-harness can resolve Mem0-backed memory internally
 - because the gateway currently expects `nginx` to handle CORS, direct browser requests to
   `http://127.0.0.1:8001` are not a stable local-development contract
 - in local frontend-only dev, Next.js currently acts as a partial same-origin bridge for some
@@ -285,7 +288,7 @@ Current recommended frontend path:
 
 Known integration gaps as of `2026-04-13`:
 
-- memory, MCP, skills, and agents are still same-origin Next.js bridge routes rather than BFF-owned APIs
+- MCP, skills, and agents are still same-origin Next.js bridge routes rather than BFF-owned APIs
 - some legacy runtime-thread surfaces still exist outside the main BFF-backed chat path
 - conversation lifecycle is still incomplete beyond create/list/detail/stream
 - direct browser calls to the gateway are still fragile outside `nginx` because gateway CORS is not the intended public contract
