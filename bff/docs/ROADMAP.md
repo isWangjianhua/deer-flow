@@ -44,6 +44,8 @@ What is now true:
 - gateway-mode local startup launches `Gateway + BFF + Frontend + nginx`
 - `/workspace/account` now works as a product-facing account/status page
 - local BFF auth now supports self-service username/password registration from `/workspace/account`
+- unauthenticated chat submission now opens an in-place login dialog and preserves the drafted text for explicit resend after login
+- language switching remains centralized in `Settings > Appearance` rather than duplicating locale controls inside `/workspace/account`
 - nginx now lets bridge-owned browser-visible API routes fall through to `frontend`
 
 What still remains for the next product loop:
@@ -238,6 +240,16 @@ Status: completed
 
 The former verification/debug page has already been converted into a product-facing account/status
 page with separate browser-session and BFF-connection sections plus collapsible diagnostics.
+
+What this now includes:
+
+- a shared auth panel used by both `/workspace/account` and the login-required chat dialog
+- local username/password registration in local auth mode
+- in-place login recovery when a user tries to send a chat message while unauthenticated
+
+What is intentionally not duplicated there:
+
+- language switching, which remains owned by `Settings > Appearance`
 
 ## 9. Nginx Route Ownership Cleanup
 
