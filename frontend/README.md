@@ -32,6 +32,9 @@ cp .env.example .env
 # Start development server
 pnpm dev
 
+# Fallback only if you hit a Turbopack-specific regression
+pnpm dev:webpack
+
 # The app will be available at http://localhost:3000
 ```
 
@@ -188,6 +191,7 @@ src/
 | Command             | Description                             |
 | ------------------- | --------------------------------------- |
 | `pnpm dev`          | Start development server with Turbopack |
+| `pnpm dev:webpack`  | Start development server with webpack fallback |
 | `pnpm build`        | Build for production                    |
 | `pnpm start`        | Start production server                 |
 | `pnpm format`       | Check formatting with Prettier          |
