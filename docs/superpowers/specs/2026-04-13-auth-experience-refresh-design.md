@@ -9,8 +9,8 @@ Improve the frontend login experience as a coherent product surface rather than 
 This slice includes:
 
 - a cleaner `/workspace/account` page
-- direct language switching on the account page
 - a shared auth panel used by both the account page and a login-required dialog
+- language switching remaining centralized in `Settings > Appearance`
 - login interception when an unauthenticated user tries to send a chat message
 
 This slice intentionally does not change the BFF auth contract.
@@ -20,7 +20,7 @@ This slice intentionally does not change the BFF auth contract.
 The current auth experience works but feels fragmented:
 
 - `/workspace/account` mixes product-facing account UI with low-level diagnostics
-- the account page does not expose language switching even though the app already supports it
+- language settings exist, but auth/account flows are not cleanly aligned with the existing settings surface
 - login UI is not structured for reuse in other auth entrypoints
 - unauthenticated chat submission does not guide the user through a clean login flow
 
@@ -29,11 +29,11 @@ The result is a working but uneven experience, especially around sign-in and rec
 ## Goals
 
 - Make `/workspace/account` feel like a proper account and sign-in entrypoint.
-- Expose language switching directly on the account page.
 - Reuse one auth panel across page and dialog contexts.
 - Intercept unauthenticated chat submission and open a login dialog.
 - Preserve the user’s drafted message after login and require explicit resend.
 - Keep local auth and OIDC flows both supported.
+- Keep language switching owned by the existing settings surface rather than duplicating it in account/auth UI.
 
 ## Non-Goals
 
@@ -114,7 +114,6 @@ Create a reusable auth-focused component responsible for:
 - rendering local login/register form in local mode
 - rendering OIDC sign-in CTA in OIDC mode
 - showing inline errors and submit states
-- exposing a compact language switcher
 - notifying callers when login succeeds
 
 Inputs should include:
@@ -152,18 +151,11 @@ This dialog should:
 
 Update `/workspace/account` to use a clearer layout:
 
-- top area: page title, short explanation, language switcher
+- top area: page title, short explanation, auth-mode context
 - primary card: shared `AuthPanel`
 - secondary card: `AccountSessionCard`
 
 The account page should feel like a clean auth and access hub rather than a debug screen.
-
-The language switcher should reuse the same locale options already used in appearance settings:
-
-- English
-- 中文
-
-Changing language here should update the i18n context and locale cookie immediately.
 
 ## Chat Submit Interception
 
@@ -232,7 +224,7 @@ The account page should remain useful even if BFF diagnostics fail to load.
 Add coverage for:
 
 - account page uses the refreshed product-facing structure
-- account page exposes direct language switching
+- account page no longer embeds its own language selector
 - auth panel and session card are separated conceptually
 
 ### Auth panel tests
@@ -241,7 +233,7 @@ Add coverage for:
 
 - local mode shows login/register
 - OIDC mode shows sign-in CTA
-- language switcher is rendered
+- auth panel stays focused on authentication rather than settings controls
 - successful auth can trigger `onSuccess`
 - local validation and error rendering still work
 
@@ -270,4 +262,4 @@ Possible follow-ups after this slice:
 - restore attachments as part of pending unauthenticated submits if current prompt-input APIs make that reliable
 - add a more global auth-required modal policy for other protected actions
 - further reduce technical diagnostics on the account page
-- unify account-page language switching and settings-page appearance controls under a more explicit preferences model
+- decide whether more auth-adjacent preferences should surface inside settings rather than account

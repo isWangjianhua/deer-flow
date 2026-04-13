@@ -334,5 +334,5 @@ The next BFF-facing product fixes should focus on consistency, not new product s
 
 1. decide which settings/resource APIs should move from same-origin Next.js bridges into BFF ownership
 2. complete conversation lifecycle actions and related frontend controls
-3. turn `/workspace/account` into a product-facing account/status page
+3. further reduce technical diagnostics on `/workspace/account` while keeping the session/BFF health view useful
 4. align nginx and remaining local-dev route ownership with the intended BFF-first architecture

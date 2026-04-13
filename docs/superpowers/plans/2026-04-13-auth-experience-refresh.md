@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Refresh the login experience by turning `/workspace/account` into a cleaner account/auth hub, adding direct language switching there, and intercepting unauthenticated chat submits with a reusable login dialog that preserves the drafted message.
+**Goal:** Refresh the login experience by turning `/workspace/account` into a cleaner account/auth hub and intercepting unauthenticated chat submits with a reusable login dialog that preserves the drafted message.
 
 **Architecture:** Split the current `auth-status-card` into smaller auth-focused units: a reusable `AuthPanel`, a secondary account/session status card, and a `LoginRequiredDialog` for chat interception. Keep auth state on the existing browser-session boundary, and implement chat-side guarding in the chat page layer, with a small `InputBox` enhancement so a restored draft can be written back after login without auto-submitting.
 
@@ -15,7 +15,7 @@
 Planned files and responsibilities:
 
 - Create: `frontend/src/components/auth/auth-panel.tsx`
-  Shared login/register surface for page and dialog contexts, including language switcher and auth success callback.
+  Shared login/register surface for page and dialog contexts, focused on auth success/error flows rather than settings controls.
 - Create: `frontend/src/components/auth/auth-panel.boundary.test.ts`
   Boundary coverage for shared auth panel structure and mode-specific affordances.
 - Create: `frontend/src/components/auth/account-session-card.tsx`
@@ -71,8 +71,8 @@ void test("auth panel exposes shared page/dialog auth UI primitives", async () =
     "expected AuthPanel to notify callers when authentication succeeds",
   );
   assert.ok(
-    source.includes("changeLocale"),
-    "expected AuthPanel to expose direct language switching",
+    !source.includes("changeLocale"),
+    "expected AuthPanel to stay focused on auth instead of locale settings",
   );
   assert.ok(
     source.includes("signUpWithLocalPassword"),
@@ -98,7 +98,7 @@ export function AuthPanel({
   defaultTab?: "login" | "register";
   onSuccess?: () => void;
 }) {
-  const { t, locale, changeLocale } = useI18n();
+  const { t } = useI18n();
   const [authMode, setAuthMode] = useState<"login" | "register">(defaultTab);
   // move local login/register logic here from auth-status-card
   // call onSuccess?.() after successful local or OIDC auth
@@ -122,7 +122,7 @@ git add frontend/src/components/auth/auth-panel.tsx frontend/src/components/auth
 git commit -m "refactor: extract shared auth panel"
 ```
 
-### Task 2: Refresh the account page and add direct language switching
+### Task 2: Refresh the account page layout and keep language settings centralized
 
 **Files:**
 - Modify: `frontend/src/app/workspace/account/page.tsx`
@@ -135,7 +135,7 @@ git commit -m "refactor: extract shared auth panel"
 - [ ] **Step 1: Write the failing account-page boundary tests**
 
 ```typescript
-void test("account page promotes auth as the primary action and exposes direct language switching", async () => {
+void test("account page promotes auth as the primary action without embedding language settings", async () => {
   const pageSource = await readFile(
     new URL("../../app/workspace/account/page.tsx", import.meta.url),
     "utf8",
@@ -151,8 +151,8 @@ void test("account page promotes auth as the primary action and exposes direct l
     "expected the account page to separate auth UI from session diagnostics",
   );
   assert.ok(
-    panelSource.includes("SelectTrigger"),
-    "expected the shared auth panel to include a direct language switcher",
+    !panelSource.includes("changeLocale"),
+    "expected the shared auth panel to avoid owning language settings",
   );
 });
 ```
@@ -190,7 +190,6 @@ authExperience: {
   accountDescription: string;
   loginTitle: string;
   registerTitle: string;
-  languageLabel: string;
   // add the exact strings used by AuthPanel and dialog
 };
 ```
@@ -428,7 +427,7 @@ git commit -m "feat: intercept unauthenticated chat submits"
 
 ```md
 - `/workspace/account` now acts as the account and sign-in hub
-- the account page includes direct language switching
+- language switching remains centralized in settings rather than duplicated in account
 - unauthenticated chat sends now open an in-place login dialog and preserve the drafted message
 ```
 

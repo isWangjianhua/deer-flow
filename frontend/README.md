@@ -124,7 +124,7 @@ Current same-origin browser behavior:
 - main chat follow-up suggestions go through `/api/bff/conversations/*/suggestions`
 - main chat attachment uploads go through `/api/bff/conversations/*/uploads`
 - memory, MCP, skills, and agents go through same-origin Next.js bridge routes
-- `/workspace/account` is now a product-facing account/status page with collapsible diagnostics
+- `/workspace/account` is now a product-facing account/status page with a shared auth panel, session diagnostics, and unauthenticated chat recovery
 
 What still remains mixed:
 
@@ -217,10 +217,10 @@ src/
 - `src/core/auth/browser.ts` switches between live Better Auth behavior and a test-only browser mock adapter used by the auth E2E flow.
 - `src/app/api/bff/me/route.ts` is the first authenticated bridge route from the frontend to the FastAPI BFF.
 - `/api/bff/me` prefers `DEER_FLOW_INTERNAL_BFF_BASE_URL`, falls back to an absolute `NEXT_PUBLIC_BFF_BASE_URL`, and otherwise uses `http://127.0.0.1:9000`.
-- `src/app/workspace/account/page.tsx` is the minimum proof page for browser OIDC login, session recovery, and authenticated BFF `/me`.
-- `/workspace/account` is still an auth verification page for this slice; future product work should
-  turn it into a real account page with clearer session state, connection health, and settings
-  instead of exposing raw debug JSON as the primary UI.
+- `src/app/workspace/account/page.tsx` is the product-facing account surface for sign-in, local registration, session health, and authenticated BFF `/me`.
+- `src/components/auth/auth-panel.tsx` is the shared auth surface used by both `/workspace/account` and the login-required chat dialog.
+- unauthenticated chat sends now open a reusable login dialog and preserve the drafted message text for explicit resend after login.
+- language switching stays centralized in `Settings > Appearance`; `/workspace/account` no longer hosts a separate locale selector.
 
 ## Auth E2E
 
@@ -248,7 +248,7 @@ Current chat limitations:
 Recommended next follow-up for the BFF chat path:
 
 - decide which memory, MCP, skills, and agents paths should move from same-origin bridges into BFF ownership
-- turn `/workspace/account` from a verification screen into a product account/settings page
+- decide whether more protected workspace actions should reuse the login-required dialog pattern
 - reduce remaining frontend-visible gateway assumptions in direct `pnpm dev` flows
 
 ## Chat E2E
