@@ -28,19 +28,21 @@ export function LoginRequiredDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xl">
-        <DialogHeader className="gap-2">
+      <DialogContent className="overflow-hidden border bg-background p-0 shadow-xl sm:max-w-md">
+        <DialogHeader className="gap-2 border-b px-5 pt-5 pb-4 text-left">
           <DialogTitle>{t.auth.loginRequiredTitle}</DialogTitle>
           <DialogDescription>
             {t.auth.loginRequiredDescription}
           </DialogDescription>
         </DialogHeader>
-        <AuthPanel
-          mode="dialog"
-          onSuccess={onAuthenticated}
-          callbackURL={callbackURL}
-          onBeforeOidcRedirect={onBeforeOidcRedirect}
-        />
+        <div className="p-5">
+          <AuthPanel
+            mode="dialog"
+            onSuccess={onAuthenticated}
+            callbackURL={callbackURL}
+            onBeforeOidcRedirect={onBeforeOidcRedirect}
+          />
+        </div>
       </DialogContent>
     </Dialog>
   );

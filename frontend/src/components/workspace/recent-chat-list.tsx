@@ -64,7 +64,7 @@ import { isIMEComposing } from "@/lib/ime";
 export function RecentChatList() {
   const pathname = usePathname();
 
-  if (isBffChatRoute(pathname)) {
+  if (isBffChatRoute(pathname) || pathname === "/workspace/account") {
     return <BffRecentChatList pathname={pathname} />;
   }
 

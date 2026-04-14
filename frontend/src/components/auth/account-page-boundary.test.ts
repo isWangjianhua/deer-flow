@@ -17,12 +17,20 @@ void test("account page composes the shared auth panel and session card", async 
     "expected the account page to render the account session card",
   );
   assert.ok(
-    source.includes("radial-gradient"),
-    "expected the account page hero to use an intentional visual treatment",
+    source.includes("max-w-3xl"),
+    "expected the account page to use a tighter single-column container",
   );
   assert.ok(
-    !source.includes("t.auth.languageLabel"),
-    "expected the account page to stop advertising language switching",
+    source.includes("LogoutButton"),
+    "expected the account page to expose account actions from the summary card",
+  );
+  assert.ok(
+    !source.includes("linear-gradient"),
+    "expected the account page to avoid decorative gradient hero treatments",
+  );
+  assert.ok(
+    !source.includes("signedInAs"),
+    "expected the account page summary to stop duplicating identity details that already exist in the session card",
   );
 });
 
@@ -61,7 +69,11 @@ void test("auth panel focuses on authentication instead of account-level languag
     "expected the auth panel to stop changing locale directly",
   );
   assert.ok(
-    source.includes("signedInReadyTitle"),
-    "expected the auth panel to support an authenticated page state",
+    !source.includes('authMode === "register" && "sm:grid-cols-2"'),
+    "expected the registration fields to stay in a simple stacked layout",
+  );
+  assert.ok(
+    source.includes("rounded-xl bg-muted p-1"),
+    "expected the local auth mode switcher to use a compact segmented treatment",
   );
 });

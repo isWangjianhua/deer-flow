@@ -8,7 +8,6 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
 import {
   signInWithLocalPassword,
   signInWithOidc,
@@ -105,81 +104,67 @@ export function AuthPanel({
   }
 
   return (
-    <section
-      className={mode === "dialog" ? "space-y-4" : "rounded-xl border p-4"}
-    >
-      <div className="space-y-1">
+    <section className={mode === "dialog" ? "space-y-4" : "space-y-5"}>
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="secondary">{authModeLabel}</Badge>
+          {mode === "page" && sessionState.status === "authenticated" ? (
+            <Badge>{t.auth.signedIn}</Badge>
+          ) : null}
+        </div>
         <div className="space-y-1">
-          <h3 className="text-sm font-semibold">{t.auth.accessTitle}</h3>
-          <p className="text-muted-foreground text-sm">
+          <h3 className="text-base font-semibold">{t.auth.accessTitle}</h3>
+          <p className="text-muted-foreground text-sm leading-6">
             {localMode
               ? t.auth.accessDescriptionLocal
               : t.auth.accessDescriptionOidc}
           </p>
         </div>
       </div>
-      {mode === "page" ? <Separator className="my-4" /> : null}
 
       {mode === "page" && sessionState.status === "authenticated" ? (
-        <div className="space-y-4">
-          <div className="flex flex-wrap items-center gap-2">
+        <div className="rounded-2xl border p-4">
+          <div className="space-y-1">
+            <h4 className="text-sm font-semibold">{t.auth.signedInReadyTitle}</h4>
+            <p className="text-muted-foreground text-sm leading-6">
+              {t.auth.signedInReadyDescription}
+            </p>
+          </div>
+          <div className="mt-4 flex flex-wrap items-center gap-2">
             <Badge variant="secondary">{authModeLabel}</Badge>
             <Badge>{t.auth.signedIn}</Badge>
           </div>
-          <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4">
-            <div className="space-y-1">
-              <h4 className="text-sm font-semibold">
-                {t.auth.signedInReadyTitle}
-              </h4>
-              <p className="text-muted-foreground text-sm">
-                {t.auth.signedInReadyDescription}
-              </p>
-            </div>
-            <Separator className="my-4" />
-            <dl className="space-y-2 text-sm">
-              <div className="flex items-start justify-between gap-4">
-                <dt className="text-muted-foreground">{t.auth.signedInAs}</dt>
-                <dd className="max-w-[65%] text-right font-medium break-words">
-                  {sessionState.user?.email ??
-                    sessionState.user?.name ??
-                    sessionState.user?.id ??
-                    "-"}
-                </dd>
-              </div>
-              <div className="flex items-start justify-between gap-4">
-                <dt className="text-muted-foreground">{t.auth.signInMode}</dt>
-                <dd className="max-w-[65%] text-right font-medium break-words">
-                  {authModeLabel}
-                </dd>
-              </div>
-            </dl>
-          </div>
         </div>
       ) : localMode ? (
-        <form className="space-y-3" onSubmit={handleLocalAuthSubmit}>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant={authMode === "login" ? "default" : "outline"}
-              onClick={() => {
-                setAuthMode("login");
-                setLocalAuthError(null);
-              }}
-            >
-              {t.auth.login}
-            </Button>
-            <Button
-              type="button"
-              variant={authMode === "register" ? "default" : "outline"}
-              onClick={() => {
-                setAuthMode("register");
-                setLocalAuthError(null);
-              }}
-            >
-              {t.auth.register}
-            </Button>
+        <form className="space-y-4" onSubmit={handleLocalAuthSubmit}>
+          <div className="rounded-xl bg-muted p-1">
+            <div className="grid grid-cols-2 gap-1">
+              <Button
+                type="button"
+                variant={authMode === "login" ? "default" : "ghost"}
+                className="h-9 rounded-lg"
+                onClick={() => {
+                  setAuthMode("login");
+                  setLocalAuthError(null);
+                }}
+              >
+                {t.auth.login}
+              </Button>
+              <Button
+                type="button"
+                variant={authMode === "register" ? "default" : "ghost"}
+                className="h-9 rounded-lg"
+                onClick={() => {
+                  setAuthMode("register");
+                  setLocalAuthError(null);
+                }}
+              >
+                {t.auth.register}
+              </Button>
+            </div>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2">
+
+          <div className="grid gap-3">
             <Input
               autoComplete="username"
               required
@@ -208,8 +193,19 @@ export function AuthPanel({
               />
             ) : null}
           </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <Button disabled={isSubmitting} type="submit">
+
+          <div
+            className={`flex gap-3 ${
+              mode === "dialog"
+                ? "flex-col"
+                : "sm:flex-row sm:items-center sm:justify-between"
+            }`}
+          >
+            <Button
+              className={mode === "dialog" ? "w-full" : "sm:min-w-44"}
+              disabled={isSubmitting}
+              type="submit"
+            >
               {isSubmitting
                 ? authMode === "register"
                   ? t.auth.creatingAccount
@@ -218,26 +214,31 @@ export function AuthPanel({
                   ? t.auth.createLocalAccount
                   : t.auth.signInWithLocal}
             </Button>
-            {authMode === "login" ? (
-              <span className="text-muted-foreground text-sm">
-                {t.auth.defaultCredentials} <code>demo</code> /{" "}
-                <code>demo123</code>
-              </span>
-            ) : (
-              <span className="text-muted-foreground text-sm">
-                {t.auth.registrationLocalOnly}
-              </span>
-            )}
+            <p className="text-muted-foreground mt-3 text-sm leading-6">
+              {authMode === "login" ? (
+                <>
+                  {t.auth.defaultCredentials} <code>demo</code> /{" "}
+                  <code>demo123</code>
+                </>
+              ) : (
+                t.auth.registrationLocalOnly
+              )}
+            </p>
           </div>
         </form>
       ) : (
-        <div className="flex flex-wrap items-center gap-3">
-          <Button onClick={() => void handleOidcSignIn()}>
-            {t.auth.signIn}
-          </Button>
-          <span className="text-muted-foreground text-sm">
-            {t.auth.oidcRedirectHint}
-          </span>
+        <div className="rounded-2xl border p-4">
+          <div className="flex flex-col gap-3">
+            <Button
+              className={mode === "dialog" ? "w-full" : "sm:w-fit"}
+              onClick={() => void handleOidcSignIn()}
+            >
+              {t.auth.signIn}
+            </Button>
+            <p className="text-muted-foreground text-sm leading-6">
+              {t.auth.oidcRedirectHint}
+            </p>
+          </div>
         </div>
       )}
 

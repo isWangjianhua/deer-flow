@@ -25,4 +25,16 @@ void test("auth panel exposes shared page and dialog auth UI primitives", async 
     source.includes("signUpWithLocalPassword"),
     "expected AuthPanel to handle local registration directly",
   );
+  assert.ok(
+    source.includes('mode === "dialog"'),
+    "expected AuthPanel to branch its action layout for dialog mode",
+  );
+  assert.ok(
+    source.includes('"flex-col"'),
+    "expected dialog actions to stay vertically stacked",
+  );
+  assert.ok(
+    source.includes('"sm:flex-row sm:items-center sm:justify-between"'),
+    "expected dialog actions to stay vertically stacked so the copy does not overflow the modal",
+  );
 });

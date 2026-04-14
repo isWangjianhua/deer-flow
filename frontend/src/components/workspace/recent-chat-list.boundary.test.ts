@@ -16,4 +16,8 @@ void test("agent workspace routes do not render the legacy raw thread recent lis
     !source.includes("return <LegacyRecentChatList pathname={pathname} />;"),
     "expected agent workspace routes to avoid rendering the legacy raw thread recent list",
   );
+  assert.ok(
+    source.includes('pathname === "/workspace/account"'),
+    "expected the account page to opt into the BFF recent chat list so the sidebar stays populated",
+  );
 });

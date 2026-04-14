@@ -8,7 +8,6 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
-  CardAction,
   CardContent,
   CardDescription,
   CardHeader,
@@ -26,8 +25,6 @@ import { isLocalDevAuthMode } from "@/core/auth/local";
 import { toAuthSessionState } from "@/core/auth/session";
 import { useI18n } from "@/core/i18n/hooks";
 import { cn } from "@/lib/utils";
-
-import { LogoutButton } from "./logout-button";
 
 type StatusTone = "success" | "neutral" | "error";
 
@@ -73,7 +70,7 @@ function StatusSection({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-xl border p-4">
+    <section className="rounded-2xl border bg-background/60 p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="space-y-1">
           <h3 className="text-sm font-semibold">{title}</h3>
@@ -165,29 +162,19 @@ export function AccountSessionCard() {
   };
 
   return (
-    <Card className="gap-4">
-      <CardHeader>
+    <Card className="gap-0 rounded-[28px] border bg-card/80 shadow-sm">
+      <CardHeader className="border-b pb-5">
         <div className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
-            <StatusBadge
-              label={localMode ? t.auth.authModeLocal : t.auth.authModeOidc}
-              tone="neutral"
-            />
-            <StatusBadge
-              label={browserStatus.label}
-              tone={browserStatus.tone}
-            />
+            <StatusBadge label={browserStatus.label} tone={browserStatus.tone} />
           </div>
           <div className="space-y-1">
             <CardTitle>{t.auth.sessionTitle}</CardTitle>
             <CardDescription>{t.auth.sessionDescription}</CardDescription>
           </div>
         </div>
-        <CardAction className="hidden sm:block">
-          {state.status === "authenticated" ? <LogoutButton /> : null}
-        </CardAction>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 pt-5">
         {state.errorMessage ? (
           <Alert variant="destructive">
             <CircleAlert />
@@ -232,13 +219,6 @@ export function AccountSessionCard() {
             <DetailRow label={t.auth.bffEmail} value={bffUser?.email ?? "-"} />
           </StatusSection>
         </div>
-
-        {state.status === "authenticated" ? (
-          <div className="flex flex-wrap items-center gap-3 sm:hidden">
-            <LogoutButton />
-          </div>
-        ) : null}
-
         <Collapsible open={diagnosticsOpen} onOpenChange={setDiagnosticsOpen}>
           <div className="rounded-xl border p-4">
             <div className="flex items-center justify-between gap-3">
