@@ -91,8 +91,8 @@ export default function AgentChatPage() {
 
   const handleSubmit = useCallback(
     (message: PromptInputMessage) => {
-      return guardSubmit(message, async (nextMessage) => {
-        await sendMessage(threadId, nextMessage, { agent_name });
+      return guardSubmit(message, (nextMessage) => {
+        void sendMessage(threadId, nextMessage, { agent_name });
       });
     },
     [agent_name, guardSubmit, sendMessage, threadId],

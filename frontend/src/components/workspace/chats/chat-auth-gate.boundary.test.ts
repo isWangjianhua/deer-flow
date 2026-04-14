@@ -20,4 +20,12 @@ void test("workspace chat page gates submit behind the login dialog", async () =
     source.includes("restoredText"),
     "expected chat page to restore a pending draft after sign-in",
   );
+  assert.ok(
+    source.includes("void sendMessage(threadId, nextMessage);"),
+    "expected authenticated chat submits to fire-and-forget so the composer clears immediately",
+  );
+  assert.ok(
+    !source.includes("await sendMessage(threadId, nextMessage);"),
+    "expected chat page to avoid awaiting sendMessage inside the composer submit handler",
+  );
 });

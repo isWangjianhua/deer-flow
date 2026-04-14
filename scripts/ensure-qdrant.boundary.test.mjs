@@ -7,6 +7,9 @@ void test("ensure-qdrant.sh checks mem0+qdrant config before starting a local co
 
   assert.match(source, /MEMORY_PROVIDER=/, "expected ensure-qdrant.sh to inspect memory provider config");
   assert.match(source, /VECTOR_STORE_PROVIDER=/, "expected ensure-qdrant.sh to inspect the vector store config");
-  assert.match(source, /docker run[\s\S]*qdrant\/qdrant/, "expected ensure-qdrant.sh to start a local qdrant container in dev mode");
-  assert.match(source, /wait-for-port\.sh/, "expected ensure-qdrant.sh to wait for qdrant readiness");
+  assert.match(source, /curl[\s\S]*\/healthz/, "expected ensure-qdrant.sh to perform an HTTP health check against Qdrant");
+  assert.match(source, /for candidate in docker podman/, "expected ensure-qdrant.sh to detect an available container runtime");
+  assert.match(source, /start_existing_container/, "expected ensure-qdrant.sh to reuse an existing Qdrant container when present");
+  assert.match(source, /run_new_container/, "expected ensure-qdrant.sh to create a local Qdrant container in dev mode when needed");
+  assert.match(source, /qdrant\/qdrant:latest/, "expected ensure-qdrant.sh to use the official Qdrant image");
 });

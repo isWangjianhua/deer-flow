@@ -7,6 +7,7 @@ import { getOidcProviderId } from "@/core/auth/config";
 import {
   type BrowserSession,
   isLocalDevAuthMode,
+  LOCAL_AUTH_EVENT,
   readLocalDevSession,
   writeLocalDevSession,
 } from "@/core/auth/local";
@@ -124,9 +125,25 @@ export function useBrowserAuthSession(): BrowserAuthSession {
 
   useEffect(() => {
     setIsHydrated(true);
-    if (isLocalDevAuthMode()) {
-      setLocalSession(readLocalDevSession());
+  }, []);
+
+  useEffect(() => {
+    if (!isLocalDevAuthMode()) {
+      return;
     }
+
+    const syncLocalSession = () => {
+      setLocalSession(readLocalDevSession());
+    };
+
+    window.addEventListener(LOCAL_AUTH_EVENT, syncLocalSession);
+    window.addEventListener("storage", syncLocalSession);
+    syncLocalSession();
+
+    return () => {
+      window.removeEventListener(LOCAL_AUTH_EVENT, syncLocalSession);
+      window.removeEventListener("storage", syncLocalSession);
+    };
   }, []);
 
   useEffect(() => {

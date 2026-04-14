@@ -94,8 +94,8 @@ function MockChatPageContent({
 
   const handleSubmit = useCallback(
     (message: PromptInputMessage) => {
-      return guardSubmit(message, async (nextMessage) => {
-        await sendMessage(threadId, nextMessage);
+      return guardSubmit(message, (nextMessage) => {
+        void sendMessage(threadId, nextMessage);
       });
     },
     [guardSubmit, sendMessage, threadId],
@@ -285,8 +285,8 @@ function BffChatPageContent({
 
   const handleSubmit = useCallback(
     (message: PromptInputMessage) => {
-      return guardSubmit(message, async (nextMessage) => {
-        await sendMessage(threadId, nextMessage);
+      return guardSubmit(message, (nextMessage) => {
+        void sendMessage(threadId, nextMessage);
       });
     },
     [guardSubmit, sendMessage, threadId],

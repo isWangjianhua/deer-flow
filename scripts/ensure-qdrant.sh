@@ -41,6 +41,7 @@ parse_memory_config() {
         function trim(val) {
             sub(/^[[:space:]]+/, "", val)
             sub(/[[:space:]]+$/, "", val)
+            gsub(/^["'"'"']|["'"'"']$/, "", val)
             return val
         }
         {
@@ -56,7 +57,7 @@ parse_memory_config() {
             if (raw ~ /^[[:space:]]*memory:[[:space:]]*$/) {
                 in_memory = 1
                 memory_indent = indent
-                in_mem0 = 0
+                in_mem0_block = 0
                 in_vector_store = 0
                 in_vector_config = 0
                 next
@@ -64,7 +65,7 @@ parse_memory_config() {
 
             if (in_memory && indent <= memory_indent) {
                 in_memory = 0
-                in_mem0 = 0
+                in_mem0_block = 0
                 in_vector_store = 0
                 in_vector_config = 0
             }
@@ -79,20 +80,20 @@ parse_memory_config() {
                 next
             }
 
-            if (indent == memory_indent + 2 && raw ~ /^[[:space:]]*mem0_config:[[:space:]]*$/) {
-                in_mem0 = 1
+            if (indent == memory_indent + 2 && raw ~ /^[[:space:]]*(mem0_config|mem0):[[:space:]]*$/) {
+                in_mem0_block = 1
                 mem0_indent = indent
                 in_vector_store = 0
                 in_vector_config = 0
                 next
             }
 
-            if (in_mem0 && indent <= mem0_indent) {
-                in_mem0 = 0
+            if (in_mem0_block && indent <= mem0_indent) {
+                in_mem0_block = 0
                 in_vector_store = 0
                 in_vector_config = 0
             }
-            if (!in_mem0) {
+            if (!in_mem0_block) {
                 next
             }
 
@@ -148,11 +149,95 @@ parse_memory_config() {
     ' "$CONFIG_PATH"
 }
 
+check_qdrant_health() {
+    local host="$1"
+    local port="$2"
+
+    if command -v curl >/dev/null 2>&1; then
+        curl -fsS --max-time 2 "http://$host:$port/healthz" >/dev/null 2>&1
+        return $?
+    fi
+
+    "$REPO_ROOT/scripts/wait-for-port.sh" "$port" 1 "Qdrant" >/dev/null 2>&1
+}
+
+wait_for_qdrant_health() {
+    local host="$1"
+    local port="$2"
+    local attempts="${3:-30}"
+    local delay="${4:-1}"
+    local count=0
+
+    until check_qdrant_health "$host" "$port"; do
+        count=$((count + 1))
+        if [ "$count" -ge "$attempts" ]; then
+            return 1
+        fi
+        sleep "$delay"
+    done
+}
+
+detect_container_runtime() {
+    for candidate in docker podman; do
+        if command -v "$candidate" >/dev/null 2>&1; then
+            echo "$candidate"
+            return 0
+        fi
+    done
+    return 1
+}
+
+container_exists() {
+    local runtime="$1"
+    local name="$2"
+    "$runtime" ps -a --format '{{.Names}}' 2>/dev/null | grep -Fxq "$name"
+}
+
+start_existing_container() {
+    local runtime="$1"
+    local name="$2"
+    echo "Starting existing Qdrant container: $name"
+    "$runtime" start "$name" >/dev/null
+}
+
+run_new_container() {
+    local runtime="$1"
+    local name="$2"
+    local port="$3"
+    local storage_dir="$4"
+    echo "Starting Qdrant container: $name"
+    "$runtime" run -d \
+        --name "$name" \
+        --restart unless-stopped \
+        -p "$port:6333" \
+        -v "$storage_dir:/qdrant/storage" \
+        qdrant/qdrant:latest >/dev/null
+}
+
+print_manual_start_help() {
+    local runtime="$1"
+    local host="$2"
+    local port="$3"
+    local container_name="$4"
+    local storage_dir="$5"
+
+    echo "Qdrant is required for Mem0, but it is not reachable."
+    echo "Expected health check: http://$host:$port/healthz"
+    echo ""
+    echo "To start a local Qdrant container manually:"
+    echo "  $runtime run -d \\"
+    echo "    --name $container_name \\"
+    echo "    --restart unless-stopped \\"
+    echo "    -p $port:6333 \\"
+    echo "    -v \"$storage_dir:/qdrant/storage\" \\"
+    echo "    qdrant/qdrant:latest"
+}
+
 eval "$(parse_memory_config)"
 
 MEMORY_PROVIDER="${MEMORY_PROVIDER:-}"
 VECTOR_STORE_PROVIDER="${VECTOR_STORE_PROVIDER:-}"
-QDRANT_HOST="${QDRANT_HOST:-localhost}"
+QDRANT_HOST="${QDRANT_HOST:-127.0.0.1}"
 QDRANT_PORT="${QDRANT_PORT:-6333}"
 
 QDRANT_REQUIRED=0
@@ -181,20 +266,21 @@ case "$QDRANT_HOST" in
         ;;
 esac
 
-if "$REPO_ROOT/scripts/wait-for-port.sh" "$QDRANT_PORT" 1 "Qdrant" >/dev/null 2>&1; then
-    echo "Qdrant already available on localhost:$QDRANT_PORT"
+if check_qdrant_health "$QDRANT_HOST" "$QDRANT_PORT"; then
+    echo "Qdrant is already healthy at $QDRANT_HOST:$QDRANT_PORT"
     exit 0
 fi
 
 if [ "$MODE" = "prod" ]; then
     if $LOCAL_TARGET; then
-        echo "Qdrant is required but not reachable on localhost:$QDRANT_PORT"
+        echo "Qdrant is required but not reachable on $QDRANT_HOST:$QDRANT_PORT"
         echo "Production startup will rely on docker compose to start the qdrant service."
         exit 0
     fi
 
-    echo "Qdrant preflight skipped: using remote vector store at $QDRANT_HOST:$QDRANT_PORT"
-    exit 0
+    echo "Qdrant is required but configured with a non-local host: $QDRANT_HOST:$QDRANT_PORT"
+    echo "Start that remote Qdrant instance before continuing."
+    exit 1
 fi
 
 if ! $LOCAL_TARGET; then
@@ -203,27 +289,27 @@ if ! $LOCAL_TARGET; then
     exit 1
 fi
 
-if ! command -v docker >/dev/null 2>&1; then
-    echo "Qdrant is required for Mem0, but Docker is not installed."
+if ! runtime="$(detect_container_runtime)"; then
+    echo "Qdrant is required for Mem0, but no docker/podman runtime was found."
     exit 1
 fi
 
-QDRANT_CONTAINER_NAME="${QDRANT_CONTAINER_NAME:-deer-flow-qdrant}"
+QDRANT_CONTAINER_NAME="${QDRANT_CONTAINER_NAME:-${DEER_FLOW_QDRANT_CONTAINER:-deer-flow-qdrant}}"
 QDRANT_STORAGE_DIR="${QDRANT_STORAGE_DIR:-$REPO_ROOT/.tmp/qdrant_storage}"
-mkdir -p "$QDRANT_STORAGE_DIR"
 
-if docker ps -a --format '{{.Names}}' | grep -Fxq "$QDRANT_CONTAINER_NAME"; then
-    echo "Starting existing Qdrant container: $QDRANT_CONTAINER_NAME"
-    docker start "$QDRANT_CONTAINER_NAME" >/dev/null
+if container_exists "$runtime" "$QDRANT_CONTAINER_NAME"; then
+    start_existing_container "$runtime" "$QDRANT_CONTAINER_NAME"
 else
-    echo "Starting Qdrant container: $QDRANT_CONTAINER_NAME"
-    docker run -d \
-        --name "$QDRANT_CONTAINER_NAME" \
-        --restart unless-stopped \
-        -p "$QDRANT_PORT:6333" \
-        -v "$QDRANT_STORAGE_DIR:/qdrant/storage" \
-        qdrant/qdrant:latest >/dev/null
+    mkdir -p "$QDRANT_STORAGE_DIR"
+    run_new_container "$runtime" "$QDRANT_CONTAINER_NAME" "$QDRANT_PORT" "$QDRANT_STORAGE_DIR" || {
+        print_manual_start_help "$runtime" "$QDRANT_HOST" "$QDRANT_PORT" "$QDRANT_CONTAINER_NAME" "$QDRANT_STORAGE_DIR"
+        exit 1
+    }
 fi
 
-"$REPO_ROOT/scripts/wait-for-port.sh" "$QDRANT_PORT" 30 "Qdrant"
-echo "Qdrant is ready on localhost:$QDRANT_PORT"
+if ! wait_for_qdrant_health "$QDRANT_HOST" "$QDRANT_PORT" 30 1; then
+    echo "Qdrant container '$QDRANT_CONTAINER_NAME' started but health check still failed at $QDRANT_HOST:$QDRANT_PORT"
+    exit 1
+fi
+
+echo "Qdrant is ready on $QDRANT_HOST:$QDRANT_PORT"

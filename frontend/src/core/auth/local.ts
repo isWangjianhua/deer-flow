@@ -26,6 +26,7 @@ export type BrowserSession = {
 
 export const LOCAL_BFF_TOKEN_STORAGE_KEY = "deer-flow-local-bff-token";
 export const LOCAL_BFF_SESSION_STORAGE_KEY = "deer-flow-local-bff-session";
+export const LOCAL_AUTH_EVENT = "deer-flow:auth-local-changed";
 
 export function isLocalDevAuthMode(
   config: { NEXT_PUBLIC_AUTH_MODE?: string } = env,
@@ -120,6 +121,8 @@ export function writeLocalDevSession(
   } else if (accessToken === null || !session) {
     window.localStorage.removeItem(LOCAL_BFF_TOKEN_STORAGE_KEY);
   }
+
+  window.dispatchEvent(new Event(LOCAL_AUTH_EVENT));
 }
 
 export function readLocalBffAccessToken() {

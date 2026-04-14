@@ -18,3 +18,16 @@ void test("browser auth exposes a local registration helper that persists the lo
     "expected the local registration helper to persist the returned local session",
   );
 });
+
+void test("browser auth listens for local auth session change events", async () => {
+  const source = await readFile(new URL("./browser.ts", import.meta.url), "utf8");
+
+  assert.ok(
+    source.includes("LOCAL_AUTH_EVENT"),
+    "expected browser auth to import the shared local auth change event",
+  );
+  assert.ok(
+    source.includes('window.addEventListener(LOCAL_AUTH_EVENT, syncLocalSession)'),
+    "expected browser auth to refresh local session state after same-tab sign-in",
+  );
+});
