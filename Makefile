@@ -1,6 +1,6 @@
 # DeerFlow - Unified Development Environment
 
-.PHONY: help config config-upgrade check install dev dev-pro dev-daemon dev-daemon-pro start start-pro start-daemon start-daemon-pro stop up up-pro down clean docker-init docker-start docker-start-pro docker-stop docker-logs docker-logs-frontend docker-logs-gateway
+.PHONY: help config config-upgrade check init install install-backend install-bff install-frontend dev dev-pro dev-daemon dev-daemon-pro start start-pro start-daemon start-daemon-pro stop up up-pro down clean docker-init docker-start docker-start-pro docker-stop docker-logs docker-logs-frontend docker-logs-gateway
 
 BASH ?= bash
 
@@ -17,7 +17,11 @@ help:
 	@echo "  make config          - Generate local config files (aborts if config already exists)"
 	@echo "  make config-upgrade  - Merge new fields from config.example.yaml into config.yaml"
 	@echo "  make check           - Check if all required tools are installed"
-	@echo "  make install         - Install all dependencies (frontend + backend)"
+	@echo "  make init            - Run prerequisite checks and install all dependencies"
+	@echo "  make install         - Install all dependencies (backend + bff + frontend)"
+	@echo "  make install-backend - Install backend dependencies"
+	@echo "  make install-bff     - Install BFF dependencies"
+	@echo "  make install-frontend - Install frontend dependencies"
 	@echo "  make setup-sandbox   - Pre-pull sandbox container image (recommended)"
 	@echo "  make dev             - Start all services in development mode (with hot-reloading)"
 	@echo "  make dev-pro         - Start in dev + Gateway mode (experimental, no LangGraph server)"
@@ -54,12 +58,10 @@ config-upgrade:
 check:
 	@$(PYTHON) ./scripts/check.py
 
+init: check install
+
 # Install all dependencies
-install:
-	@echo "Installing backend dependencies..."
-	@cd backend && uv sync
-	@echo "Installing frontend dependencies..."
-	@cd frontend && pnpm install
+install: install-backend install-bff install-frontend
 	@echo "✓ All dependencies installed"
 	@echo ""
 	@echo "=========================================="
@@ -69,6 +71,18 @@ install:
 	@echo "If you plan to use Docker/Container-based sandbox, you can pre-pull the image:"
 	@echo "  make setup-sandbox"
 	@echo ""
+
+install-backend:
+	@echo "Installing backend dependencies..."
+	@cd backend && uv sync
+
+install-bff:
+	@echo "Installing BFF dependencies..."
+	@cd bff && uv sync
+
+install-frontend:
+	@echo "Installing frontend dependencies..."
+	@cd frontend && pnpm install
 
 # Pre-pull sandbox Docker image (optional but recommended)
 setup-sandbox:

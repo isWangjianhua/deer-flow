@@ -149,8 +149,7 @@ cd deer-flow
 # Copy configuration files
 cp config.example.yaml config.yaml
 
-# Install backend dependencies
-cd backend
+# Install backend, BFF, and frontend dependencies from the repo root
 make install
 ```
 

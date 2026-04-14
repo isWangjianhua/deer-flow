@@ -306,7 +306,9 @@ When `memory.provider=mem0` and `memory.mem0_config.vector_store.provider=qdrant
 
 2. **Install dependencies**:
    ```bash
-   make install  # Install backend + frontend dependencies
+   make init     # Check prerequisites and install dependencies
+   # or
+   make install  # Install backend + bff + frontend dependencies
    ```
 
 3. **(Optional) Pre-pull sandbox image**:
