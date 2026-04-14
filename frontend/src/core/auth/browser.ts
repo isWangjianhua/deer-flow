@@ -25,6 +25,11 @@ type BrowserAuthSession = {
   error: { message?: string } | null;
 };
 
+type LocalAuthErrorPayload = {
+  message?: string;
+  detail?: { message?: string };
+};
+
 function toDate(value: unknown) {
   return value instanceof Date ? value : new Date(String(value));
 }
@@ -115,6 +120,18 @@ function buildMockSession(): BrowserSession {
       image: null,
     },
   };
+}
+
+async function readLocalAuthErrorMessage(
+  response: Response,
+  fallbackMessage: string,
+) {
+  try {
+    const payload = (await response.json()) as LocalAuthErrorPayload;
+    return payload.message ?? payload.detail?.message ?? fallbackMessage;
+  } catch {
+    return fallbackMessage;
+  }
 }
 
 export function useBrowserAuthSession(): BrowserAuthSession {
@@ -225,8 +242,9 @@ export async function signInWithLocalPassword(
   });
 
   if (!response.ok) {
-    const payload = (await response.json()) as { message?: string };
-    throw new Error(payload.message ?? "Local sign in failed");
+    throw new Error(
+      await readLocalAuthErrorMessage(response, "Local sign in failed"),
+    );
   }
 
   const payload = (await response.json()) as {
@@ -252,8 +270,9 @@ export async function signUpWithLocalPassword(
   });
 
   if (!response.ok) {
-    const payload = (await response.json()) as { message?: string };
-    throw new Error(payload.message ?? "Local registration failed");
+    throw new Error(
+      await readLocalAuthErrorMessage(response, "Local registration failed"),
+    );
   }
 
   const payload = (await response.json()) as {

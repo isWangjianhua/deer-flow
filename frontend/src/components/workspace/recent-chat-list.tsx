@@ -69,7 +69,7 @@ export function RecentChatList() {
   }
 
   if (pathname.startsWith("/workspace/agents")) {
-    return <LegacyRecentChatList pathname={pathname} />;
+    return null;
   }
 
   return null;

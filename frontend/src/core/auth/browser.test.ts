@@ -31,3 +31,16 @@ void test("browser auth listens for local auth session change events", async () 
     "expected browser auth to refresh local session state after same-tab sign-in",
   );
 });
+
+void test("browser auth surfaces nested BFF validation messages for local registration failures", async () => {
+  const source = await readFile(new URL("./browser.ts", import.meta.url), "utf8");
+
+  assert.ok(
+    source.includes("detail?: { message?: string }"),
+    "expected browser auth to understand nested BFF error payloads",
+  );
+  assert.ok(
+    source.includes("payload.detail?.message"),
+    "expected browser auth to surface the backend validation message instead of a generic registration failure",
+  );
+});
