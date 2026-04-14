@@ -5,6 +5,7 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 import pytest
+from langchain_core.messages import HumanMessage
 
 from deerflow.agents.lead_agent import agent as lead_agent_module
 from deerflow.config.app_config import AppConfig
@@ -156,10 +157,36 @@ def test_create_summarization_middleware_uses_configured_model_alias(monkeypatch
         return fake_model
 
     monkeypatch.setattr(lead_agent_module, "create_chat_model", _fake_create_chat_model)
-    monkeypatch.setattr(lead_agent_module, "SummarizationMiddleware", lambda **kwargs: kwargs)
+    monkeypatch.setattr(lead_agent_module, "UISafeSummarizationMiddleware", lambda **kwargs: kwargs)
 
     middleware = lead_agent_module._create_summarization_middleware()
 
     assert captured["name"] == "model-masswork"
     assert captured["thinking_enabled"] is False
     assert middleware["model"] is fake_model
+
+
+def test_ui_safe_summarization_middleware_hides_summary_from_ui():
+    middleware = lead_agent_module.UISafeSummarizationMiddleware(model=MagicMock())
+
+    messages = middleware._build_new_messages("summary body")
+
+    assert messages == [
+        HumanMessage(
+            content="Here is a summary of the conversation to date:\n\nsummary body",
+            additional_kwargs={"hide_from_ui": True},
+        )
+    ]
+
+
+def test_create_summarization_middleware_returns_ui_safe_variant(monkeypatch):
+    monkeypatch.setattr(
+        lead_agent_module,
+        "get_summarization_config",
+        lambda: SummarizationConfig(enabled=True),
+    )
+    monkeypatch.setattr(lead_agent_module, "create_chat_model", lambda **kwargs: MagicMock())
+
+    middleware = lead_agent_module._create_summarization_middleware()
+
+    assert isinstance(middleware, lead_agent_module.UISafeSummarizationMiddleware)

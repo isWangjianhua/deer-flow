@@ -2,6 +2,7 @@ import logging
 
 from langchain.agents import create_agent
 from langchain.agents.middleware import AgentMiddleware, SummarizationMiddleware
+from langchain_core.messages import HumanMessage
 from langchain_core.runnables import RunnableConfig
 
 from deerflow.agents.lead_agent.prompt import apply_prompt_template
@@ -21,6 +22,18 @@ from deerflow.config.summarization_config import get_summarization_config
 from deerflow.models import create_chat_model
 
 logger = logging.getLogger(__name__)
+
+
+class UISafeSummarizationMiddleware(SummarizationMiddleware):
+    """Keep LangChain summarization behavior while hiding internal summaries from UI."""
+
+    def _build_new_messages(self, summary: str) -> list[HumanMessage]:
+        return [
+            HumanMessage(
+                content=f"Here is a summary of the conversation to date:\n\n{summary}",
+                additional_kwargs={"hide_from_ui": True},
+            )
+        ]
 
 
 def _resolve_model_name(requested_model_name: str | None = None) -> str:
@@ -77,7 +90,7 @@ def _create_summarization_middleware() -> SummarizationMiddleware | None:
     if config.summary_prompt is not None:
         kwargs["summary_prompt"] = config.summary_prompt
 
-    return SummarizationMiddleware(**kwargs)
+    return UISafeSummarizationMiddleware(**kwargs)
 
 
 def _create_todo_list_middleware(is_plan_mode: bool) -> TodoMiddleware | None:
