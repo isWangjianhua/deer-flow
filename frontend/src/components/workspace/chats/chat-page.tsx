@@ -3,9 +3,9 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { type PromptInputMessage } from "@/components/ai-elements/prompt-input";
+import { PromptInputProvider } from "@/components/ai-elements/prompt-input";
 import { LoginRequiredDialog } from "@/components/auth/login-required-dialog";
 import { useLoginRequiredSubmit } from "@/components/auth/use-login-required-submit";
-import { PromptInputProvider } from "@/components/ai-elements/prompt-input";
 import { ArtifactTrigger } from "@/components/workspace/artifacts";
 import { ArtifactsProvider } from "@/components/workspace/artifacts";
 import { ExportTrigger } from "@/components/workspace/export-trigger";
@@ -94,8 +94,8 @@ function MockChatPageContent({
 
   const handleSubmit = useCallback(
     (message: PromptInputMessage) => {
-      return guardSubmit(message, async (nextMessage) => {
-        await sendMessage(threadId, nextMessage);
+      return guardSubmit(message, (nextMessage) => {
+        void sendMessage(threadId, nextMessage).catch(() => undefined);
       });
     },
     [guardSubmit, sendMessage, threadId],
@@ -285,8 +285,8 @@ function BffChatPageContent({
 
   const handleSubmit = useCallback(
     (message: PromptInputMessage) => {
-      return guardSubmit(message, async (nextMessage) => {
-        await sendMessage(threadId, nextMessage);
+      return guardSubmit(message, (nextMessage) => {
+        void sendMessage(threadId, nextMessage).catch(() => undefined);
       });
     },
     [guardSubmit, sendMessage, threadId],

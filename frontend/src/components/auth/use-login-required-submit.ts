@@ -4,11 +4,11 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
+import { useBrowserAuthSession } from "@/core/auth/browser";
 import {
   consumePendingChatDraft,
   persistPendingChatDraft,
 } from "@/core/auth/pending-chat-draft";
-import { useBrowserAuthSession } from "@/core/auth/browser";
 import { toAuthSessionState } from "@/core/auth/session";
 
 export function useLoginRequiredSubmit() {
@@ -37,7 +37,7 @@ export function useLoginRequiredSubmit() {
   const guardSubmit = useCallback(
     (
       message: PromptInputMessage,
-      submit: (message: PromptInputMessage) => Promise<void>,
+      submit: (message: PromptInputMessage) => void | Promise<void>,
     ) => {
       if (authState.status !== "authenticated") {
         setPendingDraft(message);
