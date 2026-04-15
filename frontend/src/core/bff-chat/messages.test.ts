@@ -40,7 +40,6 @@ void test("converts tool lifecycle state into ai and tool messages", () => {
   assert.equal(messages[1]?.tool_calls?.[0]?.name, "web_search");
   assert.deepEqual(messages[1]?.tool_calls?.[0]?.args, {
     query: "weather",
-    description: "Searching web",
   });
   assert.equal(messages[2]?.type, "tool");
   assert.equal(messages[3]?.type, "ai");
@@ -78,7 +77,33 @@ void test("uses enriched tool args in synthesized streaming messages without dup
   assert.equal(messages[0]?.type, "ai");
   assert.deepEqual(messages[0]?.tool_calls?.[0]?.args, {
     query: "上海 4 月 13 日 天气",
-    description: "web_search",
+  });
+});
+
+void test("preserves an explicit tool description without replacing it from the BFF label", () => {
+  let state = createInitialChatState();
+  state = applyBffChatEvent(state, {
+    type: "message.started",
+    data: { message_id: "assistant-explicit-description" },
+  });
+  state = applyBffChatEvent(state, {
+    type: "tool.started",
+    data: {
+      tool_call_id: "tool-explicit-description",
+      label: "Searching web",
+      name: "web_search",
+      args: {
+        query: "weather",
+        description: "Search for weather details",
+      },
+    },
+  });
+
+  const messages = toThreadMessages(state, []);
+
+  assert.deepEqual(messages[0]?.tool_calls?.[0]?.args, {
+    query: "weather",
+    description: "Search for weather details",
   });
 });
 

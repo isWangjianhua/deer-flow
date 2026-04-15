@@ -72,13 +72,7 @@ export function toThreadMessages(
             {
               id: step.id,
               name: step.name,
-              args:
-                step.args.description === undefined
-                  ? {
-                      ...step.args,
-                      description: step.label,
-                    }
-                  : step.args,
+              args: step.args,
             },
           ],
         });
