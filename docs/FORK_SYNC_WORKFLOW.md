@@ -64,6 +64,121 @@ Use a short-lived sync branch every time you import upstream changes into `maste
 
 This pattern matches Git's recommended use of throw-away integration branches for testing how long-lived topics interact before the stable branch is updated.
 
+## Current Conservative Sync Procedure
+
+This fork has diverged from upstream in the frontend and BFF layers. Do not treat a full `main -> master` merge as the default path. The safer default is a path-scoped sync that imports upstream backend changes first and handles frontend changes only as targeted bug fixes.
+
+Use this procedure when the goal is to absorb upstream work while preserving this fork's product behavior.
+
+1. Recreate a clean sync worktree from `master`:
+
+   ```bash
+   git worktree remove --force .worktrees/sync-upstream-2026-04-15
+   git branch -D sync/upstream-2026-04-15
+   git worktree add .worktrees/sync-upstream-2026-04-15 -b sync/upstream-2026-04-15 master
+   ```
+
+2. Copy local development env files into the new worktree before running the app:
+
+   ```bash
+   cp frontend/.env.local .worktrees/sync-upstream-2026-04-15/frontend/.env.local
+   cp bff/.env .worktrees/sync-upstream-2026-04-15/bff/.env
+   ```
+
+   Worktrees only copy tracked files. Local files such as `frontend/.env.local`, `bff/.env`, `.env`, and `config.yaml` are usually ignored by Git, so a new worktree will not automatically match the runtime behavior of the main checkout.
+
+3. Import only upstream backend changes:
+
+   ```bash
+   cd .worktrees/sync-upstream-2026-04-15
+   git restore --source=main --staged --worktree -- backend
+   git diff --cached --check -- backend
+   ```
+
+4. Run focused backend checks before committing:
+
+   ```bash
+   cd backend
+   uv run pytest tests/test_lead_agent_model_resolution.py tests/test_lead_agent_prompt.py tests/test_memory_queue.py
+   ```
+
+5. Commit the backend sync separately:
+
+   ```bash
+   git commit -m "sync: bring backend from main" -- backend
+   ```
+
+6. Treat frontend fixes as separate commits. If the backend sync exposes frontend symptoms, first determine whether the issue is caused by this fork's frontend architecture, then fix only the affected files.
+
+   Example fixes from the 2026-04-15 sync:
+
+   ```text
+   fix: clear chat input after submit
+   fix: handle missing clipboard api
+   ```
+
+7. Merge the sync branch back to `master` only after the sync branch is clean:
+
+   ```bash
+   git switch master
+   git merge --ff-only sync/upstream-2026-04-15
+   ```
+
+This approach intentionally avoids importing upstream frontend wholesale. It keeps backend sync reviewable and prevents upstream frontend deletions or route changes from breaking this fork's BFF-backed chat and local auth flow.
+
+## Frontend Sync Policy
+
+The frontend in this fork is not a thin copy of upstream. It includes fork-owned product behavior that upstream `main` may not have:
+
+- BFF-backed chat routes under `frontend/src/app/api/bff/*`.
+- Local/OIDC auth flows under `frontend/src/core/auth/*` and `frontend/src/components/auth/*`.
+- Account UI under `frontend/src/app/workspace/account`.
+- BFF chat state under `frontend/src/core/bff-chat/*`.
+- Fork-specific chat page behavior under `frontend/src/components/workspace/chats/*`.
+
+For that reason:
+
+- Do not run `git restore --source=main -- frontend` as part of routine sync.
+- Do not resolve frontend conflicts by blindly taking `main`.
+- Use `main` frontend as a reference implementation, not as the default source of truth.
+- Prefer small, isolated frontend fixes with their own commits and tests.
+- Be extra careful with `auth/`, `api/bff/`, `core/bff-chat/`, and `workspace/chats/`; these are high-risk fork-owned paths.
+
+Safer frontend candidates to compare against upstream first:
+
+- Shared UI primitives under `frontend/src/components/ai-elements/`.
+- Message rendering helpers under `frontend/src/components/workspace/messages/`.
+- Artifact display components under `frontend/src/components/workspace/artifacts/`.
+
+Even for those paths, import changes in small chunks and re-run the chat/auth/artifact flows before committing.
+
+## Manual Validation Checklist
+
+After any sync branch changes, validate the product flows that matter for this fork:
+
+- Local login dialog opens in local auth mode, not OIDC mode.
+- Account page loads and `/api/bff/me` returns `200`.
+- New chat can create a BFF conversation.
+- Input clears immediately after send, while streaming continues.
+- Recent chats update after a new conversation.
+- Suggestions endpoint returns `200` after stream completion.
+- Artifact markdown/html files load through the BFF artifact routes.
+- Copy buttons do not crash when `navigator.clipboard` is unavailable.
+
+Useful focused checks:
+
+```bash
+cd backend
+uv run pytest tests/test_lead_agent_model_resolution.py tests/test_lead_agent_prompt.py tests/test_memory_queue.py
+
+cd ../frontend
+node src/components/workspace/chats/chat-auth-gate.boundary.test.ts
+node src/core/clipboard.test.ts
+pnpm exec eslint src/components/auth/use-login-required-submit.ts src/components/workspace/chats/chat-page.tsx src/components/workspace/copy-button.tsx src/core/clipboard.ts src/core/clipboard.test.ts
+```
+
+`pnpm exec tsc --noEmit` should still be run when practical, but if it fails, identify whether the failure is from the current sync or an existing unrelated test/type issue before blocking the sync.
+
 ## Feature Branch Workflow
 
 Feature work should continue to branch from `master`, not from `main`.

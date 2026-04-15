@@ -184,8 +184,23 @@ If touching orchestration/config (`Makefile`, `docker/*`, `config*.yaml`), also 
 - Next.js may warn about multiple lockfiles and workspace root inference; this is currently a warning, not a build blocker.
 - `make config` is non-idempotent by design when config already exists.
 - `make dev` includes process cleanup and can emit shutdown logs/noise if interrupted; this is expected.
+- Git worktrees do not copy ignored runtime files such as `frontend/.env.local`, `bff/.env`, `.env`, or `config.yaml`. Copy local env files into sync worktrees before judging auth/frontend behavior.
 
-## 8) Root Inventory (quick reference)
+## 8) Fork Sync Policy
+
+This fork does not routinely merge upstream `main` wholesale into `master`.
+
+Use `docs/FORK_SYNC_WORKFLOW.md` as the source of truth for upstream sync work. The current safe default is:
+
+- Create a short-lived `sync/upstream-*` worktree from `master`.
+- Copy local ignored env files into the sync worktree before runtime validation.
+- Import only `backend/` from `main` first: `git restore --source=main --staged --worktree -- backend`.
+- Commit backend sync separately.
+- Do not bulk import upstream `frontend/`.
+- Treat upstream frontend as reference material only; apply small fork-aware frontend bugfix commits.
+- Protect fork-owned frontend paths: `frontend/src/app/api/bff/*`, `frontend/src/core/auth/*`, `frontend/src/core/bff-chat/*`, and `frontend/src/components/workspace/chats/*`.
+
+## 9) Root Inventory (quick reference)
 
 Important root entries:
 
@@ -202,7 +217,7 @@ Important root entries:
 - `config.example.yaml`
 - `extensions_config.example.json`
 
-## 9) Instruction Priority
+## 10) Instruction Priority
 
 Trust this onboarding guide first.
 
