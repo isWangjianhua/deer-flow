@@ -63,6 +63,7 @@ class TelegramChannel(Channel):
         app.add_handler(CommandHandler("new", self._cmd_generic))
         app.add_handler(CommandHandler("status", self._cmd_generic))
         app.add_handler(CommandHandler("models", self._cmd_generic))
+        app.add_handler(CommandHandler("memory", self._cmd_generic))
         app.add_handler(CommandHandler("help", self._cmd_generic))
 
         # General message handler

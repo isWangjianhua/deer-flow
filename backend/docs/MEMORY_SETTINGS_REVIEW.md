@@ -1,11 +1,6 @@
-# Legacy File Memory Review
+# Memory Settings Review
 
-Use this only when reviewing the legacy file-backed runtime memory fixture
-locally.
-
-The browser-facing `Settings > Memory` surface has been removed. Runtime memory
-still exists, but it is now owned by the backend/harness rather than by a
-frontend CRUD page.
+Use this when reviewing the Memory Settings add/edit flow locally with the fewest possible manual steps.
 
 ## Quick Review
 
@@ -31,27 +26,34 @@ frontend CRUD page.
    python scripts/load_memory_sample.py
    ```
 
-3. Inspect the seeded runtime memory.
+3. Open `Settings > Memory`.
 
-   Example options:
-   - inspect `backend/.deer-flow/memory.json` directly
-   - call `DeerFlowClient.get_memory()` / `get_memory_status()` in a local
-     backend or client verification flow
-   - run any targeted backend test that exercises file-backed memory behavior
+   Default local URLs:
+   - App: `http://localhost:2026`
+   - Local frontend-only fallback: `http://localhost:3000`
 
-## Minimal Manual Check
+## Minimal Manual Test
 
-1. Confirm `backend/.deer-flow/memory.json` now exists after running the loader.
-2. Confirm the JSON contains the seeded `facts` entries from the sample fixture.
-3. If you overwrite an existing target without `--no-backup`, confirm a
-   timestamped backup file was created beside the target.
+1. Click `Add fact`.
+2. Create a new fact with:
+   - Content: `Reviewer-added memory fact`
+   - Category: `testing`
+   - Confidence: `0.88`
+3. Confirm the new fact appears immediately and shows `Manual` as the source.
+4. Edit the sample fact `This sample fact is intended for edit testing.` and change it to:
+   - Content: `This sample fact was edited during manual review.`
+   - Category: `testing`
+   - Confidence: `0.91`
+5. Confirm the edited fact updates immediately.
+6. Refresh the page and confirm both the newly added fact and the edited fact still persist.
 
 ## Optional Sanity Checks
 
-- Switch the runtime to the file-backed memory provider when you want an
-  end-to-end local check against this fixture.
-- Use the fixture as stable input for backend/client tests that need predictable
-  memory contents.
+- Search `Reviewer-added` and confirm the new fact is matched.
+- Search `workflow` and confirm category text is searchable.
+- Switch between `All`, `Facts`, and `Summaries`.
+- Delete the disposable sample fact `Delete fact testing can target this disposable sample entry.` and confirm the list updates immediately.
+- Clear all memory and confirm the page enters the empty state.
 
 ## Fixture Files
 

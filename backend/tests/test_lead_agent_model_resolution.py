@@ -5,10 +5,10 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 import pytest
-from langchain_core.messages import HumanMessage
 
 from deerflow.agents.lead_agent import agent as lead_agent_module
 from deerflow.config.app_config import AppConfig
+from deerflow.config.memory_config import MemoryConfig
 from deerflow.config.model_config import ModelConfig
 from deerflow.config.sandbox_config import SandboxConfig
 from deerflow.config.summarization_config import SummarizationConfig
@@ -146,6 +146,7 @@ def test_create_summarization_middleware_uses_configured_model_alias(monkeypatch
         "get_summarization_config",
         lambda: SummarizationConfig(enabled=True, model_name="model-masswork"),
     )
+    monkeypatch.setattr(lead_agent_module, "get_memory_config", lambda: MemoryConfig(enabled=False))
 
     captured: dict[str, object] = {}
     fake_model = object()
@@ -157,7 +158,7 @@ def test_create_summarization_middleware_uses_configured_model_alias(monkeypatch
         return fake_model
 
     monkeypatch.setattr(lead_agent_module, "create_chat_model", _fake_create_chat_model)
-    monkeypatch.setattr(lead_agent_module, "UISafeSummarizationMiddleware", lambda **kwargs: kwargs)
+    monkeypatch.setattr(lead_agent_module, "DeerFlowSummarizationMiddleware", lambda **kwargs: kwargs)
 
     middleware = lead_agent_module._create_summarization_middleware()
 
@@ -166,27 +167,23 @@ def test_create_summarization_middleware_uses_configured_model_alias(monkeypatch
     assert middleware["model"] is fake_model
 
 
-def test_ui_safe_summarization_middleware_hides_summary_from_ui():
-    middleware = lead_agent_module.UISafeSummarizationMiddleware(model=MagicMock())
-
-    messages = middleware._build_new_messages("summary body")
-
-    assert messages == [
-        HumanMessage(
-            content="Here is a summary of the conversation to date:\n\nsummary body",
-            additional_kwargs={"hide_from_ui": True},
-        )
-    ]
-
-
-def test_create_summarization_middleware_returns_ui_safe_variant(monkeypatch):
+def test_create_summarization_middleware_registers_memory_flush_hook_when_memory_enabled(monkeypatch):
     monkeypatch.setattr(
         lead_agent_module,
         "get_summarization_config",
         lambda: SummarizationConfig(enabled=True),
     )
-    monkeypatch.setattr(lead_agent_module, "create_chat_model", lambda **kwargs: MagicMock())
+    monkeypatch.setattr(lead_agent_module, "get_memory_config", lambda: MemoryConfig(enabled=True))
+    monkeypatch.setattr(lead_agent_module, "create_chat_model", lambda **kwargs: object())
 
-    middleware = lead_agent_module._create_summarization_middleware()
+    captured: dict[str, object] = {}
 
-    assert isinstance(middleware, lead_agent_module.UISafeSummarizationMiddleware)
+    def _fake_middleware(**kwargs):
+        captured.update(kwargs)
+        return kwargs
+
+    monkeypatch.setattr(lead_agent_module, "DeerFlowSummarizationMiddleware", _fake_middleware)
+
+    lead_agent_module._create_summarization_middleware()
+
+    assert captured["before_summarization"] == [lead_agent_module.memory_flush_hook]

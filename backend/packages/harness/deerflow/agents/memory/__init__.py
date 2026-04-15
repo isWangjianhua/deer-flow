@@ -6,7 +6,6 @@ This module provides a global memory mechanism that:
 - Injects relevant memory into system prompts for personalized responses
 """
 
-from deerflow.agents.memory.mem0_client import Mem0MemoryClient
 from deerflow.agents.memory.prompt import (
     FACT_EXTRACTION_PROMPT,
     MEMORY_UPDATE_PROMPT,
@@ -44,7 +43,6 @@ __all__ = [
     "MemoryUpdateQueue",
     "get_memory_queue",
     "reset_memory_queue",
-    "Mem0MemoryClient",
     # Storage
     "MemoryStorage",
     "FileMemoryStorage",

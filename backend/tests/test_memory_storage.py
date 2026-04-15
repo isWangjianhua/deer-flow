@@ -7,7 +7,6 @@ import pytest
 
 from deerflow.agents.memory.storage import (
     FileMemoryStorage,
-    Mem0MemoryClient,
     MemoryStorage,
     create_empty_memory,
     get_memory_storage,
@@ -202,44 +201,3 @@ class TestGetMemoryStorage:
         with patch("deerflow.agents.memory.storage.get_memory_config", return_value=MemoryConfig(storage_class="builtins.dict")):
             storage = get_memory_storage()
             assert isinstance(storage, FileMemoryStorage)
-
-    def test_returns_mem0_client_when_provider_is_mem0(self, monkeypatch):
-        """Should return a Mem0-backed client when provider is set to mem0."""
-        import deerflow.agents.memory.storage as storage_mod
-
-        config = MemoryConfig(provider="mem0", mem0_search_limit=6, mem0_config={})
-        sentinel = object()
-
-        monkeypatch.setattr(storage_mod, "get_memory_config", lambda: config)
-        monkeypatch.setattr(storage_mod, "Mem0MemoryClient", lambda cfg: sentinel if cfg is config else None)
-
-        storage = get_memory_storage()
-
-        assert storage is sentinel
-
-
-class TestMem0MemoryClient:
-    """Test Mem0-backed storage wrapper."""
-
-    def test_search_normalizes_results(self, monkeypatch):
-        """Should return the raw results list from the Mem0 search payload."""
-        fake_sync = MagicMock()
-        fake_sync.search.return_value = {
-            "results": [
-                {"id": "mem-1", "memory": "Prefers concise answers", "score": 0.92},
-            ]
-        }
-        fake_async = MagicMock()
-
-        monkeypatch.setattr("deerflow.agents.memory.mem0_client.Memory", MagicMock(return_value=fake_sync))
-        monkeypatch.setattr("deerflow.agents.memory.mem0_client.AsyncMemory", MagicMock(return_value=fake_async))
-
-        client = Mem0MemoryClient(MemoryConfig(provider="mem0", mem0_search_limit=8, mem0_config={}))
-        results = client.search(query="What do you know about me?", user_id="user-1", limit=4)
-
-        assert results == [{"id": "mem-1", "memory": "Prefers concise answers", "score": 0.92}]
-        fake_sync.search.assert_called_once_with(
-            query="What do you know about me?",
-            user_id="user-1",
-            limit=4,
-        )
