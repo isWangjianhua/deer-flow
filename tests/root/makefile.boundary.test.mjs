@@ -3,7 +3,10 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 void test("Makefile exposes init and installs backend, bff, and frontend dependencies", async () => {
-  const source = await readFile(new URL("../Makefile", import.meta.url), "utf8");
+  const source = await readFile(
+    new URL("../../Makefile", import.meta.url),
+    "utf8",
+  );
 
   assert.match(
     source,
@@ -33,7 +36,10 @@ void test("Makefile exposes init and installs backend, bff, and frontend depende
 });
 
 void test("README documents install as backend, bff, and frontend setup", async () => {
-  const readme = await readFile(new URL("../README.md", import.meta.url), "utf8");
+  const readme = await readFile(
+    new URL("../../README.md", import.meta.url),
+    "utf8",
+  );
 
   assert.match(
     readme,
@@ -42,8 +48,34 @@ void test("README documents install as backend, bff, and frontend setup", async 
   );
 });
 
+void test("README removes the browser memory surface and documents the current channel commands", async () => {
+  const readme = await readFile(
+    new URL("../../README.md", import.meta.url),
+    "utf8",
+  );
+
+  assert.doesNotMatch(
+    readme,
+    /Settings > Memory/,
+    "expected the root README to stop documenting the removed browser memory settings page",
+  );
+  assert.doesNotMatch(
+    readme,
+    /\| `\/memory` \|/,
+    "expected the root README command table to stop listing the removed /memory command",
+  );
+  assert.match(
+    readme,
+    /\| `\/bootstrap` \|/,
+    "expected the root README command table to include the current /bootstrap channel command",
+  );
+});
+
 void test("backend README points developers to the root install flow", async () => {
-  const readme = await readFile(new URL("../backend/README.md", import.meta.url), "utf8");
+  const readme = await readFile(
+    new URL("../../backend/README.md", import.meta.url),
+    "utf8",
+  );
 
   assert.match(
     readme,

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Load the Memory Settings review sample into a local DeerFlow runtime."""
+"""Seed the legacy file-backed runtime memory fixture into a local DeerFlow runtime."""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ def default_target(repo_root: Path) -> Path:
 
 def parse_args(repo_root: Path) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Copy the Memory Settings sample data into the local runtime memory file.",
+        description="Copy the legacy file-memory sample data into the local runtime memory file.",
     )
     parser.add_argument(
         "--source",

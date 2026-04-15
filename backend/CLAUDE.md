@@ -14,8 +14,8 @@ DeerFlow is a LangGraph-based AI super agent system with a full-stack architectu
 - **Provisioner** (port 8002, optional in Docker dev): Started only when sandbox is configured for provisioner/Kubernetes mode
 
 **Runtime Modes**:
-- **Standard mode** (`make dev`): LangGraph Server handles agent execution as a separate process. 4 processes total.
-- **Gateway mode** (`make dev-pro`, experimental): Agent runtime embedded in Gateway via `RunManager` + `run_agent()` + `StreamBridge` (`packages/harness/deerflow/runtime/`). Service manages its own concurrency via async tasks. 3 processes total, no LangGraph Server.
+- **Standard mode** (`make dev`): LangGraph Server handles agent execution as a separate process. 5 local processes total (`langgraph`, `gateway`, `bff`, `frontend`, `nginx`).
+- **Gateway mode** (`make dev-pro`, experimental): Agent runtime embedded in Gateway via `RunManager` + `run_agent()` + `StreamBridge` (`packages/harness/deerflow/runtime/`). Service manages its own concurrency via async tasks. 4 local processes total (`gateway`, `bff`, `frontend`, `nginx`), no LangGraph Server.
 
 **Project Structure**:
 ```
@@ -82,10 +82,11 @@ When making code changes, you MUST update the relevant documentation:
 **Root directory** (for full application):
 ```bash
 make check      # Check system requirements
-make install    # Install all dependencies (frontend + backend)
-make dev        # Start all services (LangGraph + Gateway + Frontend + Nginx), with config.yaml preflight
-make dev-pro    # Gateway mode (experimental): skip LangGraph, agent runtime embedded in Gateway
-make start-pro  # Production + Gateway mode (experimental)
+make init       # Check system requirements and install backend, BFF, and frontend dependencies
+make install    # Install all dependencies (backend + BFF + frontend)
+make dev        # Start LangGraph + Gateway + BFF + Frontend + Nginx
+make dev-pro    # Gateway mode (experimental): start Gateway + BFF + Frontend + Nginx
+make start-pro  # Production + Gateway mode (experimental, reuses a fresh frontend build when available)
 make stop       # Stop all services
 ```
 
@@ -324,7 +325,7 @@ Bridges external messaging platforms (Feishu, Slack, Telegram) to the DeerFlow a
 4. Feishu chat: `runs.stream()` → accumulate AI text → publish multiple outbound updates (`is_final=False`) → publish final outbound (`is_final=True`)
 5. Slack/Telegram chat: `runs.wait()` → extract final response → publish outbound
 6. Feishu channel sends one running reply card up front, then patches the same card for each outbound update (card JSON sets `config.update_multi=true` for Feishu's patch API requirement)
-7. For commands (`/new`, `/status`, `/models`, `/memory`, `/help`): handle locally or query Gateway API
+7. For commands (`/bootstrap`, `/new`, `/status`, `/models`, `/help`): handle locally or query Gateway API
 8. Outbound → channel callbacks → platform reply
 
 **Configuration** (`config.yaml` -> `channels`):
@@ -460,6 +461,7 @@ This starts all services and makes the application available at `http://localhos
 | Action | Local | Docker Dev | Docker Prod |
 |---|---|---|---|
 | **Stop** | `./scripts/serve.sh --stop`<br/>`make stop` | `./scripts/docker.sh stop`<br/>`make docker-stop` | `./scripts/deploy.sh down`<br/>`make down` |
+| **Note** | Local prod launchers reuse `frontend/.next` when fresh and rebuild once when missing or stale | — | — |
 | **Restart** | `./scripts/serve.sh --restart [flags]` | `./scripts/docker.sh restart` | — |
 
 Gateway mode embeds the agent runtime in Gateway, no LangGraph server.

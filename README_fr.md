@@ -247,7 +247,9 @@ Prérequis : complétez d'abord les étapes de « Configuration » ci-dessus (`m
 
 2. **Installer les dépendances** :
    ```bash
-   make install  # Install backend + frontend dependencies
+   make init     # Vérifier les prérequis et installer les dépendances backend, BFF et frontend
+   # ou
+   make install  # Installer les dépendances backend, BFF et frontend
    ```
 
 3. **(Optionnel) Pré-télécharger l'image sandbox** :
@@ -384,10 +386,10 @@ Une fois un canal connecté, vous pouvez interagir avec DeerFlow directement dep
 
 | Commande | Description |
 |---------|-------------|
+| `/bootstrap` | Démarrer une session de bootstrap |
 | `/new` | Démarrer une nouvelle conversation |
 | `/status` | Afficher les infos du thread en cours |
 | `/models` | Lister les modèles disponibles |
-| `/memory` | Consulter la mémoire |
 | `/help` | Afficher l'aide |
 
 > Les messages sans préfixe de commande sont traités comme du chat classique — DeerFlow crée un thread et répond de manière conversationnelle.

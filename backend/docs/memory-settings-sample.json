@@ -3,7 +3,7 @@
   "lastUpdated": "2026-03-28T10:30:00Z",
   "user": {
     "workContext": {
-      "summary": "Working on DeerFlow memory management UX, including local search, local filters, clear-all, and single-fact deletion in Settings > Memory.",
+      "summary": "Working on DeerFlow runtime memory behavior, including local verification, filtering expectations, and fixture-driven review flows.",
       "updatedAt": "2026-03-28T10:30:00Z"
     },
     "personalContext": {
@@ -48,7 +48,7 @@
     },
     {
       "id": "fact_review_003",
-      "content": "User implemented memory search and filter improvements in the DeerFlow settings page.",
+      "content": "User implemented runtime memory filtering improvements in DeerFlow.",
       "category": "project",
       "confidence": 0.91,
       "createdAt": "2026-03-28T09:54:00Z",
@@ -56,7 +56,7 @@
     },
     {
       "id": "fact_review_004",
-      "content": "User added clear-all memory support through the gateway memory API.",
+      "content": "User reviewed clear-all memory behavior in legacy file-backed runtime flows.",
       "category": "project",
       "confidence": 0.89,
       "createdAt": "2026-03-28T09:56:00Z",
@@ -64,7 +64,7 @@
     },
     {
       "id": "fact_review_005",
-      "content": "User added single-fact deletion support for persisted memory entries.",
+      "content": "User reviewed single-fact deletion support for persisted memory entries.",
       "category": "project",
       "confidence": 0.9,
       "createdAt": "2026-03-28T09:58:00Z",

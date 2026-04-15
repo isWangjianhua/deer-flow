@@ -1,90 +1,132 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for coding agents working in `frontend/`.
 
 ## Project Overview
 
-DeerFlow Frontend is a Next.js 16 web interface for an AI agent system. It communicates with a LangGraph-based backend to provide thread-based AI conversations with streaming responses, artifacts, and a skills/tools system.
+DeerFlow Frontend is a Next.js 16 application that now centers on a BFF-backed
+workspace flow.
 
-**Stack**: Next.js 16, React 19, TypeScript 5.8, Tailwind CSS 4, pnpm 10.26.2
+- Main chat and account surfaces are same-origin browser paths backed by the
+  FastAPI BFF.
+- Some older workspace capabilities still proxy to DeerFlow Gateway through
+  Next.js route handlers.
+- `http://localhost:2026` is the canonical end-to-end local entrypoint.
+- `http://localhost:3000` remains useful for focused frontend work, but it is
+  still a partial-bridge development path.
 
 ## Commands
 
-| Command          | Purpose                                           |
-| ---------------- | ------------------------------------------------- |
-| `pnpm dev`       | Dev server with Turbopack (http://localhost:3000) |
-| `pnpm build`     | Production build                                  |
-| `pnpm check`     | Lint + type check (run before committing)         |
-| `pnpm lint`      | ESLint only                                       |
-| `pnpm lint:fix`  | ESLint with auto-fix                              |
-| `pnpm typecheck` | TypeScript type check (`tsc --noEmit`)            |
-| `pnpm start`     | Start production server                           |
+| Command | Purpose |
+| --- | --- |
+| `pnpm dev` | Start the frontend dev server with Turbopack on `:3000` |
+| `pnpm dev:webpack` | Webpack fallback for Turbopack-specific regressions |
+| `pnpm build` | Production build verification |
+| `pnpm start` | Start an existing production build |
+| `pnpm preview` | Rebuild, then start the production server |
+| `pnpm check` | ESLint + TypeScript check |
+| `pnpm lint` | ESLint only |
+| `pnpm lint:fix` | ESLint with auto-fix |
+| `pnpm typecheck` | TypeScript only |
+| `pnpm test:e2e:auth` | Playwright auth regression |
+| `pnpm test:e2e:chat` | Playwright chat regression |
 
-No test framework is configured.
+For full-stack local work from the repo root:
 
-## Architecture
-
-```
-Frontend (Next.js) ──▶ LangGraph SDK ──▶ LangGraph Backend (lead_agent)
-                                              ├── Sub-Agents
-                                              └── Tools & Skills
-```
-
-The frontend is a stateful chat application. Users create **threads** (conversations), send messages, and receive streamed AI responses. The backend orchestrates agents that can produce **artifacts** (files/code) and **todos**.
-
-### Source Layout (`src/`)
-
-- **`app/`** — Next.js App Router. Routes: `/` (landing), `/workspace/chats/[thread_id]` (chat).
-- **`components/`** — React components split into:
-  - `ui/` — Shadcn UI primitives (auto-generated, ESLint-ignored)
-  - `ai-elements/` — Vercel AI SDK elements (auto-generated, ESLint-ignored)
-  - `workspace/` — Chat page components (messages, artifacts, settings)
-  - `landing/` — Landing page sections
-- **`core/`** — Business logic, the heart of the app:
-  - `threads/` — Thread creation, streaming, state management (hooks + types)
-  - `api/` — LangGraph client singleton
-  - `artifacts/` — Artifact loading and caching
-  - `i18n/` — Internationalization (en-US, zh-CN)
-  - `settings/` — User preferences in localStorage
-  - `memory/` — Persistent user memory system
-  - `skills/` — Skills installation and management
-  - `messages/` — Message processing and transformation
-  - `mcp/` — Model Context Protocol integration
-  - `models/` — TypeScript types and data models
-- **`hooks/`** — Shared React hooks
-- **`lib/`** — Utilities (`cn()` from clsx + tailwind-merge)
-- **`server/`** — Server-side code (better-auth, not yet active)
-- **`styles/`** — Global CSS with Tailwind v4 `@import` syntax and CSS variables for theming
-
-### Data Flow
-
-1. User input → thread hooks (`core/threads/hooks.ts`) → LangGraph SDK streaming
-2. Stream events update thread state (messages, artifacts, todos)
-3. TanStack Query manages server state; localStorage stores user settings
-4. Components subscribe to thread state and render updates
-
-### Key Patterns
-
-- **Server Components by default**, `"use client"` only for interactive components
-- **Thread hooks** (`useThreadStream`, `useSubmitThread`, `useThreads`) are the primary API interface
-- **LangGraph client** is a singleton obtained via `getAPIClient()` in `core/api/`
-- **Environment validation** uses `@t3-oss/env-nextjs` with Zod schemas (`src/env.js`). Skip with `SKIP_ENV_VALIDATION=1`
-
-## Code Style
-
-- **Imports**: Enforced ordering (builtin → external → internal → parent → sibling), alphabetized, newlines between groups. Use inline type imports: `import { type Foo }`.
-- **Unused variables**: Prefix with `_`.
-- **Class names**: Use `cn()` from `@/lib/utils` for conditional Tailwind classes.
-- **Path alias**: `@/*` maps to `src/*`.
-- **Components**: `ui/` and `ai-elements/` are generated from registries (Shadcn, MagicUI, React Bits, Vercel AI SDK) — don't manually edit these.
-
-## Environment
-
-Backend API URLs are optional; an nginx proxy is used by default:
-
-```
-NEXT_PUBLIC_BACKEND_BASE_URL=http://localhost:8001
-NEXT_PUBLIC_LANGGRAPH_BASE_URL=http://localhost:2024
+```bash
+make dev-pro
 ```
 
-Requires Node.js 22+ and pnpm 10.26.2+.
+That starts `Gateway + BFF + Frontend + nginx`.
+
+## Current Architecture
+
+```text
+browser
+  -> frontend pages/components
+  -> same-origin Next.js routes under /api/*
+     -> /api/bff/* -> FastAPI BFF
+     -> selected /api/* bridge routes -> DeerFlow Gateway
+```
+
+### Canonical browser ownership
+
+- `/api/bff/*`
+  - primary same-origin bridge to the FastAPI BFF
+- `/api/mcp`, `/api/skills`, `/api/agents`
+  - same-origin Next.js bridge routes that still proxy Gateway-facing APIs
+- `/workspace/chats/new`
+  - canonical new-chat route
+- `/workspace/chat/new`
+  - compatibility alias only
+
+### Important boundaries
+
+- Do not add new browser-visible direct calls to Gateway.
+- Treat `conversation_id` as the public identifier for the BFF-backed chat
+  path.
+- Do not reintroduce raw runtime `thread_id` semantics into the BFF-backed UI.
+- Prefer `:2026` when validating end-to-end behavior through nginx.
+
+## Source Layout
+
+```text
+src/
+├── app/
+│   ├── api/                # Same-origin route handlers
+│   ├── workspace/          # Workspace pages
+│   └── mock/               # Mock/demo routes
+├── components/
+│   ├── ai-elements/        # AI UI primitives
+│   ├── auth/               # Auth UI and login-required dialog
+│   ├── ui/                 # Reusable UI primitives
+│   └── workspace/          # Workspace-specific UI
+├── core/
+│   ├── auth/               # Browser auth/session + BFF helpers
+│   ├── bff-chat/           # BFF chat protocol, stream parsing, state
+│   ├── artifacts/          # Artifact helpers
+│   ├── uploads/            # Upload helpers
+│   ├── models/             # Model loading helpers
+│   ├── settings/           # Same-origin settings/resource helpers
+│   ├── mcp/                # Gateway-backed MCP helpers
+│   ├── skills/             # Gateway-backed skill helpers
+│   └── threads/            # Legacy runtime-thread semantics
+├── server/
+│   ├── better-auth/        # Better Auth setup
+│   └── bff/                # Internal BFF base URL + auth helpers
+└── styles/
+```
+
+## Current Testing Reality
+
+Tests do exist in this package.
+
+- Boundary tests verify route ownership, fetch targets, and module boundaries.
+- `src/core/bff-chat/` has stream/state regression coverage.
+- Playwright covers the main auth and BFF-backed chat flows.
+
+When behavior changes materially, prefer tests in this order:
+
+1. boundary tests
+2. `src/core/bff-chat/` state/message tests
+3. component boundary tests
+4. Playwright
+
+## Environment Notes
+
+- `NEXT_PUBLIC_BFF_BASE_URL` defaults to same-origin `/api/bff`.
+- `DEER_FLOW_INTERNAL_BFF_BASE_URL` lets Next.js server routes reach the FastAPI
+  BFF directly, usually `http://127.0.0.1:9000`.
+- Root launchers manage `frontend/.env.local` for
+  `NEXT_PUBLIC_LANGGRAPH_BASE_URL` so gateway mode points at
+  `/api/langgraph-compat`.
+- `SKIP_ENV_VALIDATION=1` is still useful for some Docker/dev workflows.
+
+## Documentation Expectations
+
+If a change affects frontend behavior, startup assumptions, or ownership
+boundaries, update the matching docs in the same change. Usually that means:
+
+- `frontend/README.md`
+- `frontend/AGENTS.md`
+- relevant root README sections when launch commands or entrypoints change

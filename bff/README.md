@@ -11,7 +11,10 @@ Browser redirect and callback handling for OIDC remain out of scope in this slic
 
 ## Purpose
 
-This service is the only public backend entry for the frontend.
+This service is the public backend entry for the BFF-owned frontend flows.
+
+Some remaining browser-visible APIs are still same-origin Next.js bridge routes
+rather than BFF-owned endpoints.
 
 It sits between the frontend and DeerFlow Gateway and is responsible for:
 

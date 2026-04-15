@@ -26,7 +26,7 @@ Completed on `2026-04-12` and `2026-04-13`:
 - startup alignment for `make dev-pro` / `serve.sh --gateway`
 - BFF model proxying
 - BFF-backed artifacts, uploads, and suggestions for the main chat path
-- same-origin bridge cleanup for memory, MCP, skills, and agents
+- same-origin bridge cleanup for MCP, skills, and agents
 - account page productization
 - nginx browser-route ownership cleanup
 
@@ -114,7 +114,7 @@ Priority: medium
 Why this matters:
 
 - the main chat flow already uses BFF conversation semantics
-- the browser no longer needs the raw Gateway base URL for the main chat loop, models, memory, MCP,
+- the browser no longer needs the raw Gateway base URL for the main chat loop, models, MCP,
   skills, or agents
 - some of those non-chat surfaces are still routed through same-origin Next.js bridges instead of
   BFF-owned APIs

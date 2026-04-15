@@ -7,7 +7,8 @@
 #
 # Modes:
 #   --dev       Development mode with hot-reload (default)
-#   --prod      Production mode, pre-built frontend, no hot-reload
+#   --prod      Production mode, no hot-reload; reuses an existing frontend
+#               build when fresh, otherwise builds once before start
 #   --gateway   Gateway mode (experimental): skip LangGraph server,
 #               agent runtime embedded in Gateway API
 #   --daemon    Run all services in background (nohup), exit after startup
@@ -40,6 +41,12 @@ if [ -f "$REPO_ROOT/.env" ]; then
     source "$REPO_ROOT/.env"
     set +a
 fi
+
+if [ -z "${DEER_FLOW_HOME:-}" ]; then
+    export DEER_FLOW_HOME="$REPO_ROOT/backend/.deer-flow"
+fi
+
+mkdir -p "$DEER_FLOW_HOME"
 
 # ── Argument parsing ─────────────────────────────────────────────────────────
 
@@ -118,19 +125,76 @@ if $DAEMON_MODE; then
     MODE_LABEL="$MODE_LABEL [daemon]"
 fi
 
+resolve_python_bin() {
+    if command -v python3 >/dev/null 2>&1; then
+        echo "python3"
+        return 0
+    fi
+    if command -v python >/dev/null 2>&1; then
+        echo "python"
+        return 0
+    fi
+    return 1
+}
+
+ensure_better_auth_secret() {
+    local secret_file="$DEER_FLOW_HOME/.better-auth-secret"
+    local python_bin
+
+    if [ -n "${BETTER_AUTH_SECRET:-}" ]; then
+        export BETTER_AUTH_SECRET
+        return 0
+    fi
+
+    if [ -f "$secret_file" ]; then
+        BETTER_AUTH_SECRET="$(cat "$secret_file")"
+        export BETTER_AUTH_SECRET
+        return 0
+    fi
+
+    python_bin="$(resolve_python_bin)" || {
+        echo "Python is required to generate BETTER_AUTH_SECRET."
+        exit 1
+    }
+
+    BETTER_AUTH_SECRET="$("$python_bin" -c 'import secrets; print(secrets.token_hex(32))')"
+    export BETTER_AUTH_SECRET
+    printf '%s\n' "$BETTER_AUTH_SECRET" > "$secret_file"
+    chmod 600 "$secret_file"
+}
+
+frontend_build_is_fresh() {
+    local build_id="$REPO_ROOT/frontend/.next/BUILD_ID"
+    local frontend_root="$REPO_ROOT/frontend"
+    local candidate
+
+    [ -f "$build_id" ] || return 1
+
+    for candidate in package.json pnpm-lock.yaml next.config.js .env .env.local; do
+        if [ -f "$frontend_root/$candidate" ] && [ "$frontend_root/$candidate" -nt "$build_id" ]; then
+            return 1
+        fi
+    done
+
+    for candidate in src public; do
+        if [ -d "$frontend_root/$candidate" ] && find "$frontend_root/$candidate" -type f -newer "$build_id" -print -quit | grep -q .; then
+            return 1
+        fi
+    done
+
+    return 0
+}
+
 # Frontend command
 if $DEV_MODE; then
     FRONTEND_CMD="pnpm run dev"
 else
-    if command -v python3 >/dev/null 2>&1; then
-        PYTHON_BIN="python3"
-    elif command -v python >/dev/null 2>&1; then
-        PYTHON_BIN="python"
+    ensure_better_auth_secret
+    if frontend_build_is_fresh; then
+        FRONTEND_CMD="pnpm run start"
     else
-        echo "Python is required to generate BETTER_AUTH_SECRET."
-        exit 1
+        FRONTEND_CMD="pnpm run build && pnpm run start"
     fi
-    FRONTEND_CMD="env BETTER_AUTH_SECRET=$($PYTHON_BIN -c 'import secrets; print(secrets.token_hex(16))') pnpm run preview"
 fi
 
 # Extra flags for uvicorn/langgraph
@@ -174,7 +238,12 @@ else
     echo "⏩ Skipping dependency install (--skip-install)"
 fi
 
-"$REPO_ROOT/scripts/ensure-qdrant.sh" --mode=dev
+QDRANT_MODE="dev"
+if ! $DEV_MODE; then
+    QDRANT_MODE="prod"
+fi
+
+"$REPO_ROOT/scripts/ensure-qdrant.sh" --mode="$QDRANT_MODE"
 
 # ── Sync frontend .env.local ─────────────────────────────────────────────────
 # Next.js .env.local takes precedence over process env vars.

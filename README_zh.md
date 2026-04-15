@@ -204,7 +204,9 @@ make down   # 停止并移除容器
 
 2. **安装依赖**：
    ```bash
-   make install  # 安装 backend + frontend 依赖
+   make init     # 检查环境并安装 backend、bff、frontend 依赖
+   # 或
+   make install  # 安装 backend、bff、frontend 依赖
    ```
 
 3. **（可选）预拉取 sandbox 镜像**：
@@ -363,10 +365,10 @@ WECOM_BOT_SECRET=your_bot_secret
 
 | 命令 | 说明 |
 |---------|-------------|
+| `/bootstrap` | 开启 bootstrap 会话 |
 | `/new` | 开启新对话 |
 | `/status` | 查看当前 thread 信息 |
 | `/models` | 列出可用模型 |
-| `/memory` | 查看 memory |
 | `/help` | 查看帮助 |
 
 > 没有命令前缀的消息会被当作普通聊天处理。DeerFlow 会自动创建 thread，并以对话方式回复。

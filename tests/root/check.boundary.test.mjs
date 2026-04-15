@@ -3,7 +3,10 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 void test("check.py points developers at make init and repo-wide dependency install", async () => {
-  const source = await readFile(new URL("./check.py", import.meta.url), "utf8");
+  const source = await readFile(
+    new URL("../../scripts/check.py", import.meta.url),
+    "utf8",
+  );
 
   assert.match(
     source,

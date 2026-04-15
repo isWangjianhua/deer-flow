@@ -25,7 +25,8 @@ If you are new to this service, read the docs in this order:
 
 ## Key Rules
 
-- The frontend only talks to the BFF.
+- The main auth/chat browser path should talk to the BFF.
+- Some remaining browser-visible APIs are still same-origin Next.js bridge routes.
 - The BFF owns authentication, ownership checks, and public API stability.
 - DeerFlow Gateway stays internal and is treated as the agent runtime.
 - DeerFlow `thread_id` must never be exposed to frontend callers.

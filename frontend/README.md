@@ -38,6 +38,14 @@ pnpm dev:webpack
 # The app will be available at http://localhost:3000
 ```
 
+For end-to-end local verification, prefer the root launcher and the nginx entrypoint:
+
+```bash
+cd ..
+make dev-pro
+# open http://localhost:2026
+```
+
 ### Build
 
 ```bash
@@ -56,8 +64,11 @@ pnpm lint
 # Build for production
 pnpm build
 
-# Start production server
+# Start an existing production build
 pnpm start
+
+# Rebuild, then start
+pnpm preview
 ```
 
 ## Site Map
@@ -80,7 +91,8 @@ Key environment variables (see `.env.example` for full list):
 NEXT_PUBLIC_AUTH_MODE="oidc"
 # Backend API URLs (optional, uses nginx proxy by default)
 NEXT_PUBLIC_BACKEND_BASE_URL="http://localhost:8001"
-# LangGraph API URLs (optional, uses nginx proxy by default)
+# LangGraph API URLs (optional, uses nginx proxy by default; root launchers
+# rewrite frontend/.env.local automatically for gateway mode)
 NEXT_PUBLIC_LANGGRAPH_BASE_URL="http://localhost:2024"
 # Better Auth / OIDC configuration
 BETTER_AUTH_OIDC_CLIENT_ID="oidc-client-id"
@@ -135,6 +147,7 @@ What still remains mixed:
 Current startup story:
 
 - `make dev-pro` and `./scripts/serve.sh --dev --gateway` start `Gateway + BFF + Frontend + nginx`
+- `make start` / `make start-pro` reuse an up-to-date local production build and rebuild once only when the frontend sources are newer or no build exists
 - `http://localhost:2026` is the canonical end-to-end local entrypoint
 - `http://localhost:3000` remains useful for focused frontend work, but it is still a partial-bridge workflow
 
@@ -193,7 +206,8 @@ src/
 | `pnpm dev`          | Start development server with Turbopack |
 | `pnpm dev:webpack`  | Start development server with webpack fallback |
 | `pnpm build`        | Build for production                    |
-| `pnpm start`        | Start production server                 |
+| `pnpm start`        | Start an existing production build      |
+| `pnpm preview`      | Rebuild, then start the production server |
 | `pnpm format`       | Check formatting with Prettier          |
 | `pnpm format:write` | Apply formatting with Prettier          |
 | `pnpm lint`         | Run ESLint                              |
@@ -209,6 +223,7 @@ src/
 - Turbopack enabled by default in development for faster builds
 - Environment validation can be skipped with `SKIP_ENV_VALIDATION=1` (useful for Docker)
 - Backend API URLs are optional; nginx proxy is used by default in development
+- Root `make start*` launchers now behave like production starters: they reuse a fresh `.next` build when possible and rebuild lazily when the local frontend sources changed
 
 ## Auth Development
 

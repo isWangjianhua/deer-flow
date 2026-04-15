@@ -317,25 +317,18 @@ When `memory.provider=mem0` and `memory.mem0_config.vector_store.provider=qdrant
    make setup-sandbox
    ```
 
-4. **(Optional) Load sample memory data for local review**:
-   ```bash
-   python scripts/load_memory_sample.py
-   ```
-   This copies the sample fixture into the default local runtime memory file so reviewers can immediately test `Settings > Memory`.
-   See [backend/docs/MEMORY_SETTINGS_REVIEW.md](backend/docs/MEMORY_SETTINGS_REVIEW.md) for the shortest review flow.
-
-5. **Start services**:
+4. **Start services**:
    ```bash
    make dev
    ```
 
-6. **Access**: http://localhost:2026
+5. **Access**: http://localhost:2026
 
 #### Startup Modes
 
 DeerFlow supports multiple startup modes across two dimensions:
 
-- **Dev / Prod** — dev enables hot-reload; prod uses pre-built frontend
+- **Dev / Prod** — dev enables hot-reload; local prod disables hot-reload and reuses an existing frontend build when it is still fresh, otherwise it builds once before start
 - **Standard / Gateway** — standard uses a separate LangGraph server; Gateway mode (experimental) embeds the agent runtime in the Gateway API
 
 | | **Local Foreground** | **Local Daemon** | **Docker Dev** | **Docker Prod** |
@@ -351,6 +344,8 @@ DeerFlow supports multiple startup modes across two dimensions:
 | **Restart** | `./scripts/serve.sh --restart [flags]` | `./scripts/docker.sh restart` | — |
 
 > **Gateway mode** eliminates the LangGraph server process — the Gateway API handles agent execution directly via async tasks, managing its own concurrency.
+>
+> Local production launchers (`make start`, `make start-pro`, and the corresponding `serve.sh --prod*` commands) reuse `frontend/.next` when it is up to date. If the build is missing or stale, they run one production build before `next start`.
 
 #### Why Gateway Mode?
 
@@ -530,10 +525,10 @@ Once a channel is connected, you can interact with DeerFlow directly from the ch
 
 | Command | Description |
 |---------|-------------|
+| `/bootstrap` | Start a bootstrap session |
 | `/new` | Start a new conversation |
 | `/status` | Show current thread info |
 | `/models` | List available models |
-| `/memory` | View memory |
 | `/help` | Show help |
 
 > Messages without a command prefix are treated as regular chat — DeerFlow creates a thread and responds conversationally.
