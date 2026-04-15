@@ -117,7 +117,7 @@ For local development without OIDC, use the BFF local auth provider instead:
 - set `NEXT_PUBLIC_AUTH_MODE=local` in `frontend/.env`
 - set `DEER_FLOW_INTERNAL_BFF_BASE_URL=http://127.0.0.1:9000`
 - keep `BFF_AUTH_PROVIDER=local` in `bff/.env`
-- sign in from `/workspace/account` with the seeded dev user `demo / demo123`
+- sign in from `/workspace/account` with the seeded dev user `demo / demo1234`
 - or create a new local account from `/workspace/account`
 - local registration supports username/password only in this slice
 - email verification and password reset remain future work

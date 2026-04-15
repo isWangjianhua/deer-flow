@@ -139,7 +139,7 @@ Rules:
 The first slice seeds a local development user that is used by the default `local` provider:
 
 - username: `demo`
-- password: `demo123`
+- password: `demo1234`
 
 ## Downstream Mapping Rules
 

@@ -13,7 +13,7 @@ def test_create_and_list_conversations(client, monkeypatch) -> None:
 
     monkeypatch.setattr(DeerFlowClient, "create_thread", mock_create_thread)
 
-    login = client.post("/auth/login", json={"username": "demo", "password": "demo123"})
+    login = client.post("/auth/login", json={"username": "demo", "password": "demo1234"})
     token = login.json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
 
@@ -66,7 +66,7 @@ def test_get_conversation_detail(client, monkeypatch) -> None:
     monkeypatch.setattr(DeerFlowClient, "create_thread", mock_create_thread)
     monkeypatch.setattr(DeerFlowClient, "get_thread_history", mock_get_thread_history)
 
-    login = client.post("/auth/login", json={"username": "demo", "password": "demo123"})
+    login = client.post("/auth/login", json={"username": "demo", "password": "demo1234"})
     token = login.json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
 

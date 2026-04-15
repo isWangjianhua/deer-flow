@@ -25,7 +25,7 @@ def test_conversation_suggestions_route_proxies_to_gateway_thread(
         raising=False,
     )
 
-    login = client.post("/auth/login", json={"username": "demo", "password": "demo123"})
+    login = client.post("/auth/login", json={"username": "demo", "password": "demo1234"})
     token = login.json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
     me = client.get("/me", headers=headers)
@@ -76,7 +76,7 @@ def test_conversation_artifact_route_proxies_owned_access(
 
     monkeypatch.setattr(DeerFlowClient, "get_artifact", mock_get_artifact, raising=False)
 
-    login = client.post("/auth/login", json={"username": "demo", "password": "demo123"})
+    login = client.post("/auth/login", json={"username": "demo", "password": "demo1234"})
     token = login.json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
     me = client.get("/me", headers=headers)
@@ -122,7 +122,7 @@ def test_conversation_upload_route_proxies_files_to_gateway_thread(
 
     monkeypatch.setattr(DeerFlowClient, "upload_files", mock_upload_files, raising=False)
 
-    login = client.post("/auth/login", json={"username": "demo", "password": "demo123"})
+    login = client.post("/auth/login", json={"username": "demo", "password": "demo1234"})
     token = login.json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
     me = client.get("/me", headers=headers)
@@ -175,7 +175,7 @@ def test_conversation_upload_route_passthrough_preserves_boundary_like_content(
 
     monkeypatch.setattr(DeerFlowClient, "upload_files", mock_upload_files, raising=False)
 
-    login = client.post("/auth/login", json={"username": "demo", "password": "demo123"})
+    login = client.post("/auth/login", json={"username": "demo", "password": "demo1234"})
     token = login.json()["access_token"]
     headers = {
         "Authorization": f"Bearer {token}",

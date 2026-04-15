@@ -17,7 +17,7 @@ def test_stream_route_requires_auth(client) -> None:
 
 
 def test_stream_route_rejects_unowned_conversation(client) -> None:
-    login = client.post("/auth/login", json={"username": "demo", "password": "demo123"})
+    login = client.post("/auth/login", json={"username": "demo", "password": "demo1234"})
     token = login.json()["access_token"]
 
     response = client.post(
@@ -67,7 +67,7 @@ def test_stream_route_returns_sse_for_owned_conversation(client, db_session, mon
     monkeypatch.setattr(DeerFlowClient, "stream_message", mock_stream_message)
     monkeypatch.setattr(DeerFlowClient, "get_thread_history", mock_get_thread_history)
 
-    login = client.post("/auth/login", json={"username": "demo", "password": "demo123"})
+    login = client.post("/auth/login", json={"username": "demo", "password": "demo1234"})
     token = login.json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
     me = client.get("/me", headers=headers)
@@ -137,7 +137,7 @@ def test_stream_route_syncs_conversation_title_after_stream(client, db_session, 
     monkeypatch.setattr(DeerFlowClient, "stream_message", mock_stream_message)
     monkeypatch.setattr(DeerFlowClient, "get_thread_history", mock_get_thread_history)
 
-    login = client.post("/auth/login", json={"username": "demo", "password": "demo123"})
+    login = client.post("/auth/login", json={"username": "demo", "password": "demo1234"})
     token = login.json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
     me = client.get("/me", headers=headers)
@@ -204,7 +204,7 @@ def test_stream_route_keeps_sse_response_when_post_stream_sync_fails(client, db_
     monkeypatch.setattr(DeerFlowClient, "stream_message", mock_stream_message)
     monkeypatch.setattr(DeerFlowClient, "get_thread_history", mock_get_thread_history)
 
-    login = client.post("/auth/login", json={"username": "demo", "password": "demo123"})
+    login = client.post("/auth/login", json={"username": "demo", "password": "demo1234"})
     token = login.json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
     me = client.get("/me", headers=headers)
@@ -256,7 +256,7 @@ def test_stream_route_forwards_model_context_to_deerflow(client, db_session, mon
     monkeypatch.setattr(DeerFlowClient, "stream_message", mock_stream_message)
     monkeypatch.setattr(DeerFlowClient, "get_thread_history", mock_get_thread_history)
 
-    login = client.post("/auth/login", json={"username": "demo", "password": "demo123"})
+    login = client.post("/auth/login", json={"username": "demo", "password": "demo1234"})
     token = login.json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
     me = client.get("/me", headers=headers)

@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Let the frontend use the BFF-backed chat flow locally without OIDC by supporting a fixed `demo / demo123` login path against the BFF `local` auth provider.
+**Goal:** Let the frontend use the BFF-backed chat flow locally without OIDC by supporting a fixed `demo / demo1234` login path against the BFF `local` auth provider.
 
 **Architecture:** Keep OIDC as the default production path, but add a dev-only local auth mode in the frontend. The browser posts credentials to a same-origin frontend auth route, that route exchanges them for a BFF bearer token and stores it in an httpOnly cookie, and existing `/api/bff/*` bridge routes reuse either the local bearer token or the OIDC account token.
 

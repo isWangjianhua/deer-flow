@@ -16,7 +16,7 @@ def init_db() -> None:
             db.add(
                 User(
                     username="demo",
-                    password_hash=get_password_hash("demo123"),
+                    password_hash=get_password_hash("demo1234"),
                 )
             )
             db.commit()

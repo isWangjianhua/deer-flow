@@ -52,7 +52,7 @@ def db_session(tmp_path) -> Session:
 
     db = session_local()
     try:
-        db.add(User(username="demo", password_hash=get_password_hash("demo123")))
+        db.add(User(username="demo", password_hash=get_password_hash("demo1234")))
         db.commit()
         yield db
     finally:

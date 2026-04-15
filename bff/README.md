@@ -239,7 +239,7 @@ Update at least:
 The first slice seeds a local development user:
 
 - username: `demo`
-- password: `demo123`
+- password: `demo1234`
 
 When `BFF_AUTH_PROVIDER=oidc`, the BFF expects incoming bearer `id_token` credentials from an external OIDC provider. This slice does not include browser redirect or callback handling, so frontends still need to obtain the token separately.
 

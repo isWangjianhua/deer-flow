@@ -111,13 +111,13 @@ def test_login_routes_through_provider_and_mapper(db_session, monkeypatch) -> No
         lambda user_id: calls.append(("create_access_token", user_id)) or "token-user-123",
     )
 
-    response = AuthService(db_session).login("demo", "demo123")
+    response = AuthService(db_session).login("demo", "demo1234")
 
     assert response.access_token == "token-user-123"
     assert calls == [
         ("provider_init", db_session),
         ("mapper_init", db_session),
-        ("authenticate_credentials", "demo", "demo123"),
+        ("authenticate_credentials", "demo", "demo1234"),
         ("resolve_or_create_user", identity),
         ("create_access_token", "user-123"),
     ]

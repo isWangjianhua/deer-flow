@@ -118,7 +118,7 @@ def test_stream_route_forwards_authenticated_user_id_to_deerflow(
     monkeypatch.setattr(DeerFlowClient, "stream_message", mock_stream_message)
     monkeypatch.setattr(DeerFlowClient, "get_thread_history", mock_get_thread_history)
 
-    login = client.post("/auth/login", json={"username": "demo", "password": "demo123"})
+    login = client.post("/auth/login", json={"username": "demo", "password": "demo1234"})
     token = login.json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
     me = client.get("/me", headers=headers)

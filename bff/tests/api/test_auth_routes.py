@@ -7,7 +7,7 @@ def test_me_requires_auth(client) -> None:
 def test_login_returns_bearer_token(client) -> None:
     response = client.post(
         "/auth/login",
-        json={"username": "demo", "password": "demo123"},
+        json={"username": "demo", "password": "demo1234"},
     )
 
     assert response.status_code == 200
@@ -80,7 +80,7 @@ def test_register_is_unavailable_when_local_auth_is_disabled(client, monkeypatch
 
 
 def test_me_returns_current_user_in_local_mode(client) -> None:
-    login = client.post("/auth/login", json={"username": "demo", "password": "demo123"})
+    login = client.post("/auth/login", json={"username": "demo", "password": "demo1234"})
     token = login.json()["access_token"]
 
     response = client.get("/me", headers={"Authorization": f"Bearer {token}"})

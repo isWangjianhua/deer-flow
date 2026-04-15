@@ -37,7 +37,7 @@ export function AuthPanel({
   const localMode = isLocalDevAuthMode();
   const [authMode, setAuthMode] = useState<"login" | "register">(defaultTab);
   const [username, setUsername] = useState("demo");
-  const [password, setPassword] = useState("demo123");
+  const [password, setPassword] = useState("demo1234");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [localAuthError, setLocalAuthError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -180,7 +180,7 @@ export function AuthPanel({
               required
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              placeholder={authMode === "register" ? "secret123" : "demo123"}
+              placeholder={authMode === "register" ? "secret123" : "demo1234"}
             />
             {authMode === "register" ? (
               <Input
@@ -218,7 +218,7 @@ export function AuthPanel({
               {authMode === "login" ? (
                 <>
                   {t.auth.defaultCredentials} <code>demo</code> /{" "}
-                  <code>demo123</code>
+                  <code>demo1234</code>
                 </>
               ) : (
                 t.auth.registrationLocalOnly

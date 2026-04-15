@@ -22,7 +22,7 @@ The repository already supports local login for development:
 
 - BFF exposes `POST /auth/login`
 - frontend local-auth mode shows a login form on `/workspace/account`
-- BFF seeds a `demo / demo123` account at startup
+- BFF seeds a `demo / demo1234` account at startup
 
 That is enough for a single shared demo account, but it is not enough for basic multi-user local testing. New local users cannot self-register, so every test user must be pre-seeded or inserted manually.
 
