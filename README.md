@@ -717,6 +717,7 @@ All dict-returning methods are validated against Gateway Pydantic response model
 ## Documentation
 
 - [Contributing Guide](CONTRIBUTING.md) - Development environment setup and workflow
+- [Fork Sync Workflow](docs/FORK_SYNC_WORKFLOW.md) - Long-lived fork branch model and upstream sync process
 - [Configuration Guide](backend/docs/CONFIGURATION.md) - Setup and configuration instructions
 - [Architecture Overview](backend/CLAUDE.md) - Technical architecture details
 - [Backend Architecture](backend/README.md) - Backend architecture and API reference

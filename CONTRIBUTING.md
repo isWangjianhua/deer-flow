@@ -264,7 +264,9 @@ Nginx (port 2026) ← Unified entry point
 
 1. **Create a feature branch**:
    ```bash
-   git checkout -b feature/your-feature-name
+   git switch master
+   git pull --ff-only origin master
+   git switch -c feat/your-feature-name
    ```
 
 2. **Make your changes** with hot-reload enabled
@@ -290,8 +292,18 @@ Nginx (port 2026) ← Unified entry point
 
 6. **Push and create a Pull Request**:
    ```bash
-   git push origin feature/your-feature-name
+   git push -u origin feat/your-feature-name
    ```
+
+### Fork Maintenance Workflow
+
+This fork keeps `main` as an upstream mirror and `master` as the stable downstream branch.
+
+- Feature and fix branches should fork from `master` and open PRs back into `master`.
+- Upstream sync should happen on a short-lived `sync/upstream-*` branch created from `master`.
+- `main` should only receive fast-forward updates from `upstream/main`.
+
+See [docs/FORK_SYNC_WORKFLOW.md](docs/FORK_SYNC_WORKFLOW.md) for the full branch model, sync commands, alias examples, and PR rules.
 
 ## Testing
 
@@ -323,6 +335,7 @@ Every pull request runs the backend regression workflow at [.github/workflows/ba
 - [Configuration Guide](backend/docs/CONFIGURATION.md) - Setup and configuration
 - [Architecture Overview](backend/CLAUDE.md) - Technical architecture
 - [MCP Setup Guide](backend/docs/MCP_SERVER.md) - Model Context Protocol configuration
+- [Fork Sync Workflow](docs/FORK_SYNC_WORKFLOW.md) - Branch responsibilities and upstream sync procedure
 
 ## Need Help?
 
