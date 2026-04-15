@@ -111,6 +111,9 @@ export function InputBox({
   restoredText,
   onRestoredTextApplied,
   onContextChange,
+  externalFollowups,
+  externalFollowupsLoading,
+  externalFollowupsRequestId,
   onFollowupsVisibilityChange,
   onSubmit,
   onStop,
@@ -141,6 +144,9 @@ export function InputBox({
       reasoning_effort?: "minimal" | "low" | "medium" | "high";
     },
   ) => void;
+  externalFollowups?: string[];
+  externalFollowupsLoading?: boolean;
+  externalFollowupsRequestId?: string | null;
   onFollowupsVisibilityChange?: (visible: boolean) => void;
   onSubmit?: (
     message: PromptInputMessage,
@@ -151,13 +157,13 @@ export function InputBox({
   const searchParams = useSearchParams();
   const [modelDialogOpen, setModelDialogOpen] = useState(false);
   const { models } = useModels();
-  const { thread, isMock, apiMode = "gateway" } = useThread();
+  const { thread, isMock } = useThread();
   const { textInput } = usePromptInputController();
   const promptRootRef = useRef<HTMLDivElement | null>(null);
 
-  const [followups, setFollowups] = useState<string[]>([]);
+  const [internalFollowups, setInternalFollowups] = useState<string[]>([]);
   const [followupsHidden, setFollowupsHidden] = useState(false);
-  const [followupsLoading, setFollowupsLoading] = useState(false);
+  const [internalFollowupsLoading, setInternalFollowupsLoading] = useState(false);
   const lastGeneratedForAiIdRef = useRef<string | null>(null);
   const wasStreamingRef = useRef(false);
 
@@ -269,9 +275,9 @@ export function InputBox({
       if (!message.text) {
         return;
       }
-      setFollowups([]);
+      setInternalFollowups([]);
       setFollowupsHidden(false);
-      setFollowupsLoading(false);
+      setInternalFollowupsLoading(false);
 
       // Guard against submitting before the initial model auto-selection
       // effect has flushed thread settings to storage/state.
@@ -300,7 +306,6 @@ export function InputBox({
       resolvedModelName,
       selectedModel?.supports_thinking,
       status,
-      textInput,
     ],
   );
 
@@ -355,6 +360,14 @@ export function InputBox({
     setTimeout(() => requestFormSubmit(), 0);
   }, [pendingSuggestion, requestFormSubmit, textInput]);
 
+  const usingExternalFollowups = externalFollowupsRequestId !== undefined;
+  const followups = usingExternalFollowups
+    ? externalFollowups ?? []
+    : internalFollowups;
+  const followupsLoading = usingExternalFollowups
+    ? externalFollowupsLoading ?? false
+    : internalFollowupsLoading;
+
   const showFollowups =
     !disabled &&
     !isNewThread &&
@@ -376,6 +389,17 @@ export function InputBox({
   }, []);
 
   useEffect(() => {
+    if (!usingExternalFollowups || externalFollowupsRequestId == null) {
+      return;
+    }
+    setFollowupsHidden(false);
+  }, [externalFollowupsRequestId, usingExternalFollowups]);
+
+  useEffect(() => {
+    if (usingExternalFollowups) {
+      return;
+    }
+
     const streaming = status === "streaming";
     const wasStreaming = wasStreamingRef.current;
     wasStreamingRef.current = streaming;
@@ -410,15 +434,10 @@ export function InputBox({
 
     const controller = new AbortController();
     setFollowupsHidden(false);
-    setFollowupsLoading(true);
-    setFollowups([]);
+    setInternalFollowupsLoading(true);
+    setInternalFollowups([]);
 
-    const suggestionsURL =
-      apiMode === "bff"
-        ? `/api/bff/conversations/${threadId}/suggestions`
-        : `${getBackendBaseURL()}/api/threads/${threadId}/suggestions`;
-
-    fetch(suggestionsURL, {
+    fetch(`${getBackendBaseURL()}/api/threads/${threadId}/suggestions`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -439,13 +458,13 @@ export function InputBox({
           .map((s) => (typeof s === "string" ? s.trim() : ""))
           .filter((s) => s.length > 0)
           .slice(0, 5);
-        setFollowups(suggestions);
+        setInternalFollowups(suggestions);
       })
       .catch(() => {
-        setFollowups([]);
+        setInternalFollowups([]);
       })
       .finally(() => {
-        setFollowupsLoading(false);
+        setInternalFollowupsLoading(false);
       });
 
     return () => controller.abort();
@@ -456,7 +475,7 @@ export function InputBox({
     status,
     thread.messages,
     threadId,
-    apiMode,
+    usingExternalFollowups,
   ]);
 
   return (

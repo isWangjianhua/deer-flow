@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-const { createConversation, getConversation, listConversations } = await import(
+const { createConversation, generateSuggestions, getConversation, listConversations } = await import(
   new URL("./api.ts", import.meta.url).href,
 );
 
@@ -102,4 +102,37 @@ void test("posts a user message to the BFF stream endpoint", async () => {
 
   assert.ok(stream);
   assert.match(capturedBody, /"message":"Hello"/);
+});
+
+void test("posts a follow-up suggestion request through the BFF", async () => {
+  let capturedBody = "";
+  const suggestions = await generateSuggestions(
+    {
+      conversationId: "conversation-1",
+      messages: [
+        { role: "user", content: "Hello" },
+        { role: "assistant", content: "Hi there" },
+      ],
+      modelName: "gpt-5",
+    },
+    async (input, init) => {
+      assert.equal(
+        input,
+        "/api/bff/conversations/conversation-1/suggestions",
+      );
+      assert.equal(init?.method, "POST");
+      capturedBody = String(init?.body);
+
+      return new Response(
+        JSON.stringify({
+          suggestions: ["  Next step?  ", "", "Can you summarize that?"],
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    },
+  );
+
+  assert.match(capturedBody, /"n":3/);
+  assert.match(capturedBody, /"model_name":"gpt-5"/);
+  assert.deepEqual(suggestions, ["Next step?", "Can you summarize that?"]);
 });

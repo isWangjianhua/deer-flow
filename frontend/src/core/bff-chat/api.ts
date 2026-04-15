@@ -27,6 +27,15 @@ type StreamMessageInput = {
   signal?: AbortSignal;
 };
 
+type GenerateSuggestionsInput = {
+  conversationId: string;
+  messages: Array<{
+    role: "user" | "assistant";
+    content: string;
+  }>;
+  modelName?: string;
+};
+
 function buildRequestHeaders(contentType?: string) {
   const headers = new Headers();
   if (contentType) {
@@ -105,4 +114,32 @@ export async function streamMessage(
   }
 
   return response.body;
+}
+
+export async function generateSuggestions(
+  input: GenerateSuggestionsInput,
+  fetchImpl: FetchLike = fetch,
+) {
+  const response = await fetchImpl(
+    `/api/bff/conversations/${input.conversationId}/suggestions`,
+    {
+      method: "POST",
+      headers: buildRequestHeaders("application/json"),
+      body: JSON.stringify({
+        messages: input.messages,
+        n: 3,
+        model_name: input.modelName,
+      }),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error("Failed to generate suggestions");
+  }
+
+  const payload = (await response.json()) as { suggestions?: string[] };
+  return (payload.suggestions ?? [])
+    .map((suggestion) => suggestion.trim())
+    .filter((suggestion) => suggestion.length > 0)
+    .slice(0, 5);
 }

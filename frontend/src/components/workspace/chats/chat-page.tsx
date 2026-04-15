@@ -1,6 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import type { Message } from "@langchain/langgraph-sdk";
+import { useMutation } from "@tanstack/react-query";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { type PromptInputMessage } from "@/components/ai-elements/prompt-input";
 import { PromptInputProvider } from "@/components/ai-elements/prompt-input";
@@ -20,11 +22,12 @@ import { ThreadTitle } from "@/components/workspace/thread-title";
 import { TodoList } from "@/components/workspace/todo-list";
 import { TokenUsageIndicator } from "@/components/workspace/token-usage-indicator";
 import { Welcome } from "@/components/workspace/welcome";
-import { useBffThreadStream } from "@/core/bff-chat";
+import { generateSuggestions, useBffThreadStream } from "@/core/bff-chat";
 import { useI18n } from "@/core/i18n/hooks";
 import { useNotification } from "@/core/notification/hooks";
 import { useThreadSettings } from "@/core/settings";
 import { SubtasksProvider } from "@/core/tasks/context";
+import type { AgentThreadState } from "@/core/threads";
 import { useThreadStream } from "@/core/threads/hooks";
 import { textOfMessage } from "@/core/threads/utils";
 import { env } from "@/env";
@@ -33,6 +36,40 @@ import { cn } from "@/lib/utils";
 import { ChatBox } from "./chat-box";
 import { useSpecificChatMode } from "./use-chat-mode";
 import { useThreadChat } from "./use-thread-chat";
+
+function buildFollowupMessages(
+  messages: Message[],
+): Array<{ role: "user" | "assistant"; content: string }> {
+  return messages
+    .filter((message) => message.type === "human" || message.type === "ai")
+    .map((message): { role: "user" | "assistant"; content: string } => ({
+      role: message.type === "human" ? "user" : "assistant",
+      content: textOfMessage(message) ?? "",
+    }))
+    .filter((message) => message.content.trim().length > 0)
+    .slice(-6);
+}
+
+function getLastAiMessageId(messages: Message[]) {
+  return [...messages].reverse().find((message) => message.type === "ai")?.id ?? null;
+}
+
+function buildCompletionNotificationBody(state: AgentThreadState) {
+  const body = "Conversation finished";
+  const lastMessage = state.messages.at(-1);
+  if (!lastMessage) {
+    return body;
+  }
+
+  const textContent = textOfMessage(lastMessage);
+  if (!textContent) {
+    return body;
+  }
+
+  return textContent.length > 200
+    ? textContent.substring(0, 200) + "..."
+    : textContent;
+}
 
 function MockChatPageContent({
   threadId,
@@ -76,18 +113,9 @@ function MockChatPageContent({
     },
     onFinish: (state) => {
       if (document.hidden || !document.hasFocus()) {
-        let body = "Conversation finished";
-        const lastMessage = state.messages.at(-1);
-        if (lastMessage) {
-          const textContent = textOfMessage(lastMessage);
-          if (textContent) {
-            body =
-              textContent.length > 200
-                ? textContent.substring(0, 200) + "..."
-                : textContent;
-          }
-        }
-        showNotification(state.title, { body });
+        showNotification(state.title, {
+          body: buildCompletionNotificationBody(state),
+        });
       }
     },
   });
@@ -238,6 +266,10 @@ function BffChatPageContent({
   const [settings, setSettings] = useThreadSettings(threadId);
   const [mounted, setMounted] = useState(false);
   const { showNotification } = useNotification();
+  const [followupSuggestions, setFollowupSuggestions] = useState<string[]>([]);
+  const [followupRequestId, setFollowupRequestId] = useState<string | null>(null);
+  const latestFollowupRequestIdRef = useRef<string | null>(null);
+  const lastGeneratedForAiIdRef = useRef<string | null>(null);
   const {
     dialogOpen,
     setDialogOpen,
@@ -253,6 +285,50 @@ function BffChatPageContent({
     setMounted(true);
   }, []);
 
+  useEffect(() => {
+    setFollowupSuggestions([]);
+    setFollowupRequestId(null);
+    latestFollowupRequestIdRef.current = null;
+    lastGeneratedForAiIdRef.current = null;
+  }, [threadId]);
+
+  const {
+    mutate: requestFollowups,
+    isPending: followupLoading,
+  } = useMutation({
+    mutationFn: async ({
+      conversationId,
+      requestId,
+      messages,
+      modelName,
+    }: {
+      conversationId: string;
+      requestId: string;
+      messages: Array<{ role: "user" | "assistant"; content: string }>;
+      modelName?: string;
+    }) => {
+      const suggestions = await generateSuggestions({
+        conversationId,
+        messages,
+        modelName,
+      });
+
+      return { requestId, suggestions };
+    },
+    onSuccess: ({ requestId, suggestions }) => {
+      if (latestFollowupRequestIdRef.current !== requestId) {
+        return;
+      }
+      setFollowupSuggestions(suggestions);
+    },
+    onError: (_error, variables) => {
+      if (latestFollowupRequestIdRef.current !== variables.requestId) {
+        return;
+      }
+      setFollowupSuggestions([]);
+    },
+  });
+
   const [thread, sendMessage, isUploading] = useBffThreadStream({
     conversationId: isNewThread ? undefined : threadId,
     context: settings.context,
@@ -267,24 +343,39 @@ function BffChatPageContent({
     },
     onFinish: (state) => {
       if (document.hidden || !document.hasFocus()) {
-        let body = "Conversation finished";
-        const lastMessage = state.messages.at(-1);
-        if (lastMessage) {
-          const textContent = textOfMessage(lastMessage);
-          if (textContent) {
-            body =
-              textContent.length > 200
-                ? textContent.substring(0, 200) + "..."
-                : textContent;
-          }
-        }
-        showNotification(state.title, { body });
+        showNotification(state.title, {
+          body: buildCompletionNotificationBody(state),
+        });
       }
+
+      const lastAiId = getLastAiMessageId(state.messages);
+      if (!lastAiId || lastAiId === lastGeneratedForAiIdRef.current) {
+        return;
+      }
+
+      const recentMessages = buildFollowupMessages(state.messages);
+      if (recentMessages.length === 0) {
+        return;
+      }
+
+      lastGeneratedForAiIdRef.current = lastAiId;
+      latestFollowupRequestIdRef.current = lastAiId;
+      setFollowupRequestId(lastAiId);
+      setFollowupSuggestions([]);
+      requestFollowups({
+        conversationId: threadId,
+        requestId: lastAiId,
+        messages: recentMessages,
+        modelName: settings.context.model_name,
+      });
     },
   });
 
   const handleSubmit = useCallback(
     (message: PromptInputMessage) => {
+      setFollowupSuggestions([]);
+      setFollowupRequestId(null);
+      latestFollowupRequestIdRef.current = null;
       return guardSubmit(message, (nextMessage) => {
         void sendMessage(threadId, nextMessage).catch(() => undefined);
       });
@@ -378,6 +469,9 @@ function BffChatPageContent({
                     onContextChange={(context) =>
                       setSettings("context", context)
                     }
+                    externalFollowups={followupSuggestions}
+                    externalFollowupsLoading={followupLoading}
+                    externalFollowupsRequestId={followupRequestId}
                     onFollowupsVisibilityChange={setShowFollowups}
                     onSubmit={handleSubmit}
                     onStop={handleStop}

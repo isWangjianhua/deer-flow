@@ -14,7 +14,11 @@ void test("input box keeps model loading enabled on BFF chat routes", async () =
     "expected follow-up suggestions to stay enabled instead of being disabled on BFF routes",
   );
   assert.ok(
-    source.includes("/api/bff/conversations/${threadId}/suggestions"),
-    "expected BFF chat follow-up suggestions to use the same-origin BFF route",
+    !source.includes("/api/bff/conversations/${threadId}/suggestions"),
+    "expected InputBox not to fetch BFF follow-up suggestions directly",
+  );
+  assert.ok(
+    source.includes("${getBackendBaseURL()}/api/threads/${threadId}/suggestions"),
+    "expected InputBox to keep the gateway follow-up suggestions path for non-BFF chat",
   );
 });
