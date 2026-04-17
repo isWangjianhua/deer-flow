@@ -113,6 +113,41 @@ def test_make_lead_agent_disables_thinking_when_model_does_not_support_it(monkey
     assert result["model"] is not None
 
 
+def test_make_lead_agent_passes_user_id_to_prompt_template(monkeypatch):
+    app_config = _make_app_config([_make_model("safe-model", supports_thinking=False)])
+
+    import deerflow.tools as tools_module
+
+    monkeypatch.setattr(lead_agent_module, "get_app_config", lambda: app_config)
+    monkeypatch.setattr(tools_module, "get_available_tools", lambda **kwargs: [])
+    monkeypatch.setattr(lead_agent_module, "_build_middlewares", lambda config, model_name, agent_name=None: [])
+    monkeypatch.setattr(lead_agent_module, "create_chat_model", lambda **kwargs: object())
+    monkeypatch.setattr(lead_agent_module, "create_agent", lambda **kwargs: kwargs)
+    monkeypatch.setattr(lead_agent_module, "load_agent_config", lambda agent_name: None)
+
+    captured: dict[str, object] = {}
+
+    def _fake_apply_prompt_template(**kwargs):
+        captured.update(kwargs)
+        return "prompt"
+
+    monkeypatch.setattr(lead_agent_module, "apply_prompt_template", _fake_apply_prompt_template)
+
+    lead_agent_module.make_lead_agent(
+        {
+            "configurable": {
+                "model_name": "safe-model",
+                "thinking_enabled": True,
+                "is_plan_mode": False,
+                "subagent_enabled": False,
+                "user_id": "user-123",
+            }
+        }
+    )
+
+    assert captured["user_id"] == "user-123"
+
+
 def test_build_middlewares_uses_resolved_model_name_for_vision(monkeypatch):
     app_config = _make_app_config(
         [
@@ -138,6 +173,22 @@ def test_build_middlewares_uses_resolved_model_name_for_vision(monkeypatch):
     assert any(isinstance(m, lead_agent_module.ViewImageMiddleware) for m in middlewares)
     # verify the custom middleware is injected correctly
     assert len(middlewares) > 0 and isinstance(middlewares[-2], MagicMock)
+
+
+def test_build_middlewares_includes_mem0_injection_when_provider_is_mem0(monkeypatch):
+    app_config = _make_app_config([_make_model("default-model", supports_thinking=False)])
+
+    monkeypatch.setattr(lead_agent_module, "get_app_config", lambda: app_config)
+    monkeypatch.setattr(lead_agent_module, "_create_summarization_middleware", lambda: None)
+    monkeypatch.setattr(lead_agent_module, "_create_todo_list_middleware", lambda is_plan_mode: None)
+    monkeypatch.setattr(lead_agent_module, "get_memory_config", lambda: MemoryConfig(provider="mem0"))
+
+    middlewares = lead_agent_module._build_middlewares(
+        {"configurable": {"model_name": "default-model", "is_plan_mode": False, "subagent_enabled": False}},
+        model_name="default-model",
+    )
+
+    assert any(type(m).__name__ == "Mem0InjectionMiddleware" for m in middlewares)
 
 
 def test_create_summarization_middleware_uses_configured_model_alias(monkeypatch):

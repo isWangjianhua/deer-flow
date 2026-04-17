@@ -628,6 +628,13 @@ memory:
   debounce_seconds: 30 # Wait time before processing queued updates
   write_enabled: true # Whether post-run memory writes are enabled
   mem0_search_limit: 8 # Maximum number of memories retrieved per request
+  profile_limit: 4 # Maximum number of profile memories considered before formatting
+  query_window_turns: 3 # Maximum recent human turns used to build the retrieval query
+  profile_budget_ratio: 0.3 # Fraction of memory injection budget reserved for profile retrieval
+  profile_categories: # Categories eligible for profile retrieval
+    - preference
+    - context
+    - knowledge
   model_name: null # Use default model
   storage_path: memory.json # Used only by provider=file
   max_facts: 100 # Maximum number of facts to store

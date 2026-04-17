@@ -92,13 +92,13 @@ Async task delegation with concurrent execution:
 
 ### Memory System
 
-LLM-powered persistent context retention across conversations:
+Runtime long-term memory across conversations:
 
-- **Automatic extraction**: Analyzes conversations for user context, facts, and preferences
-- **Structured storage**: User context (work, personal, top-of-mind), history, and confidence-scored facts
-- **Debounced updates**: Batches updates to minimize LLM calls (configurable wait time)
-- **System prompt injection**: Top facts + context injected into agent prompts
-- **Storage**: JSON file with mtime-based cache invalidation
+- **File mode**: Legacy JSON-backed memory (`memory.provider=file`) persists compatibility summaries + facts in `memory.json`
+- **Mem0 mode**: Authenticated runtime memory (`memory.provider=mem0`) uses `user_id` scope and Mem0 OSS for retrieval + write-back
+- **Debounced updates**: Batches post-run writes to minimize provider churn
+- **Request-time injection**: In Mem0 mode, memory is injected at model-call time rather than baked into the cached system prompt
+- **Retrieval policy**: Mem0 injection combines a small profile slice with query-relevant semantic retrieval and degrades cleanly for first-time users
 
 ### Tool Ecosystem
 
@@ -120,10 +120,10 @@ FastAPI application providing REST endpoints for frontend integration:
 | `GET/PUT /api/mcp/config` | Manage MCP server configurations |
 | `GET/PUT /api/skills` | List and manage skills |
 | `POST /api/skills/install` | Install skill from `.skill` archive |
-| `GET /api/memory` | Retrieve memory data |
-| `POST /api/memory/reload` | Force memory reload |
+| `GET /api/memory` | Retrieve legacy/compatibility memory data |
+| `POST /api/memory/reload` | Force compatibility memory reload |
 | `GET /api/memory/config` | Memory configuration |
-| `GET /api/memory/status` | Combined config + data |
+| `GET /api/memory/status` | Combined config + compatibility payload |
 | `POST /api/threads/{id}/uploads` | Upload files (auto-converts PDF/PPT/Excel/Word to Markdown, rejects directory paths) |
 | `GET /api/threads/{id}/uploads/list` | List uploaded files |
 | `DELETE /api/threads/{id}` | Delete DeerFlow-managed local thread data after LangGraph thread deletion; unexpected failures are logged server-side and return a generic 500 detail |

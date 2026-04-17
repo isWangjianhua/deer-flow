@@ -217,7 +217,7 @@ FastAPI application on port 8001 with health check at `GET /health`.
 | **Models** (`/api/models`) | `GET /` - list models; `GET /{name}` - model details |
 | **MCP** (`/api/mcp`) | `GET /config` - get config; `PUT /config` - update config (saves to extensions_config.json) |
 | **Skills** (`/api/skills`) | `GET /` - list skills; `GET /{name}` - details; `PUT /{name}` - update enabled; `POST /install` - install from .skill archive (accepts standard optional frontmatter like `version`, `author`, `compatibility`) |
-| **Memory** (`/api/memory`) | `GET /` - memory data; `POST /reload` - force reload; `GET /config` - config; `GET /status` - config + data |
+| **Memory** (`/api/memory`) | Legacy/compatibility memory surface: `GET /` - memory data; `POST /reload` - force reload; `GET /config` - config; `GET /status` - config + data |
 | **Uploads** (`/api/threads/{id}/uploads`) | `POST /` - upload files (auto-converts PDF/PPT/Excel/Word); `GET /list` - list; `DELETE /{filename}` - delete |
 | **Threads** (`/api/threads/{id}`) | `DELETE /` - remove DeerFlow-managed local thread data after LangGraph thread deletion; unexpected failures are logged server-side and return a generic 500 detail |
 | **Artifacts** (`/api/threads/{id}/artifacts`) | `GET /{path}` - serve artifacts; active content types (`text/html`, `application/xhtml+xml`, `image/svg+xml`) are always forced as download attachments to reduce XSS risk; `?download=true` still forces download for other file types |
@@ -346,24 +346,41 @@ Bridges external messaging platforms (Feishu, Slack, Telegram) to the DeerFlow a
 - `updater.py` - LLM-based memory updates with fact extraction, whitespace-normalized fact deduplication (trims leading/trailing whitespace before comparing), and atomic file I/O
 - `queue.py` - Debounced update queue (per-thread deduplication, configurable wait time)
 - `prompt.py` - Prompt templates for memory updates
+- `mem0_service.py` - Optional user-scoped Mem0 adapter for authenticated runtime memory
+- `memory_retrieval.py` - Retrieval policy for Mem0 injection (profile retrieval + query retrieval + cold-start fallback)
 
-**Data Structure** (stored in `backend/.deer-flow/memory.json`):
+**File-mode Data Structure** (stored in `backend/.deer-flow/memory.json` when `memory.provider=file`):
 - **User Context**: `workContext`, `personalContext`, `topOfMind` (1-3 sentence summaries)
 - **History**: `recentMonths`, `earlierContext`, `longTermBackground`
 - **Facts**: Discrete facts with `id`, `content`, `category` (preference/knowledge/context/behavior/goal), `confidence` (0-1), `createdAt`, `source`
 
-**Workflow**:
+**File-mode Workflow**:
 1. `MemoryMiddleware` filters messages (user inputs + final AI responses) and queues conversation
 2. Queue debounces (30s default), batches updates, deduplicates per-thread
 3. Background thread invokes LLM to extract context updates and facts
 4. Applies updates atomically (temp file + rename) with cache invalidation, skipping duplicate fact content before append
 5. Next interaction injects top 15 facts + context into `<memory>` tags in system prompt
 
+**Mem0 mode**:
+- When `memory.provider=mem0`, authenticated runs use `user_id` as the memory scope
+- `MemoryMiddleware` writes conversations to Mem0 after the run
+- `Mem0InjectionMiddleware` retrieves relevant memories per request and injects them at model-call time
+- `memory_retrieval.py` combines two channels for injection:
+  - profile retrieval from `get_all(user_id=...)`
+  - query retrieval from `search(query, filters={"user_id": ...})`
+- first-turn requests receive profile retrieval plus first-message retrieval
+- later turns use a recent human-message window for query retrieval
+- first-time users degrade cleanly to "no injection" and begin accumulating memory after the run
+- Static prompt-time memory loading is disabled for `mem0` so cached prompts do not leak memory across users
+
 Focused regression coverage for the updater lives in `backend/tests/test_memory_updater.py`.
 
 **Configuration** (`config.yaml` → `memory`):
-- `enabled` / `injection_enabled` - Master switches
+- `enabled` / `injection_enabled` / `write_enabled` - Master switches
+- `provider` - `file` or `mem0`
 - `storage_path` - Path to memory.json
+- `mem0_config` / `mem0_search_limit` - Mem0 OSS client config and query-retrieval fan-out
+- `profile_limit` / `query_window_turns` / `profile_budget_ratio` / `profile_categories` - Mem0 retrieval-policy knobs
 - `debounce_seconds` - Wait time before processing (default: 30)
 - `model_name` - LLM for updates (null = default model)
 - `max_facts` / `fact_confidence_threshold` - Fact storage limits (100 / 0.7)

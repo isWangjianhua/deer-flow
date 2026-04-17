@@ -1,14 +1,26 @@
 """Configuration for memory mechanism."""
 
-from pydantic import BaseModel, Field
+from typing import Any, Literal
+
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class MemoryConfig(BaseModel):
     """Configuration for global memory mechanism."""
 
+    model_config = ConfigDict(populate_by_name=True)
+
     enabled: bool = Field(
         default=True,
         description="Whether to enable memory mechanism",
+    )
+    write_enabled: bool = Field(
+        default=True,
+        description="Whether post-run memory writes are enabled.",
+    )
+    provider: Literal["file", "mem0"] = Field(
+        default="file",
+        description="Memory backend provider: `file` or `mem0`.",
     )
     storage_path: str = Field(
         default="",
@@ -26,6 +38,40 @@ class MemoryConfig(BaseModel):
     storage_class: str = Field(
         default="deerflow.agents.memory.storage.FileMemoryStorage",
         description="The class path for memory storage provider",
+    )
+    search_limit: int = Field(
+        default=8,
+        alias="mem0_search_limit",
+        ge=1,
+        le=20,
+        description="Maximum number of mem0 memories to retrieve per request.",
+    )
+    mem0: dict[str, Any] = Field(
+        default_factory=dict,
+        alias="mem0_config",
+        description="Mem0 OSS Python SDK configuration passed to `Memory.from_config(...)`.",
+    )
+    profile_limit: int = Field(
+        default=4,
+        ge=1,
+        le=20,
+        description="Maximum number of profile memories considered before formatting.",
+    )
+    query_window_turns: int = Field(
+        default=3,
+        ge=1,
+        le=10,
+        description="Maximum number of recent human turns used to build the retrieval query.",
+    )
+    profile_budget_ratio: float = Field(
+        default=0.3,
+        ge=0.0,
+        le=1.0,
+        description="Fraction of the memory injection budget reserved for profile memories.",
+    )
+    profile_categories: list[str] = Field(
+        default_factory=lambda: ["preference", "context", "knowledge"],
+        description="Memory categories eligible for profile retrieval.",
     )
     debounce_seconds: int = Field(
         default=30,

@@ -54,7 +54,18 @@ class MemoryMiddleware(AgentMiddleware[MemoryMiddlewareState]):
             None (no state changes needed from this middleware).
         """
         config = get_memory_config()
-        if not config.enabled:
+        if not config.enabled or not getattr(config, "write_enabled", True):
+            return None
+
+        user_id = runtime.context.get("user_id") if runtime.context else None
+        if user_id is None:
+            config_data = get_config()
+            user_id = config_data.get("configurable", {}).get("user_id")
+
+        # Legacy file-backed memory is still global/per-agent only. Authenticated
+        # users should not write into the shared file store.
+        if config.provider == "file" and user_id:
+            logger.debug("Skipping legacy file-backed memory update for authenticated user_id=%s", user_id)
             return None
 
         # Get thread ID from runtime context first, then fall back to LangGraph's configurable metadata
@@ -89,6 +100,7 @@ class MemoryMiddleware(AgentMiddleware[MemoryMiddlewareState]):
         queue = get_memory_queue()
         queue.add(
             thread_id=thread_id,
+            user_id=user_id,
             messages=filtered_messages,
             agent_name=self._agent_name,
             correction_detected=correction_detected,

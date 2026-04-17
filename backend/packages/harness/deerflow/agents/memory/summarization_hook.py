@@ -21,9 +21,13 @@ def memory_flush_hook(event: SummarizationEvent) -> None:
 
     correction_detected = detect_correction(filtered_messages)
     reinforcement_detected = not correction_detected and detect_reinforcement(filtered_messages)
+    user_id = None
+    if event.runtime.context:
+        user_id = event.runtime.context.get("user_id")
     queue = get_memory_queue()
     queue.add_nowait(
         thread_id=event.thread_id,
+        user_id=user_id,
         messages=filtered_messages,
         agent_name=event.agent_name,
         correction_detected=correction_detected,

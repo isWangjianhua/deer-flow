@@ -20,12 +20,14 @@ def _messages() -> list:
     ]
 
 
-def _runtime(thread_id: str | None = "thread-1", agent_name: str | None = None) -> SimpleNamespace:
+def _runtime(thread_id: str | None = "thread-1", agent_name: str | None = None, user_id: str | None = None) -> SimpleNamespace:
     context = {}
     if thread_id is not None:
         context["thread_id"] = thread_id
     if agent_name is not None:
         context["agent_name"] = agent_name
+    if user_id is not None:
+        context["user_id"] = user_id
     return SimpleNamespace(context=context)
 
 
@@ -155,13 +157,14 @@ def test_memory_flush_hook_enqueues_filtered_messages_and_flushes(monkeypatch: p
             preserved_messages=(),
             thread_id="thread-1",
             agent_name=None,
-            runtime=_runtime(),
+            runtime=_runtime(user_id="user-123"),
         )
     )
 
     queue.add_nowait.assert_called_once()
     add_kwargs = queue.add_nowait.call_args.kwargs
     assert add_kwargs["thread_id"] == "thread-1"
+    assert add_kwargs["user_id"] == "user-123"
     assert [message.content for message in add_kwargs["messages"]] == ["Question", "Final answer"]
     assert add_kwargs["correction_detected"] is False
     assert add_kwargs["reinforcement_detected"] is False

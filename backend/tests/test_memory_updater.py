@@ -11,7 +11,9 @@ from deerflow.agents.memory.updater import (
     clear_memory_data,
     create_memory_fact,
     delete_memory_fact,
+    get_memory_data,
     import_memory_data,
+    reload_memory_data,
     update_memory_fact,
 )
 from deerflow.config.memory_config import MemoryConfig
@@ -40,6 +42,14 @@ def _memory_config(**overrides: object) -> MemoryConfig:
     for key, value in overrides.items():
         setattr(config, key, value)
     return config
+
+
+@pytest.fixture(autouse=True)
+def default_file_memory_config(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(
+        "deerflow.agents.memory.updater.get_memory_config",
+        lambda: _memory_config(provider="file"),
+    )
 
 
 def test_apply_updates_skips_existing_duplicate_and_preserves_removals() -> None:
@@ -79,6 +89,84 @@ def test_apply_updates_skips_existing_duplicate_and_preserves_removals() -> None
 
     assert [fact["content"] for fact in result["facts"]] == ["User likes Python"]
     assert all(fact["id"] != "fact_remove" for fact in result["facts"])
+
+
+def test_get_memory_data_uses_mem0_service_when_provider_enabled() -> None:
+    service = MagicMock()
+    service.build_compat_memory.return_value = _make_memory(
+        facts=[{"id": "fact-1", "content": "User likes Python", "category": "preference", "confidence": 0.9}]
+    )
+
+    with (
+        patch("deerflow.agents.memory.updater.get_memory_config", return_value=_memory_config(provider="mem0")),
+        patch("deerflow.agents.memory.updater.get_mem0_service", return_value=service),
+    ):
+        result = get_memory_data(user_id="user-123")
+
+    assert result["facts"][0]["content"] == "User likes Python"
+    service.build_compat_memory.assert_called_once_with(user_id="user-123")
+
+
+def test_reload_memory_data_uses_mem0_service_when_provider_enabled() -> None:
+    service = MagicMock()
+    service.build_compat_memory.return_value = _make_memory()
+
+    with (
+        patch("deerflow.agents.memory.updater.get_memory_config", return_value=_memory_config(provider="mem0")),
+        patch("deerflow.agents.memory.updater.get_mem0_service", return_value=service),
+    ):
+        reload_memory_data(user_id="user-123")
+
+    service.build_compat_memory.assert_called_once_with(user_id="user-123")
+
+
+def test_create_memory_fact_uses_mem0_service_when_provider_enabled() -> None:
+    service = MagicMock()
+    service.build_compat_memory.return_value = _make_memory(
+        facts=[{"id": "fact-1", "content": "User prefers concise reviews", "category": "preference", "confidence": 0.88}]
+    )
+
+    with (
+        patch("deerflow.agents.memory.updater.get_memory_config", return_value=_memory_config(provider="mem0")),
+        patch("deerflow.agents.memory.updater.get_mem0_service", return_value=service),
+    ):
+        result = create_memory_fact(
+            content="User prefers concise reviews",
+            category="preference",
+            confidence=0.88,
+            user_id="user-123",
+        )
+
+    service.create_fact.assert_called_once_with(
+        user_id="user-123",
+        content="User prefers concise reviews",
+        category="preference",
+        confidence=0.88,
+    )
+    assert result["facts"][0]["content"] == "User prefers concise reviews"
+
+
+def test_memory_updater_uses_mem0_add_conversation_when_provider_enabled() -> None:
+    updater = MemoryUpdater()
+    service = MagicMock()
+
+    with (
+        patch("deerflow.agents.memory.updater.get_memory_config", return_value=_memory_config(enabled=True, provider="mem0")),
+        patch("deerflow.agents.memory.updater.get_mem0_service", return_value=service),
+    ):
+        result = updater.update_memory(
+            messages=["conversation"],
+            thread_id="thread-1",
+            user_id="user-123",
+        )
+
+    assert result is True
+    service.add_conversation.assert_called_once_with(
+        messages=["conversation"],
+        user_id="user-123",
+        run_id="thread-1",
+        metadata={"thread_id": "thread-1", "source": "thread-1"},
+    )
 
 
 def test_apply_updates_skips_same_batch_duplicates_and_keeps_source_metadata() -> None:

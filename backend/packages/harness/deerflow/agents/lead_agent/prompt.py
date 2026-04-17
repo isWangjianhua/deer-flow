@@ -523,6 +523,9 @@ def _get_memory_context(agent_name: str | None = None) -> str:
         config = get_memory_config()
         if not config.enabled or not config.injection_enabled:
             return ""
+        if config.provider == "mem0":
+            # mem0-based memory is injected at runtime per user/query via middleware.
+            return ""
 
         memory_data = get_memory_data(agent_name)
         memory_content = format_memory_for_injection(memory_data, max_tokens=config.max_injection_tokens)
@@ -674,9 +677,23 @@ def _build_custom_mounts_section() -> str:
     return f"\n**Custom Mounted Directories:**\n{mounts_list}\n- If the user needs files outside `/mnt/user-data`, use these absolute container paths directly when they match the requested directory"
 
 
-def apply_prompt_template(subagent_enabled: bool = False, max_concurrent_subagents: int = 3, *, agent_name: str | None = None, available_skills: set[str] | None = None) -> str:
-    # Get memory context
-    memory_context = _get_memory_context(agent_name)
+def apply_prompt_template(
+    subagent_enabled: bool = False,
+    max_concurrent_subagents: int = 3,
+    *,
+    agent_name: str | None = None,
+    available_skills: set[str] | None = None,
+    user_id: str | None = None,
+) -> str:
+    # Legacy file-backed memory is still global/per-agent only for authenticated
+    # users, while mem0 memory is injected dynamically at request time.
+    try:
+        from deerflow.config.memory_config import get_memory_config
+
+        memory_provider = get_memory_config().provider
+    except Exception:
+        memory_provider = "file"
+    memory_context = "" if user_id or memory_provider == "mem0" else _get_memory_context(agent_name)
 
     # Include subagent section only if enabled (from runtime parameter)
     n = max_concurrent_subagents
