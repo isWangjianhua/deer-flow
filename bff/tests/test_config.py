@@ -1,7 +1,14 @@
+from pathlib import Path
+import textwrap
+
 import pytest
 from pydantic import ValidationError
 
 from app.core.config import Settings
+
+
+def _write_yaml(path: Path, content: str) -> None:
+    path.write_text(textwrap.dedent(content).strip() + "\n", encoding="utf-8")
 
 
 def test_settings_smoke() -> None:
@@ -99,12 +106,62 @@ def test_oidc_provider_accepts_complete_configuration() -> None:
     assert settings.bff_auth_provider == "oidc"
 
 
-def test_settings_accept_default_lead_agent_name() -> None:
+def test_settings_load_non_sensitive_values_from_root_config(tmp_path, monkeypatch) -> None:
+    config_path = tmp_path / "config.yaml"
+    _write_yaml(
+        config_path,
+        """
+        config_version: 6
+        bff:
+          env: staging
+          host: 127.0.0.1
+          port: 9100
+          auth:
+            access_token_expire_minutes: 1440
+            provider: local
+            fallback_enabled: false
+          deerflow:
+            gateway_base_url: http://127.0.0.1:8100
+            timeout_seconds: 120
+        """,
+    )
+    monkeypatch.setenv("DEER_FLOW_CONFIG_PATH", str(config_path))
+
     settings = Settings(
         database_url="sqlite:///./test.db",
         bff_secret_key="test-secret",
-        deerflow_gateway_base_url="http://127.0.0.1:8001",
-        deerflow_lead_agent_name="captain-deer",
     )
 
-    assert settings.model_dump()["deerflow_lead_agent_name"] == "captain-deer"
+    assert settings.config_version == 6
+    assert settings.bff_env == "staging"
+    assert settings.bff_host == "127.0.0.1"
+    assert settings.bff_port == 9100
+    assert settings.bff_access_token_expire_minutes == 1440
+    assert settings.bff_auth_provider == "local"
+    assert settings.bff_auth_fallback_enabled is False
+    assert settings.deerflow_gateway_base_url == "http://127.0.0.1:8100"
+    assert settings.deerflow_timeout_seconds == 120
+
+
+def test_environment_variables_override_root_config_values(tmp_path, monkeypatch) -> None:
+    config_path = tmp_path / "config.yaml"
+    _write_yaml(
+        config_path,
+        """
+        config_version: 6
+        bff:
+          auth:
+            provider: local
+            fallback_enabled: true        """,
+    )
+    monkeypatch.setenv("DEER_FLOW_CONFIG_PATH", str(config_path))
+    monkeypatch.setenv("BFF_AUTH_PROVIDER", "oidc")
+    monkeypatch.setenv("BFF_OIDC_ISSUER", "https://issuer.example.com")
+    monkeypatch.setenv("BFF_OIDC_AUDIENCE", "deerflow-bff")
+    monkeypatch.setenv("BFF_OIDC_JWKS_URL", "https://issuer.example.com/.well-known/jwks.json")
+    settings = Settings(
+        database_url="sqlite:///./test.db",
+        bff_secret_key="test-secret",
+    )
+
+    assert settings.bff_auth_provider == "oidc"

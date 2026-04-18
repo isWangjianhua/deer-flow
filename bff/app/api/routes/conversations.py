@@ -6,7 +6,6 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user_id, get_db_session
 from app.clients.deerflow import DeerFlowClient
-from app.core.config import get_settings
 from app.schemas.conversation import (
     ConversationCreateResponse,
     ConversationDetailResponse,
@@ -64,7 +63,6 @@ async def stream_message(
 ) -> StreamingResponse:
     service = ConversationService(db)
     conversation = service.require_owned_conversation(user_id, conversation_id)
-    settings = get_settings()
     context = {
         "user_id": user_id,
         "model_name": payload.model_name,
@@ -74,19 +72,11 @@ async def stream_message(
         "reasoning_effort": payload.reasoning_effort,
     }
     normalized_context = {key: value for key, value in context.items() if value is not None}
-    stream_config = None
-    if settings.deerflow_lead_agent_name:
-        stream_config = {
-            "configurable": {
-                "agent_name": settings.deerflow_lead_agent_name,
-            }
-        }
 
     client, response = await DeerFlowClient().stream_message(
         thread_id=conversation.deerflow_thread_id,
         message=payload.message,
         context=normalized_context or None,
-        config=stream_config,
     )
 
     async def stream_only():

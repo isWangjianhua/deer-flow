@@ -193,27 +193,22 @@ Minimum first-version tables:
 - `created_at`
 - `updated_at`
 
-## Environment Variables
+## Configuration Files
 
-Example:
+Non-sensitive BFF defaults are defined in the root `config.example.yaml` under the `bff:` section. Copy the root example to `config.yaml` and edit the `bff:` values you need:
+
+- runtime defaults such as `bff_env`, `bff_host`, and `bff_port`
+- auth mode defaults such as `bff.auth.provider` and OIDC discovery settings
+- DeerFlow integration defaults such as `deerflow_gateway_base_url` and `deerflow_timeout_seconds`
+
+Sensitive values stay in `bff/.env`:
 
 ```env
-BFF_ENV=development
-BFF_HOST=0.0.0.0
-BFF_PORT=9000
-
 DATABASE_URL=sqlite:///./.data/bff.db
 BFF_SECRET_KEY=change-me
-BFF_ACCESS_TOKEN_EXPIRE_MINUTES=10080
-BFF_AUTH_PROVIDER=local
-BFF_OIDC_ISSUER=
-BFF_OIDC_AUDIENCE=
-BFF_OIDC_JWKS_URL=
-
-DEERFLOW_GATEWAY_BASE_URL=http://127.0.0.1:8001
-DEERFLOW_TIMEOUT_SECONDS=300
-DEERFLOW_LEAD_AGENT_NAME=
 ```
+
+If you need a non-default shared config path, set `DEER_FLOW_CONFIG_PATH` before starting the stack. The BFF also honors `BFF_CONFIG_PATH` as a narrower override.
 
 ## Local Development
 
@@ -224,22 +219,25 @@ cd bff
 uv sync
 ```
 
-### 2. Configure environment
+### 2. Configure BFF settings
 
 ```bash
 cp .env.example .env
+cp ../config.example.yaml ../config.yaml
 ```
 
-Update at least:
+Then adjust the `bff:` section in the root `config.yaml`.
+
+Update `.env` at least:
 
 - `DATABASE_URL`
 - `BFF_SECRET_KEY`
-- `DEERFLOW_GATEWAY_BASE_URL`
-- `DEERFLOW_LEAD_AGENT_NAME` if you want the BFF to force a fixed downstream `lead_agent` name on streamed chat runs
-- `BFF_AUTH_PROVIDER` if you want to switch between `local` and `oidc`
-- `BFF_OIDC_ISSUER`, `BFF_OIDC_AUDIENCE`, and `BFF_OIDC_JWKS_URL` when using `oidc`
 
-When `DEERFLOW_LEAD_AGENT_NAME` is set, the BFF adds `config.configurable.agent_name` to downstream DeerFlow stream requests. This keeps the frontend contract BFF-owned while still letting operators pin the prompt-visible lead agent name.
+Typical root `config.yaml` edits under `bff:` include:
+
+- `auth.provider` if you want to switch between `local` and `oidc`
+- `auth.oidc_issuer`, `auth.oidc_audience`, and `auth.oidc_jwks_url` when using `oidc`
+- `deerflow.gateway_base_url` if Gateway runs elsewhere
 
 The first slice seeds a local development user:
 

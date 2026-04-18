@@ -12,13 +12,57 @@
 # ============================================================================
 # Bump this number when the config schema changes.
 # Run `make config-upgrade` to merge new fields into your local config.yaml.
-config_version: 5
+config_version: 6
+
+# ============================================================================
+# Lead Agent
+# ============================================================================
+# Optional display name for the default lead agent prompt. Custom agent slugs still
+# come from runtime `agent_name` and custom-agent config directories.
+lead_agent:
+  display_name:
 
 # ============================================================================
 # Logging
 # ============================================================================
 # Log level for deerflow modules (debug/info/warning/error)
 log_level: info
+
+# ============================================================================
+# BFF Configuration
+# ============================================================================
+# Non-sensitive defaults for the BFF service. Sensitive values such as
+# DATABASE_URL and BFF_SECRET_KEY stay in bff/.env.
+
+bff:
+  # Deployment environment label used by the BFF service.
+  env: development
+
+  # Bind address and port for the BFF web server.
+  host: 0.0.0.0
+  port: 9000
+
+  auth:
+    # JWT lifetime in minutes for locally-issued BFF access tokens.
+    access_token_expire_minutes: 10080
+
+    # Active auth mode for the BFF (local or oidc).
+    provider: local
+
+    # Whether local auth may be used as a fallback path.
+    fallback_enabled: true
+
+    # OIDC configuration for bearer token validation. Leave blank for local mode.
+    oidc_issuer:
+    oidc_audience:
+    oidc_jwks_url:
+
+  deerflow:
+    # Internal DeerFlow Gateway base URL used by the BFF.
+    gateway_base_url: http://127.0.0.1:8001
+
+    # Timeout in seconds for non-streaming DeerFlow HTTP calls.
+    timeout_seconds: 300
 
 # ============================================================================
 # Token Usage Tracking

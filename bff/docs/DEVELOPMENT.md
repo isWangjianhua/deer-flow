@@ -82,12 +82,12 @@ Current next slice:
 
 ## Auth Mode Configuration
 
-`BFF_AUTH_PROVIDER` selects the active auth mode:
+`bff.auth.provider` in the root `config.yaml` selects the active auth mode:
 
 - `local` uses the seeded demo user and BFF-issued JWTs
 - `oidc` validates external bearer `id_token` credentials and maps them to local BFF users
 
-When `BFF_AUTH_PROVIDER=local`, the BFF now exposes both:
+When `bff.auth.provider: local`, the BFF now exposes both:
 
 - `POST /auth/login` for existing local users
 - `POST /auth/register` for self-service username/password registration
@@ -98,11 +98,13 @@ Current registration scope is intentionally narrow:
 - no email collection or verification
 - no forgot-password or password-reset flow
 
-When `BFF_AUTH_PROVIDER=oidc`, configure all of the following:
+When `bff.auth.provider: oidc`, configure all of the following in the root `config.yaml`:
 
-- `BFF_OIDC_ISSUER`
-- `BFF_OIDC_AUDIENCE`
-- `BFF_OIDC_JWKS_URL`
+- `bff.auth.oidc_issuer`
+- `bff.auth.oidc_audience`
+- `bff.auth.oidc_jwks_url`
+
+Sensitive values such as `DATABASE_URL` and `BFF_SECRET_KEY` remain in `bff/.env`. Environment variables still override the root `config.yaml` when explicitly set. Start local setup by copying `config.example.yaml` to `config.yaml` at the repository root.
 
 The BFF still validates the incoming `id_token`. Browser redirect, authorization-code exchange, and callback handling are owned by the frontend auth layer rather than by the BFF itself.
 

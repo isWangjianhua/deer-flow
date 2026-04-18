@@ -119,7 +119,7 @@ def test_upload_files_sends_multipart_payload(monkeypatch) -> None:
     assert result["success"] is True
 
 
-def test_stream_message_sends_context_and_config(monkeypatch) -> None:
+def test_stream_message_sends_context_payload(monkeypatch) -> None:
     captured = {}
 
     async def mock_send(self, request: httpx.Request, *, stream: bool = False, **kwargs):
@@ -135,7 +135,6 @@ def test_stream_message_sends_context_and_config(monkeypatch) -> None:
             "thread-123",
             "hello",
             context={"user_id": "u-1"},
-            config={"configurable": {"agent_name": "captain-deer"}},
         ),
     )
 
@@ -146,7 +145,6 @@ def test_stream_message_sends_context_and_config(monkeypatch) -> None:
         "input": {"messages": [{"role": "user", "content": "hello"}]},
         "stream_mode": ["messages-tuple", "values"],
         "context": {"user_id": "u-1"},
-        "config": {"configurable": {"agent_name": "captain-deer"}},
     }
 
     asyncio.run(response.aclose())

@@ -677,6 +677,23 @@ def _build_custom_mounts_section() -> str:
     return f"\n**Custom Mounted Directories:**\n{mounts_list}\n- If the user needs files outside `/mnt/user-data`, use these absolute container paths directly when they match the requested directory"
 
 
+def _resolve_agent_display_name(agent_name: str | None) -> str:
+    if agent_name:
+        return agent_name
+
+    try:
+        from deerflow.config import get_app_config
+
+        configured = getattr(get_app_config(), "lead_agent", None)
+        display_name = getattr(configured, "display_name", None) if configured is not None else None
+        if display_name:
+            return display_name
+    except Exception:
+        logger.debug("Could not resolve configured lead agent display name", exc_info=True)
+
+    return "DeerFlow 2.0"
+
+
 def apply_prompt_template(
     subagent_enabled: bool = False,
     max_concurrent_subagents: int = 3,
@@ -730,7 +747,7 @@ def apply_prompt_template(
 
     # Format the prompt with dynamic skills and memory
     prompt = SYSTEM_PROMPT_TEMPLATE.format(
-        agent_name=agent_name or "DeerFlow 2.0",
+        agent_name=_resolve_agent_display_name(agent_name),
         soul=get_agent_soul(agent_name),
         skills_section=skills_section,
         deferred_tools_section=deferred_tools_section,
