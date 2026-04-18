@@ -1,7 +1,9 @@
 import httpx
 import time
 
+import app.api.routes.conversations as conversations_routes
 from app.clients.deerflow import DeerFlowClient
+from app.core.config import Settings
 from app.services.conversation_service import ConversationService
 
 WEATHER_PROMPT = "请查询上海明天的天气，并给我一句穿衣建议。"
@@ -54,9 +56,10 @@ def test_stream_route_returns_sse_for_owned_conversation(client, db_session, mon
         async def aclose(self) -> None:
             return None
 
-    async def mock_stream_message(self, thread_id: str, message: str, context=None):
+    async def mock_stream_message(self, thread_id: str, message: str, context=None, config=None):
         assert message == WEATHER_PROMPT
         assert context == {"user_id": me.json()["id"]}
+        assert config is None
         return FakeClient(), FakeResponse()
 
     async def mock_get_thread_history(self, thread_id: str, limit: int = 1) -> list[dict]:
@@ -111,7 +114,8 @@ def test_stream_route_syncs_conversation_title_after_stream(client, db_session, 
         async def aclose(self) -> None:
             return None
 
-    async def mock_stream_message(self, thread_id: str, message: str, context=None):
+    async def mock_stream_message(self, thread_id: str, message: str, context=None, config=None):
+        assert config is None
         return FakeClient(), FakeResponse()
 
     async def mock_get_thread_history(self, thread_id: str, limit: int = 1) -> list[dict]:
@@ -195,7 +199,8 @@ def test_stream_route_keeps_sse_response_when_post_stream_sync_fails(client, db_
         async def aclose(self) -> None:
             return None
 
-    async def mock_stream_message(self, thread_id: str, message: str, context=None):
+    async def mock_stream_message(self, thread_id: str, message: str, context=None, config=None):
+        assert config is None
         return FakeClient(), FakeResponse()
 
     async def mock_get_thread_history(self, thread_id: str, limit: int = 1) -> list[dict]:
@@ -244,10 +249,11 @@ def test_stream_route_forwards_model_context_to_deerflow(client, db_session, mon
 
     captured = {}
 
-    async def mock_stream_message(self, thread_id: str, message: str, context=None):
+    async def mock_stream_message(self, thread_id: str, message: str, context=None, config=None):
         captured["thread_id"] = thread_id
         captured["message"] = message
         captured["context"] = context
+        captured["config"] = config
         return FakeClient(), FakeResponse()
 
     async def mock_get_thread_history(self, thread_id: str, limit: int = 1) -> list[dict]:
@@ -284,4 +290,71 @@ def test_stream_route_forwards_model_context_to_deerflow(client, db_session, mon
         "model_name": "deepseek-v3",
         "thinking_enabled": True,
         "reasoning_effort": "high",
+    }
+    assert captured["config"] is None
+
+
+def test_stream_route_forwards_default_lead_agent_name_to_deerflow(client, db_session, monkeypatch) -> None:
+    class FakeResponse:
+        async def aiter_lines(self):
+            for line in [
+                "event: end",
+                "data: {}",
+            ]:
+                yield line
+
+        async def aclose(self) -> None:
+            return None
+
+    class FakeClient:
+        async def aclose(self) -> None:
+            return None
+
+    captured = {}
+
+    monkeypatch.setattr(
+        conversations_routes,
+        "get_settings",
+        lambda: Settings(
+            database_url="sqlite:///./test.db",
+            bff_secret_key="test-secret",
+            deerflow_gateway_base_url="http://127.0.0.1:8001",
+            deerflow_lead_agent_name="captain-deer",
+        ),
+        raising=False,
+    )
+
+    async def mock_stream_message(self, thread_id: str, message: str, context=None, config=None):
+        captured["thread_id"] = thread_id
+        captured["message"] = message
+        captured["context"] = context
+        captured["config"] = config
+        return FakeClient(), FakeResponse()
+
+    async def mock_get_thread_history(self, thread_id: str, limit: int = 1) -> list[dict]:
+        return []
+
+    monkeypatch.setattr(DeerFlowClient, "stream_message", mock_stream_message)
+    monkeypatch.setattr(DeerFlowClient, "get_thread_history", mock_get_thread_history)
+
+    login = client.post("/auth/login", json={"username": "demo", "password": "demo1234"})
+    token = login.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+    me = client.get("/me", headers=headers)
+    conversation = ConversationService(db_session).create_conversation(
+        user_id=me.json()["id"],
+        deerflow_thread_id="thread-owned",
+    )
+
+    response = client.post(
+        f"/conversations/{conversation.id}/messages/stream",
+        json={"message": "hello"},
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    assert captured["config"] == {
+        "configurable": {
+            "agent_name": "captain-deer",
+        }
     }

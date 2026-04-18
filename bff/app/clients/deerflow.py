@@ -81,6 +81,7 @@ class DeerFlowClient:
         thread_id: str,
         message: str,
         context: dict | None = None,
+        config: dict | None = None,
     ) -> tuple[httpx.AsyncClient, httpx.Response]:
         client = httpx.AsyncClient(timeout=None)
         payload = {
@@ -89,6 +90,8 @@ class DeerFlowClient:
         }
         if context:
             payload["context"] = context
+        if config:
+            payload["config"] = config
         request = client.build_request(
             "POST",
             f"{self.base_url}/api/threads/{thread_id}/runs/stream",

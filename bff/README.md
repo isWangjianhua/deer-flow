@@ -39,6 +39,7 @@ Current scope:
 - provider-oriented auth internals with `local` and `oidc` auth modes
 - OIDC bearer `id_token` validation for protected requests
 - forwarding selected chat context fields such as `model_name` and reasoning settings to DeerFlow Gateway
+- optionally pinning a default downstream `lead_agent` name for all BFF chat streams
 - preparation for future browser-based OIDC redirect/callback flows, without enabling them yet
 
 Out of scope for the first version:
@@ -211,6 +212,7 @@ BFF_OIDC_JWKS_URL=
 
 DEERFLOW_GATEWAY_BASE_URL=http://127.0.0.1:8001
 DEERFLOW_TIMEOUT_SECONDS=300
+DEERFLOW_LEAD_AGENT_NAME=
 ```
 
 ## Local Development
@@ -233,8 +235,11 @@ Update at least:
 - `DATABASE_URL`
 - `BFF_SECRET_KEY`
 - `DEERFLOW_GATEWAY_BASE_URL`
+- `DEERFLOW_LEAD_AGENT_NAME` if you want the BFF to force a fixed downstream `lead_agent` name on streamed chat runs
 - `BFF_AUTH_PROVIDER` if you want to switch between `local` and `oidc`
 - `BFF_OIDC_ISSUER`, `BFF_OIDC_AUDIENCE`, and `BFF_OIDC_JWKS_URL` when using `oidc`
+
+When `DEERFLOW_LEAD_AGENT_NAME` is set, the BFF adds `config.configurable.agent_name` to downstream DeerFlow stream requests. This keeps the frontend contract BFF-owned while still letting operators pin the prompt-visible lead agent name.
 
 The first slice seeds a local development user:
 

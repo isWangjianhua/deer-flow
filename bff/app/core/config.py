@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     bff_oidc_jwks_url: AnyHttpUrl | None = Field(default=None)
     deerflow_gateway_base_url: str = Field(default="http://127.0.0.1:8001")
     deerflow_timeout_seconds: int = Field(default=300)
+    deerflow_lead_agent_name: str | None = Field(default=None)
 
     @field_validator("bff_oidc_issuer", "bff_oidc_audience", "bff_oidc_jwks_url", mode="before")
     @classmethod

@@ -97,3 +97,14 @@ def test_oidc_provider_accepts_complete_configuration() -> None:
     )
 
     assert settings.bff_auth_provider == "oidc"
+
+
+def test_settings_accept_default_lead_agent_name() -> None:
+    settings = Settings(
+        database_url="sqlite:///./test.db",
+        bff_secret_key="test-secret",
+        deerflow_gateway_base_url="http://127.0.0.1:8001",
+        deerflow_lead_agent_name="captain-deer",
+    )
+
+    assert settings.model_dump()["deerflow_lead_agent_name"] == "captain-deer"

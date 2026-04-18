@@ -87,6 +87,7 @@ Rules:
 - validate ownership before opening downstream stream
 - keep event order intact
 - do not expose DeerFlow thread identifiers
+- if `DEERFLOW_LEAD_AGENT_NAME` is configured in the BFF, inject it into the downstream DeerFlow run config as an internal implementation detail
 
 Auth notes:
 

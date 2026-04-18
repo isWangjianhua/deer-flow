@@ -1,4 +1,5 @@
 import asyncio
+import json
 
 import httpx
 
@@ -116,3 +117,37 @@ def test_upload_files_sends_multipart_payload(monkeypatch) -> None:
     )
 
     assert result["success"] is True
+
+
+def test_stream_message_sends_context_and_config(monkeypatch) -> None:
+    captured = {}
+
+    async def mock_send(self, request: httpx.Request, *, stream: bool = False, **kwargs):
+        captured["url"] = str(request.url)
+        captured["stream"] = stream
+        captured["payload"] = json.loads(request.content.decode("utf-8"))
+        return httpx.Response(200, request=request)
+
+    monkeypatch.setattr(httpx.AsyncClient, "send", mock_send)
+
+    client, response = asyncio.run(
+        DeerFlowClient().stream_message(
+            "thread-123",
+            "hello",
+            context={"user_id": "u-1"},
+            config={"configurable": {"agent_name": "captain-deer"}},
+        ),
+    )
+
+    assert response.status_code == 200
+    assert captured["url"].endswith("/api/threads/thread-123/runs/stream")
+    assert captured["stream"] is True
+    assert captured["payload"] == {
+        "input": {"messages": [{"role": "user", "content": "hello"}]},
+        "stream_mode": ["messages-tuple", "values"],
+        "context": {"user_id": "u-1"},
+        "config": {"configurable": {"agent_name": "captain-deer"}},
+    }
+
+    asyncio.run(response.aclose())
+    asyncio.run(client.aclose())
