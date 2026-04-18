@@ -14,3 +14,20 @@ void test("workspace header localizes the account navigation label", async () =>
     "expected the workspace header to avoid hard-coded Account copy",
   );
 });
+
+void test("workspace header reads brand labels from the shared brand module", async () => {
+  const source = await readFile(new URL("./workspace-header.tsx", import.meta.url), "utf8");
+
+  assert.ok(
+    source.includes("@/core/brand"),
+    "expected the workspace header to import shared brand constants",
+  );
+  assert.ok(
+    !source.includes("DeerFlow"),
+    "expected the workspace header to avoid hard-coded expanded brand copy",
+  );
+  assert.ok(
+    !source.includes(">DF<"),
+    "expected the workspace header to avoid hard-coded collapsed brand initials",
+  );
+});

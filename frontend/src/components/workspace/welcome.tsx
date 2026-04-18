@@ -3,6 +3,7 @@
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo } from "react";
 
+import { getBrandHomeContent } from "@/core/brand";
 import { useI18n } from "@/core/i18n/hooks";
 import { cn } from "@/lib/utils";
 
@@ -17,8 +18,9 @@ export function Welcome({
   className?: string;
   mode?: "ultra" | "pro" | "thinking" | "flash";
 }) {
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
   const searchParams = useSearchParams();
+  const brandHome = useMemo(() => getBrandHomeContent(locale), [locale]);
   const isUltra = useMemo(() => mode === "ultra", [mode]);
   const colors = useMemo(() => {
     if (isUltra) {
@@ -41,10 +43,12 @@ export function Welcome({
           `✨ ${t.welcome.createYourOwnSkill} ✨`
         ) : (
           <div className="flex items-center gap-2">
-            <div className={cn("inline-block", !waved ? "animate-wave" : "")}>
-              {isUltra ? "🚀" : "👋"}
-            </div>
-            <AuroraText colors={colors}>{t.welcome.greeting}</AuroraText>
+            {(isUltra ? brandHome.ultraWelcomeIcon : brandHome.welcomeIcon) ? (
+              <div className={cn("inline-block", !waved ? "animate-wave" : "")}>
+                {isUltra ? brandHome.ultraWelcomeIcon : brandHome.welcomeIcon}
+              </div>
+            ) : null}
+            <AuroraText colors={colors}>{brandHome.greeting}</AuroraText>
           </div>
         )}
       </div>
@@ -60,12 +64,12 @@ export function Welcome({
         </div>
       ) : (
         <div className="text-muted-foreground text-sm">
-          {t.welcome.description.includes("\n") ? (
+          {brandHome.description.includes("\n") ? (
             <pre className="font-sans whitespace-pre">
-              {t.welcome.description}
+              {brandHome.description}
             </pre>
           ) : (
-            <p>{t.welcome.description}</p>
+            <p>{brandHome.description}</p>
           )}
         </div>
       )}

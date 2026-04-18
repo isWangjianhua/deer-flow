@@ -1,3 +1,5 @@
+import { APP_BRAND_NAME } from "@/core/brand";
+
 import {
   CompassIcon,
   GraduationCapIcon,
@@ -252,7 +254,7 @@ export const enUS: Translations = {
 
   // Page titles (document title)
   pages: {
-    appName: "DeerFlow",
+    appName: APP_BRAND_NAME,
     chats: "Chats",
     newChat: "New chat",
     untitled: "Untitled",

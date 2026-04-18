@@ -55,6 +55,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import { BRAND_HOME_OPTIONS, getBrandHomeContent } from "@/core/brand";
 import { getBackendBaseURL } from "@/core/config";
 import { useI18n } from "@/core/i18n/hooks";
 import { useModels } from "@/core/models/hooks";
@@ -153,7 +154,7 @@ export function InputBox({
   ) => boolean | void | Promise<boolean | void>;
   onStop?: () => void;
 }) {
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
   const searchParams = useSearchParams();
   const [modelDialogOpen, setModelDialogOpen] = useState(false);
   const { models } = useModels();
@@ -168,6 +169,7 @@ export function InputBox({
   const wasStreamingRef = useRef(false);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const brandHome = useMemo(() => getBrandHomeContent(locale), [locale]);
   const [pendingSuggestion, setPendingSuggestion] = useState<string | null>(
     null,
   );
@@ -536,7 +538,7 @@ export function InputBox({
           <PromptInputTextarea
             className={cn("size-full")}
             disabled={disabled}
-            placeholder={t.inputBox.placeholder}
+            placeholder={brandHome.inputPlaceholder}
             autoFocus={autoFocus}
             defaultValue={initialValue}
           />
@@ -893,11 +895,13 @@ export function InputBox({
         )}
       </PromptInput>
 
-      {isNewThread && searchParams.get("mode") !== "skill" && (
-        <div className="flex items-center justify-center pt-2">
-          <SuggestionList />
-        </div>
-      )}
+      {BRAND_HOME_OPTIONS.showQuickActions &&
+        isNewThread &&
+        searchParams.get("mode") !== "skill" && (
+          <div className="flex items-center justify-center pt-2">
+            <SuggestionList />
+          </div>
+        )}
 
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <DialogContent>
@@ -925,7 +929,7 @@ export function InputBox({
 }
 
 function SuggestionList() {
-  const { t } = useI18n();
+  const { locale } = useI18n();
   const { textInput } = usePromptInputController();
   const handleSuggestionClick = useCallback(
     (prompt: string | undefined) => {
@@ -947,17 +951,19 @@ function SuggestionList() {
     },
     [textInput],
   );
+  const brandHome = getBrandHomeContent(locale);
+
   return (
     <Suggestions className="min-h-16 w-fit items-start">
       <ConfettiButton
         className="text-muted-foreground cursor-pointer rounded-full px-4 text-xs font-normal"
         variant="outline"
         size="sm"
-        onClick={() => handleSuggestionClick(t.inputBox.surpriseMePrompt)}
+        onClick={() => handleSuggestionClick(brandHome.quickActions.surprisePrompt)}
       >
-        <SparklesIcon className="size-4" /> {t.inputBox.surpriseMe}
+        <SparklesIcon className="size-4" /> {brandHome.quickActions.surpriseLabel}
       </ConfettiButton>
-      {t.inputBox.suggestions.map((suggestion) => (
+      {brandHome.quickActions.suggestions.map((suggestion) => (
         <Suggestion
           key={suggestion.suggestion}
           icon={suggestion.icon}
@@ -967,11 +973,11 @@ function SuggestionList() {
       ))}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Suggestion icon={PlusIcon} suggestion={t.common.create} />
+          <Suggestion icon={PlusIcon} suggestion={brandHome.quickActions.createLabel} />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start">
           <DropdownMenuGroup>
-            {t.inputBox.suggestionsCreate.map((suggestion, index) =>
+            {brandHome.quickActions.createSuggestions.map((suggestion, index) =>
               "type" in suggestion && suggestion.type === "separator" ? (
                 <DropdownMenuSeparator key={index} />
               ) : (
