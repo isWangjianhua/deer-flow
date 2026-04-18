@@ -146,11 +146,13 @@ def test_memory_middleware_traces_mem0_queue_decision(monkeypatch):
     middleware.after_agent(state, runtime)
 
     assert traced == [True]
-    assert calls[0]["inputs"] == {"message_count": 2, "filtered_message_count": 2}
-    assert outputs[0]["queued"] is True
-    assert outputs[0]["correction_detected"] is False
-    assert outputs[0]["reinforcement_detected"] is False
-    assert outputs[0]["filtered_messages"] == ["hello", "hi"]
+    assert [m["content"] for m in calls[0]["inputs"]["messages"]] == ["hello", "hi"]
+    assert calls[0]["inputs"]["thread_data"]["message_count"] == 2
+    assert calls[0]["inputs"]["thread_data"]["filtered_message_count"] == 2
+    assert outputs[0]["thread_data"]["queued"] is True
+    assert outputs[0]["thread_data"]["correction_detected"] is False
+    assert outputs[0]["thread_data"]["reinforcement_detected"] is False
+    assert [m["content"] for m in outputs[0]["messages"]] == ["hello", "hi"]
 
 
 def test_memory_middleware_traces_skip_reason_when_thread_missing(monkeypatch):
@@ -189,7 +191,9 @@ def test_memory_middleware_traces_skip_reason_when_thread_missing(monkeypatch):
     result = middleware.after_agent(state, runtime)
 
     assert result is None
-    assert outputs == [{"queued": False, "skip_reason": "missing_thread_id"}]
+    assert outputs[0]["messages"] == []
+    assert outputs[0]["thread_data"]["queued"] is False
+    assert outputs[0]["thread_data"]["skip_reason"] == "missing_thread_id"
 
 
 def test_memory_middleware_traces_skip_reason_when_conversation_not_meaningful(monkeypatch):
@@ -219,7 +223,9 @@ def test_memory_middleware_traces_skip_reason_when_conversation_not_meaningful(m
     result = middleware.after_agent(state, runtime)
 
     assert result is None
-    assert outputs == [{"queued": False, "skip_reason": "no_meaningful_conversation"}]
+    assert outputs[0]["messages"] == []
+    assert outputs[0]["thread_data"]["queued"] is False
+    assert outputs[0]["thread_data"]["skip_reason"] == "no_meaningful_conversation"
 
 
 def test_memory_middleware_forwards_current_run_tree_to_queue(monkeypatch):

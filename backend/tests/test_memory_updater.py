@@ -195,7 +195,9 @@ def test_memory_updater_traces_mem0_write(monkeypatch) -> None:
     updater.update_memory(messages=["conversation"], thread_id="thread-1", user_id="user-123")
 
     assert traced == [True]
-    assert outputs == [{"accepted": True, "message_count": 1, "submitted_messages": ["conversation"]}]
+    assert outputs[0]["thread_data"]["accepted"] is True
+    assert outputs[0]["thread_data"]["message_count"] == 1
+    assert outputs[0]["messages"] == [{"type": "text", "content": "conversation"}]
 
 
 def test_apply_updates_skips_same_batch_duplicates_and_keeps_source_metadata() -> None:

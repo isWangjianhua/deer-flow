@@ -184,32 +184,3 @@ def test_positional_fallback_when_count_differs():
 
     assistant_msg = next(m for m in payload["messages"] if m["role"] == "assistant")
     assert assistant_msg["reasoning_content"] == "My reasoning"
-
-
-def test_get_request_payload_traces_full_final_payload(monkeypatch):
-    model = _make_model()
-    outputs = []
-
-    class _Span:
-        def __enter__(self):
-            return self
-
-        def end(self, *, outputs=None):
-            outputs_list.append(outputs)
-
-        def __exit__(self, exc_type, exc, tb):
-            return False
-
-    outputs_list = outputs
-
-    monkeypatch.setattr("deerflow.models.patched_deepseek.memory_trace", lambda name, **kwargs: _Span())
-
-    human = HumanMessage(content="hello")
-    base_payload = {"messages": [{"role": "system", "content": "SYS"}, {"role": "user", "content": "hello"}]}
-
-    with patch.object(type(model).__bases__[0], "_get_request_payload", return_value=base_payload):
-        with patch.object(model, "_convert_input") as mock_convert:
-            mock_convert.return_value = MagicMock(to_messages=lambda: [human])
-            model._get_request_payload([human])
-
-    assert outputs[0]["full_payload"]["messages"][0]["content"] == "SYS"

@@ -172,9 +172,9 @@ def test_build_mem0_injection_memory_emits_full_selected_results(monkeypatch):
         thread_id="thread-1",
     )
 
-    assert outputs["memory.mem0.profile_retrieval"]["selected_profile_results"][0]["memory"] == "User works in semiconductor sourcing"
-    assert outputs["memory.mem0.query_retrieval"]["selected_query_results"][0]["memory"] == "User is looking for Tianjin machining suppliers"
-    assert outputs["memory.mem0.merge"]["merged_results"][0]["memory"] in {
+    assert outputs["Mem0InjectionMiddleware.before_model.profile_retrieval"]["messages"][0]["content"] == "User works in semiconductor sourcing"
+    assert outputs["Mem0InjectionMiddleware.before_model.query_retrieval"]["messages"][0]["content"] == "User is looking for Tianjin machining suppliers"
+    assert outputs["Mem0InjectionMiddleware.before_model.merge"]["messages"][0]["content"] in {
         "User works in semiconductor sourcing",
         "User is looking for Tianjin machining suppliers",
     }

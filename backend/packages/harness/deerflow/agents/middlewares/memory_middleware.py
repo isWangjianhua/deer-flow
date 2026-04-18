@@ -13,7 +13,7 @@ from langsmith.run_helpers import get_current_run_tree
 from deerflow.agents.memory.message_processing import detect_correction, detect_reinforcement, filter_messages_for_memory
 from deerflow.agents.memory.queue import get_memory_queue
 from deerflow.config.memory_config import get_memory_config
-from deerflow.tracing import memory_trace
+from deerflow.tracing import memory_trace, trace_messages, trace_thread_data
 
 logger = logging.getLogger(__name__)
 
@@ -62,15 +62,15 @@ class MemoryMiddleware(AgentMiddleware[MemoryMiddlewareState]):
             if config.provider != "mem0":
                 return
             with memory_trace(
-                "memory.mem0.middleware.after_agent",
+                "MemoryMiddleware.after_agent",
                 thread_id=(runtime.context or {}).get("thread_id") if runtime.context else None,
                 user_id=(runtime.context or {}).get("user_id") if runtime.context else None,
                 tags=["memory", "mem0", "write", "middleware"],
                 metadata={"queued": False, "skip_reason": skip_reason},
-                inputs=inputs,
+                inputs={"messages": [], "thread_data": trace_thread_data(thread_id=(runtime.context or {}).get("thread_id") if runtime.context else None, user_id=(runtime.context or {}).get("user_id") if runtime.context else None, **(inputs or {}))},
             ) as span:
                 if span is not None and hasattr(span, "end"):
-                    span.end(outputs={"queued": False, "skip_reason": skip_reason})
+                    span.end(outputs={"messages": [], "thread_data": trace_thread_data(thread_id=(runtime.context or {}).get("thread_id") if runtime.context else None, user_id=(runtime.context or {}).get("user_id") if runtime.context else None, queued=False, skip_reason=skip_reason)})
         if not config.enabled or not getattr(config, "write_enabled", True):
             _trace_skip("memory_disabled")
             return None
@@ -114,10 +114,7 @@ class MemoryMiddleware(AgentMiddleware[MemoryMiddlewareState]):
         if not user_messages or not assistant_messages:
             _trace_skip(
                 "no_meaningful_conversation",
-                inputs={
-                    "message_count": len(messages),
-                    "filtered_message_count": len(filtered_messages),
-                },
+                inputs={"messages": trace_messages(filtered_messages), "thread_data": trace_thread_data(thread_id=thread_id, user_id=user_id, message_count=len(messages), filtered_message_count=len(filtered_messages))},
             )
             return None
 
@@ -128,7 +125,7 @@ class MemoryMiddleware(AgentMiddleware[MemoryMiddlewareState]):
         trace_parent = get_current_run_tree()
         trace_ctx = (
             memory_trace(
-                "memory.mem0.middleware.after_agent",
+                "MemoryMiddleware.after_agent",
                 thread_id=thread_id,
                 user_id=user_id,
                 tags=["memory", "mem0", "write", "middleware"],
@@ -139,10 +136,7 @@ class MemoryMiddleware(AgentMiddleware[MemoryMiddlewareState]):
                     "reinforcement_detected": reinforcement_detected,
                     "queued": True,
                 },
-                inputs={
-                    "message_count": len(messages),
-                    "filtered_message_count": len(filtered_messages),
-                },
+                inputs={"messages": trace_messages(filtered_messages), "thread_data": trace_thread_data(thread_id=thread_id, user_id=user_id, message_count=len(messages), filtered_message_count=len(filtered_messages))},
             )
             if config.provider == "mem0"
             else nullcontext()
@@ -160,10 +154,8 @@ class MemoryMiddleware(AgentMiddleware[MemoryMiddlewareState]):
             if span is not None and hasattr(span, "end"):
                 span.end(
                     outputs={
-                        "queued": True,
-                        "correction_detected": correction_detected,
-                        "reinforcement_detected": reinforcement_detected,
-                        "filtered_messages": [getattr(m, "content", "") for m in filtered_messages],
+                        "messages": trace_messages(filtered_messages),
+                        "thread_data": trace_thread_data(thread_id=thread_id, user_id=user_id, queued=True, correction_detected=correction_detected, reinforcement_detected=reinforcement_detected),
                     }
                 )
 

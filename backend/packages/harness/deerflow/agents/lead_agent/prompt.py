@@ -8,7 +8,6 @@ from deerflow.config.agents_config import load_agent_soul
 from deerflow.skills import load_skills
 from deerflow.skills.types import Skill
 from deerflow.subagents import get_available_subagent_names
-from deerflow.tracing import memory_trace
 
 logger = logging.getLogger(__name__)
 
@@ -749,27 +748,17 @@ def apply_prompt_template(
     resolved_agent_name = _resolve_agent_display_name(agent_name)
 
     # Format the prompt with dynamic skills and memory
-    with memory_trace(
-        "lead_agent.prompt.render",
-        thread_id=None,
-        user_id=user_id,
-        tags=["prompt", "system", "render"],
-        metadata={"memory_provider": memory_provider, "memory_context_used": bool(memory_context)},
-        inputs={"agent_name": resolved_agent_name},
-    ) as span:
-        prompt = SYSTEM_PROMPT_TEMPLATE.format(
-            agent_name=resolved_agent_name,
-            soul=get_agent_soul(agent_name),
-            skills_section=skills_section,
-            deferred_tools_section=deferred_tools_section,
-            memory_context=memory_context,
-            subagent_section=subagent_section,
-            subagent_reminder=subagent_reminder,
-            subagent_thinking=subagent_thinking,
-            acp_section=acp_and_mounts_section,
-        )
-        prompt_with_date = prompt + f"\n<current_date>{datetime.now().strftime('%Y-%m-%d, %A')}</current_date>"
-        if span is not None and hasattr(span, "end"):
-            span.end(outputs={"full_system_prompt": prompt_with_date, "memory_context": memory_context})
+    prompt = SYSTEM_PROMPT_TEMPLATE.format(
+        agent_name=resolved_agent_name,
+        soul=get_agent_soul(agent_name),
+        skills_section=skills_section,
+        deferred_tools_section=deferred_tools_section,
+        memory_context=memory_context,
+        subagent_section=subagent_section,
+        subagent_reminder=subagent_reminder,
+        subagent_thinking=subagent_thinking,
+        acp_section=acp_and_mounts_section,
+    )
+    prompt_with_date = prompt + f"\n<current_date>{datetime.now().strftime('%Y-%m-%d, %A')}</current_date>"
 
-        return prompt_with_date
+    return prompt_with_date

@@ -10,7 +10,7 @@ from typing import Any
 
 from deerflow.agents.memory.prompt import MEM0_CUSTOM_INSTRUCTIONS
 from deerflow.config.memory_config import get_memory_config
-from deerflow.tracing import memory_trace
+from deerflow.tracing import memory_trace, trace_messages, trace_thread_data
 
 
 def _utc_now_iso() -> str:
@@ -141,7 +141,7 @@ class Mem0Service:
         if metadata:
             kwargs["metadata"] = metadata
         with memory_trace(
-            "memory.mem0.add_conversation",
+            "Mem0Service.add_conversation",
             thread_id=run_id,
             user_id=user_id,
             tags=["memory", "mem0", "write", "sdk"],
@@ -151,15 +151,32 @@ class Mem0Service:
                 "roles": [item["role"] for item in payload],
                 "has_metadata": bool(metadata),
             },
-            inputs={
-                "payload_count": len(payload),
-                "roles": [item["role"] for item in payload],
-                "run_id": run_id,
-            },
+            inputs={"messages": trace_messages(payload), "thread_data": trace_thread_data(thread_id=run_id, user_id=user_id, payload_count=len(payload), roles=[item["role"] for item in payload], run_id=run_id)},
         ) as span:
             result = self._ensure_client().add(**kwargs)
             if span is not None and hasattr(span, "end"):
-                span.end(outputs={"payload_count": len(payload), "accepted": result is not None, "mem0_result": result})
+                raw_results = (result.get("results") or result.get("memories") or []) if isinstance(result, dict) else []
+                result_messages = trace_messages(raw_results)
+                if result_messages:
+                    thread_data = trace_thread_data(
+                        thread_id=run_id,
+                        user_id=user_id,
+                        payload_count=len(payload),
+                        accepted=result is not None,
+                        persisted_count=len(result_messages),
+                        result_source="mem0_result",
+                    )
+                else:
+                    result_messages = [{"type": "system", "content": "Mem0 accepted the conversation write, but did not return extracted memory items."}]
+                    thread_data = trace_thread_data(
+                        thread_id=run_id,
+                        user_id=user_id,
+                        payload_count=len(payload),
+                        accepted=result is not None,
+                        persisted_count=0,
+                        result_source="provider_ack_only",
+                    )
+                span.end(outputs={"messages": result_messages, "thread_data": thread_data})
             return result
 
     def search(self, *, query: str, user_id: str, limit: int | None = None) -> list[dict[str, Any]]:

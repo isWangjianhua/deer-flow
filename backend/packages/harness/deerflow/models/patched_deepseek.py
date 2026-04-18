@@ -13,7 +13,6 @@ from langchain_core.language_models import LanguageModelInput
 from langchain_core.messages import AIMessage
 from langchain_deepseek import ChatDeepSeek
 
-from deerflow.tracing import memory_trace
 
 
 class PatchedChatDeepSeek(ChatDeepSeek):
@@ -72,13 +71,4 @@ class PatchedChatDeepSeek(ChatDeepSeek):
                 if reasoning_content is not None:
                     payload_messages[idx]["reasoning_content"] = reasoning_content
 
-        with memory_trace(
-            "model.payload.final",
-            thread_id=None,
-            user_id=None,
-            tags=["payload", "model", "deepseek"],
-            inputs={"original_messages": [getattr(message, "content", "") for message in original_messages]},
-        ) as span:
-            if span is not None and hasattr(span, "end"):
-                span.end(outputs={"full_payload": payload})
-            return payload
+        return payload

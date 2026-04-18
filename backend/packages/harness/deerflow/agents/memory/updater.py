@@ -23,7 +23,7 @@ from deerflow.agents.memory.storage import (
 )
 from deerflow.config.memory_config import get_memory_config
 from deerflow.models import create_chat_model
-from deerflow.tracing import memory_trace
+from deerflow.tracing import memory_trace, trace_messages, trace_thread_data
 
 logger = logging.getLogger(__name__)
 
@@ -469,12 +469,12 @@ class MemoryUpdater:
                     logger.debug("No user_id provided for mem0 memory update; skipping")
                     return False
                 with memory_trace(
-                    "memory.mem0.write",
+                    "MemoryUpdater.update_memory",
                     thread_id=thread_id,
                     user_id=user_id,
                     tags=["memory", "mem0", "write"],
                     metadata={"message_count": len(messages), "mode": "conversation_add"},
-                    inputs={"message_count": len(messages), "mode": "conversation_add"},
+                    inputs={"messages": trace_messages(messages), "thread_data": trace_thread_data(thread_id=thread_id, user_id=user_id, message_count=len(messages), mode="conversation_add")},
                     parent=trace_parent,
                 ) as span:
                     result = get_mem0_service().add_conversation(
@@ -484,7 +484,7 @@ class MemoryUpdater:
                         metadata={"thread_id": thread_id or "", "source": thread_id or "unknown"},
                     )
                     if span is not None and hasattr(span, "end"):
-                        span.end(outputs={"accepted": result is not None, "message_count": len(messages), "submitted_messages": messages})
+                        span.end(outputs={"messages": trace_messages(messages), "thread_data": trace_thread_data(thread_id=thread_id, user_id=user_id, accepted=result is not None, message_count=len(messages), mode="conversation_add")})
                 return True
 
             prepared = await asyncio.to_thread(

@@ -7,7 +7,7 @@ from typing import Any
 from deerflow.agents.memory.mem0_service import get_mem0_service
 from deerflow.agents.memory.prompt import _count_tokens
 from deerflow.config.memory_config import get_memory_config
-from deerflow.tracing import memory_trace
+from deerflow.tracing import memory_trace, trace_messages, trace_thread_data
 
 
 def _human_message_text(message: Any) -> str:
@@ -158,7 +158,7 @@ def _compat_memory(results: list[dict[str, Any]]) -> dict[str, Any] | None:
     }
 
 
-def build_mem0_injection_memory(*, user_id: str, messages: list[Any], thread_id: str | None = None) -> dict[str, Any] | None:
+def build_mem0_injection_memory(*, user_id: str, messages: list[Any], thread_id: str | None = None, trace_parent: Any | None = None) -> dict[str, Any] | None:
     config = get_memory_config()
     service = get_mem0_service()
 
@@ -167,23 +167,24 @@ def build_mem0_injection_memory(*, user_id: str, messages: list[Any], thread_id:
     query_budget = max(total_budget - profile_budget, 0)
 
     with memory_trace(
-        "memory.mem0.profile_retrieval",
+        "Mem0InjectionMiddleware.before_model.profile_retrieval",
         thread_id=thread_id,
         user_id=user_id,
         tags=["memory", "mem0", "retrieval", "profile"],
         metadata={"profile_limit": config.profile_limit, "profile_categories": list(config.profile_categories)},
-        inputs={"profile_limit": config.profile_limit, "profile_categories": list(config.profile_categories)},
+        inputs={"messages": [{"type": "system", "content": "Using user-scoped profile memory (no current request text)."}], "thread_data": trace_thread_data(thread_id=thread_id, user_id=user_id, profile_limit=config.profile_limit, profile_categories=list(config.profile_categories))},
+        parent=trace_parent,
     ) as span:
         profile_results = _profile_candidates(service.get_all(user_id=user_id))
         if span is not None and hasattr(span, "metadata"):
             span.metadata["profile_candidates"] = len(profile_results)
             span.metadata["profile_kept"] = len(profile_results)
         if span is not None and hasattr(span, "end"):
-            span.end(outputs={"profile_kept": len(profile_results), "selected_profile_results": profile_results})
+            span.end(outputs={"messages": trace_messages(profile_results), "thread_data": trace_thread_data(thread_id=thread_id, user_id=user_id, profile_kept=len(profile_results), uses_current_messages=False, retrieval_source="profile_memory")})
 
     query = _build_query(messages, config.query_window_turns)
     with memory_trace(
-        "memory.mem0.query_retrieval",
+        "Mem0InjectionMiddleware.before_model.query_retrieval",
         thread_id=thread_id,
         user_id=user_id,
         tags=["memory", "mem0", "retrieval", "query"],
@@ -192,11 +193,8 @@ def build_mem0_injection_memory(*, user_id: str, messages: list[Any], thread_id:
             "query_length": len(query),
             "query_preview": query[:120],
         },
-        inputs={
-            "query_window_turns": config.query_window_turns,
-            "query_length": len(query),
-            "query_preview": query[:120],
-        },
+        inputs={"messages": [{"type": "human", "content": query}], "thread_data": trace_thread_data(thread_id=thread_id, user_id=user_id, query_window_turns=config.query_window_turns, query_length=len(query))},
+        parent=trace_parent,
     ) as span:
         query_results = service.search(query=query, user_id=user_id, limit=config.search_limit) if query else []
         bounded_query_preview = _budgeted_results(query_results, query_budget)
@@ -204,12 +202,12 @@ def build_mem0_injection_memory(*, user_id: str, messages: list[Any], thread_id:
             span.metadata["query_results"] = len(query_results)
             span.metadata["query_kept"] = len(bounded_query_preview)
         if span is not None and hasattr(span, "end"):
-            span.end(outputs={"query_results": len(query_results), "query_kept": len(bounded_query_preview), "selected_query_results": bounded_query_preview})
+            span.end(outputs={"messages": trace_messages(bounded_query_preview), "thread_data": trace_thread_data(thread_id=thread_id, user_id=user_id, query_results=len(query_results), query_kept=len(bounded_query_preview))})
 
     bounded_query = _budgeted_results(query_results, query_budget)
     bounded_profile = _budgeted_results(profile_results, profile_budget)
     with memory_trace(
-        "memory.mem0.merge",
+        "Mem0InjectionMiddleware.before_model.merge",
         thread_id=thread_id,
         user_id=user_id,
         tags=["memory", "mem0", "merge"],
@@ -219,10 +217,8 @@ def build_mem0_injection_memory(*, user_id: str, messages: list[Any], thread_id:
             "profile_budget_tokens": profile_budget,
             "query_budget_tokens": query_budget,
         },
-        inputs={
-            "profile_input_count": len(bounded_profile),
-            "query_input_count": len(bounded_query),
-        },
+        inputs={"messages": trace_messages([*bounded_profile, *bounded_query]), "thread_data": trace_thread_data(thread_id=thread_id, user_id=user_id, profile_input_count=len(bounded_profile), query_input_count=len(bounded_query))},
+        parent=trace_parent,
     ) as span:
         merged = _dedupe_results(bounded_query, bounded_profile)
         deduped_count = len(bounded_profile) + len(bounded_query) - len(merged)
@@ -230,5 +226,5 @@ def build_mem0_injection_memory(*, user_id: str, messages: list[Any], thread_id:
             span.metadata["merged_count"] = len(merged)
             span.metadata["deduped_count"] = deduped_count
         if span is not None and hasattr(span, "end"):
-            span.end(outputs={"merged_count": len(merged), "deduped_count": deduped_count, "merged_results": merged})
+            span.end(outputs={"messages": trace_messages(merged), "thread_data": trace_thread_data(thread_id=thread_id, user_id=user_id, merged_count=len(merged), deduped_count=deduped_count)})
         return _compat_memory(merged)

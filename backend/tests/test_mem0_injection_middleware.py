@@ -70,6 +70,7 @@ def test_mem0_injection_middleware_traces_injection_attempt(monkeypatch):
     request.override.return_value = MagicMock()
     handler = MagicMock(return_value="response")
     spans = []
+    trace_args = []
     outputs = []
 
     class _Span:
@@ -91,9 +92,13 @@ def test_mem0_injection_middleware_traces_injection_attempt(monkeypatch):
             return False
 
     outputs_list = outputs
+    def _memory_trace(*args, **kwargs):
+        trace_args.append(args)
+        return _Span()
+
     monkeypatch.setattr(
         "deerflow.agents.middlewares.mem0_injection_middleware.memory_trace",
-        lambda *args, **kwargs: _Span(),
+        _memory_trace,
     )
     monkeypatch.setattr(
         "deerflow.agents.middlewares.mem0_injection_middleware.get_memory_config",
@@ -111,11 +116,12 @@ def test_mem0_injection_middleware_traces_injection_attempt(monkeypatch):
     middleware.wrap_model_call(request, handler)
 
     assert spans == ["entered"]
-    assert outputs[0]["injected"] is True
-    assert outputs[0]["facts_count"] == 1
-    assert outputs[0]["formatted_tokens_estimate"] > 0
-    assert outputs[0]["full_memory_message"].startswith("<memory>")
-    assert "User sources in Tianjin" in outputs[0]["full_memory_message"]
+    assert trace_args[0][0] == "Mem0InjectionMiddleware.inject_memory"
+    assert outputs[0]["thread_data"]["injected"] is True
+    assert outputs[0]["thread_data"]["facts_count"] == 1
+    assert outputs[0]["thread_data"]["formatted_tokens_estimate"] > 0
+    assert outputs[0]["messages"][0]["content"].startswith("<memory>")
+    assert "User sources in Tianjin" in outputs[0]["messages"][0]["content"]
 
 
 def test_mem0_injection_middleware_traces_skip_reason_when_no_memory(monkeypatch):
@@ -123,6 +129,7 @@ def test_mem0_injection_middleware_traces_skip_reason_when_no_memory(monkeypatch
     request = MagicMock()
     request.messages = [HumanMessage(content="hello")]
     handler = MagicMock(return_value="response")
+    trace_args = []
     outputs = []
 
     class _Span:
@@ -139,9 +146,13 @@ def test_mem0_injection_middleware_traces_skip_reason_when_no_memory(monkeypatch
             return False
 
     outputs_list = outputs
+    def _memory_trace(*args, **kwargs):
+        trace_args.append(args)
+        return _Span()
+
     monkeypatch.setattr(
         "deerflow.agents.middlewares.mem0_injection_middleware.memory_trace",
-        lambda *args, **kwargs: _Span(),
+        _memory_trace,
     )
     monkeypatch.setattr(
         "deerflow.agents.middlewares.mem0_injection_middleware.get_memory_config",
@@ -159,4 +170,8 @@ def test_mem0_injection_middleware_traces_skip_reason_when_no_memory(monkeypatch
     result = middleware.wrap_model_call(request, handler)
 
     assert result == "response"
-    assert outputs == [{"injected": False, "facts_count": 0, "formatted_tokens_estimate": 0, "skip_reason": "no_memory", "full_memory_message": ""}]
+    assert outputs[0]["messages"] == []
+    assert outputs[0]["thread_data"]["injected"] is False
+    assert outputs[0]["thread_data"]["skip_reason"] == "no_memory"
+    assert outputs[0]["thread_data"]["facts_count"] == 0
+    assert outputs[0]["thread_data"]["formatted_tokens_estimate"] == 0
