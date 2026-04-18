@@ -2,10 +2,7 @@ import sys
 from types import SimpleNamespace
 
 from deerflow.agents.memory.mem0_service import Mem0Service
-from deerflow.agents.memory.prompt import (
-    MEM0_FACT_EXTRACTION_PROMPT,
-    MEM0_UPDATE_MEMORY_PROMPT,
-)
+from deerflow.agents.memory.prompt import MEM0_CUSTOM_INSTRUCTIONS
 from deerflow.config.memory_config import MemoryConfig, get_memory_config, set_memory_config
 
 
@@ -13,6 +10,7 @@ class _FakeMem0Client:
     def __init__(self):
         self.add_calls = []
         self.search_calls = []
+        self.get_all_calls = []
 
     def add(self, **kwargs):
         self.add_calls.append(kwargs)
@@ -29,6 +27,20 @@ class _FakeMem0Client:
                 "created_at": "2026-04-01T10:00:00Z",
             }
         ]
+
+    def get_all(self, **kwargs):
+        self.get_all_calls.append(kwargs)
+        return {
+            "results": [
+                {
+                    "id": "mem_profile",
+                    "memory": "User prefers concise reviews",
+                    "score": 0.87,
+                    "metadata": {"category": "preference", "source": "thread_profile"},
+                    "created_at": "2026-04-02T10:00:00Z",
+                }
+            ]
+        }
 
 
 def test_build_compat_memory_from_search_maps_memories_to_facts():
@@ -59,7 +71,38 @@ def test_add_conversation_sends_user_id_and_run_id():
     assert fake.add_calls[0]["messages"] == [{"role": "user", "content": "remember this"}]
 
 
-def test_search_uses_user_filter_and_limit():
+def test_add_conversation_traces_mem0_sdk_boundary(monkeypatch):
+    service = Mem0Service()
+    fake = _FakeMem0Client()
+    service._client = fake
+    traced = []
+    outputs = []
+
+    class _Span:
+        def __enter__(self):
+            traced.append(True)
+            return self
+
+        def end(self, *, outputs=None):
+            outputs_list.append(outputs)
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    outputs_list = outputs
+    monkeypatch.setattr("deerflow.agents.memory.mem0_service.memory_trace", lambda *args, **kwargs: _Span())
+
+    class _Message:
+        type = "human"
+        content = "remember this"
+
+    service.add_conversation(messages=[_Message()], user_id="user_a", run_id="thread_a", metadata={"source": "thread_a"})
+
+    assert traced == [True]
+    assert outputs == [{"payload_count": 1, "accepted": True, "mem0_result": {"ok": True}}]
+
+
+def test_search_uses_user_filter_and_top_k():
     service = Mem0Service()
     fake = _FakeMem0Client()
     service._client = fake
@@ -67,11 +110,23 @@ def test_search_uses_user_filter_and_limit():
     service.search(query="python", user_id="user_a", limit=3)
 
     assert fake.search_calls[0]["query"] == "python"
-    assert fake.search_calls[0]["limit"] == 3
+    assert fake.search_calls[0]["top_k"] == 3
     assert fake.search_calls[0]["filters"] == {"user_id": "user_a"}
 
 
-def test_ensure_client_injects_default_mem0_prompts(monkeypatch):
+def test_get_all_uses_user_filter_and_max_facts_limit():
+    service = Mem0Service()
+    fake = _FakeMem0Client()
+    service._client = fake
+
+    memories = service.get_all(user_id="user_a")
+
+    assert fake.get_all_calls[0]["filters"] == {"user_id": "user_a"}
+    assert fake.get_all_calls[0]["top_k"] == get_memory_config().max_facts
+    assert memories[0]["memory"] == "User prefers concise reviews"
+
+
+def test_ensure_client_injects_supported_custom_instructions(monkeypatch):
     captured = {}
 
     class _FakeMemory:
@@ -99,5 +154,5 @@ def test_ensure_client_injects_default_mem0_prompts(monkeypatch):
     finally:
         set_memory_config(original_config)
 
-    assert captured["config"]["custom_fact_extraction_prompt"] == MEM0_FACT_EXTRACTION_PROMPT
-    assert captured["config"]["custom_update_memory_prompt"] == MEM0_UPDATE_MEMORY_PROMPT
+    custom_instructions = captured["config"]["custom_instructions"]
+    assert custom_instructions == MEM0_CUSTOM_INSTRUCTIONS

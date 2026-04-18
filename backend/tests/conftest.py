@@ -53,3 +53,29 @@ def provisioner_module():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+@pytest.fixture(autouse=True)
+def clear_tracing_env(monkeypatch):
+    """Keep unit tests isolated from developer LangSmith/Langfuse env settings."""
+    from deerflow.config import tracing_config as tracing_module
+
+    for name in (
+        "LANGSMITH_TRACING",
+        "LANGCHAIN_TRACING_V2",
+        "LANGCHAIN_TRACING",
+        "LANGSMITH_API_KEY",
+        "LANGCHAIN_API_KEY",
+        "LANGSMITH_PROJECT",
+        "LANGCHAIN_PROJECT",
+        "LANGSMITH_ENDPOINT",
+        "LANGCHAIN_ENDPOINT",
+        "LANGFUSE_TRACING",
+        "LANGFUSE_PUBLIC_KEY",
+        "LANGFUSE_SECRET_KEY",
+        "LANGFUSE_BASE_URL",
+    ):
+        monkeypatch.delenv(name, raising=False)
+    tracing_module._tracing_config = None
+    yield
+    tracing_module._tracing_config = None

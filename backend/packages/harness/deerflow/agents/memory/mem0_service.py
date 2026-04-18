@@ -8,11 +8,9 @@ from copy import deepcopy
 from datetime import UTC, datetime
 from typing import Any
 
-from deerflow.agents.memory.prompt import (
-    MEM0_FACT_EXTRACTION_PROMPT,
-    MEM0_UPDATE_MEMORY_PROMPT,
-)
+from deerflow.agents.memory.prompt import MEM0_CUSTOM_INSTRUCTIONS
 from deerflow.config.memory_config import get_memory_config
+from deerflow.tracing import memory_trace
 
 
 def _utc_now_iso() -> str:
@@ -117,8 +115,7 @@ class Mem0Service:
             raise RuntimeError("memory.mem0_config is empty. Configure mem0 before enabling provider=mem0.")
 
         mem0_config = deepcopy(config.mem0)
-        mem0_config.setdefault("custom_fact_extraction_prompt", MEM0_FACT_EXTRACTION_PROMPT)
-        mem0_config.setdefault("custom_update_memory_prompt", MEM0_UPDATE_MEMORY_PROMPT)
+        mem0_config.setdefault("custom_instructions", MEM0_CUSTOM_INSTRUCTIONS)
 
         self._client = Memory.from_config(mem0_config)
         return self._client
@@ -143,7 +140,27 @@ class Mem0Service:
             kwargs["run_id"] = run_id
         if metadata:
             kwargs["metadata"] = metadata
-        return self._ensure_client().add(**kwargs)
+        with memory_trace(
+            "memory.mem0.add_conversation",
+            thread_id=run_id,
+            user_id=user_id,
+            tags=["memory", "mem0", "write", "sdk"],
+            metadata={
+                "run_id": run_id,
+                "payload_count": len(payload),
+                "roles": [item["role"] for item in payload],
+                "has_metadata": bool(metadata),
+            },
+            inputs={
+                "payload_count": len(payload),
+                "roles": [item["role"] for item in payload],
+                "run_id": run_id,
+            },
+        ) as span:
+            result = self._ensure_client().add(**kwargs)
+            if span is not None and hasattr(span, "end"):
+                span.end(outputs={"payload_count": len(payload), "accepted": result is not None, "mem0_result": result})
+            return result
 
     def search(self, *, query: str, user_id: str, limit: int | None = None) -> list[dict[str, Any]]:
         if not query.strip():
@@ -151,7 +168,7 @@ class Mem0Service:
         effective_limit = limit or get_memory_config().search_limit
         result = self._ensure_client().search(
             query=query,
-            limit=effective_limit,
+            top_k=effective_limit,
             filters={"user_id": user_id},
         )
         if isinstance(result, dict):
@@ -160,8 +177,9 @@ class Mem0Service:
             memories = result or []
         return [item for item in memories if isinstance(item, dict)]
 
-    def get_all(self, *, user_id: str) -> list[dict[str, Any]]:
-        result = self._ensure_client().get_all(user_id=user_id)
+    def get_all(self, *, user_id: str, limit: int | None = None) -> list[dict[str, Any]]:
+        effective_limit = limit or get_memory_config().max_facts
+        result = self._ensure_client().get_all(filters={"user_id": user_id}, top_k=effective_limit)
         if isinstance(result, dict):
             memories = result.get("results") or result.get("memories") or []
         else:

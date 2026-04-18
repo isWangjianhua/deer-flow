@@ -23,6 +23,7 @@ class ConversationContext:
     agent_name: str | None = None
     correction_detected: bool = False
     reinforcement_detected: bool = False
+    trace_parent: Any | None = None
 
 
 class MemoryUpdateQueue:
@@ -48,6 +49,7 @@ class MemoryUpdateQueue:
         agent_name: str | None = None,
         correction_detected: bool = False,
         reinforcement_detected: bool = False,
+        trace_parent: Any | None = None,
     ) -> None:
         """Add a conversation to the update queue.
 
@@ -71,6 +73,7 @@ class MemoryUpdateQueue:
                 agent_name=agent_name,
                 correction_detected=correction_detected,
                 reinforcement_detected=reinforcement_detected,
+                trace_parent=trace_parent,
             )
             self._reset_timer()
 
@@ -84,6 +87,7 @@ class MemoryUpdateQueue:
         agent_name: str | None = None,
         correction_detected: bool = False,
         reinforcement_detected: bool = False,
+        trace_parent: Any | None = None,
     ) -> None:
         """Add a conversation and start processing immediately in the background."""
         config = get_memory_config()
@@ -98,6 +102,7 @@ class MemoryUpdateQueue:
                 agent_name=agent_name,
                 correction_detected=correction_detected,
                 reinforcement_detected=reinforcement_detected,
+                trace_parent=trace_parent,
             )
             self._schedule_timer(0)
 
@@ -112,6 +117,7 @@ class MemoryUpdateQueue:
         agent_name: str | None,
         correction_detected: bool,
         reinforcement_detected: bool,
+        trace_parent: Any | None,
     ) -> None:
         existing_context = next(
             (context for context in self._queue if context.thread_id == thread_id),
@@ -126,6 +132,7 @@ class MemoryUpdateQueue:
             agent_name=agent_name,
             correction_detected=merged_correction_detected,
             reinforcement_detected=merged_reinforcement_detected,
+            trace_parent=trace_parent if existing_context is None else (trace_parent or existing_context.trace_parent),
         )
 
         self._queue = [c for c in self._queue if c.thread_id != thread_id]
@@ -185,6 +192,7 @@ class MemoryUpdateQueue:
                         agent_name=context.agent_name,
                         correction_detected=context.correction_detected,
                         reinforcement_detected=context.reinforcement_detected,
+                        trace_parent=context.trace_parent,
                     )
                     if success:
                         logger.info("Memory updated successfully for thread %s", context.thread_id)

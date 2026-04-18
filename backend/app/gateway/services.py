@@ -291,6 +291,7 @@ async def start_run(
     context = getattr(body, "context", None)
     if context:
         _CONTEXT_CONFIGURABLE_KEYS = {
+            "user_id",
             "model_name",
             "mode",
             "thinking_enabled",

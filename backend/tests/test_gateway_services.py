@@ -340,3 +340,33 @@ def test_build_run_config_no_request_config():
     config = build_run_config("thread-abc", None, None)
     assert config["configurable"] == {"thread_id": "thread-abc"}
     assert "context" not in config
+
+
+def test_context_merging_forwards_user_id_for_mem0():
+    """BFF-provided user_id must survive context->configurable merging for Mem0."""
+    from app.gateway.services import build_run_config
+
+    config = build_run_config("thread-1", None, None)
+    context = {
+        "user_id": "u-42",
+        "model_name": "deepseek-v3",
+    }
+
+    _CONTEXT_CONFIGURABLE_KEYS = {
+        "user_id",
+        "model_name",
+        "mode",
+        "thinking_enabled",
+        "reasoning_effort",
+        "is_plan_mode",
+        "subagent_enabled",
+        "max_concurrent_subagents",
+    }
+    configurable = config.setdefault("configurable", {})
+    for key in _CONTEXT_CONFIGURABLE_KEYS:
+        if key in context:
+            configurable.setdefault(key, context[key])
+
+    assert config["configurable"]["thread_id"] == "thread-1"
+    assert config["configurable"]["user_id"] == "u-42"
+    assert config["configurable"]["model_name"] == "deepseek-v3"

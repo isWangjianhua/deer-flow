@@ -23,6 +23,7 @@ from deerflow.agents.memory.storage import (
 )
 from deerflow.config.memory_config import get_memory_config
 from deerflow.models import create_chat_model
+from deerflow.tracing import memory_trace
 
 logger = logging.getLogger(__name__)
 
@@ -458,6 +459,7 @@ class MemoryUpdater:
         agent_name: str | None = None,
         correction_detected: bool = False,
         reinforcement_detected: bool = False,
+        trace_parent: Any | None = None,
     ) -> bool:
         """Update memory asynchronously based on conversation messages."""
         try:
@@ -466,12 +468,23 @@ class MemoryUpdater:
                 if not user_id:
                     logger.debug("No user_id provided for mem0 memory update; skipping")
                     return False
-                get_mem0_service().add_conversation(
-                    messages=messages,
+                with memory_trace(
+                    "memory.mem0.write",
+                    thread_id=thread_id,
                     user_id=user_id,
-                    run_id=thread_id,
-                    metadata={"thread_id": thread_id or "", "source": thread_id or "unknown"},
-                )
+                    tags=["memory", "mem0", "write"],
+                    metadata={"message_count": len(messages), "mode": "conversation_add"},
+                    inputs={"message_count": len(messages), "mode": "conversation_add"},
+                    parent=trace_parent,
+                ) as span:
+                    result = get_mem0_service().add_conversation(
+                        messages=messages,
+                        user_id=user_id,
+                        run_id=thread_id,
+                        metadata={"thread_id": thread_id or "", "source": thread_id or "unknown"},
+                    )
+                    if span is not None and hasattr(span, "end"):
+                        span.end(outputs={"accepted": result is not None, "message_count": len(messages), "submitted_messages": messages})
                 return True
 
             prepared = await asyncio.to_thread(
@@ -510,6 +523,7 @@ class MemoryUpdater:
         agent_name: str | None = None,
         correction_detected: bool = False,
         reinforcement_detected: bool = False,
+        trace_parent: Any | None = None,
     ) -> bool:
         """Synchronously update memory via the async updater path.
 
@@ -628,6 +642,7 @@ def update_memory_from_conversation(
     agent_name: str | None = None,
     correction_detected: bool = False,
     reinforcement_detected: bool = False,
+    trace_parent: Any | None = None,
 ) -> bool:
     """Convenience function to update memory from a conversation.
 
@@ -642,4 +657,4 @@ def update_memory_from_conversation(
         True if successful, False otherwise.
     """
     updater = MemoryUpdater()
-    return updater.update_memory(messages, thread_id, user_id, agent_name, correction_detected, reinforcement_detected)
+    return updater.update_memory(messages, thread_id, user_id, agent_name, correction_detected, reinforcement_detected, trace_parent)

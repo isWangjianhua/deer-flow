@@ -244,6 +244,37 @@ Return ONLY valid JSON in this format:
 }"""
 
 
+# Derived from MEM0_FACT_EXTRACTION_PROMPT and MEM0_UPDATE_MEMORY_PROMPT.
+MEM0_CUSTOM_INSTRUCTIONS = """You are maintaining long-term memory about the user for future conversations.
+
+Follow these rules strictly:
+
+1. Source of truth
+- Extract memory from the user's messages only.
+- Do not create memories from assistant messages or system messages.
+
+2. What to keep
+- Keep durable information that will remain useful in future conversations.
+- Prefer user preferences, knowledge, context, behavior patterns, goals, and corrections when they are clearly supported by the conversation.
+- Preserve specific technical details, proper nouns, project names, company names, version numbers, and metrics when they are useful.
+
+3. What to avoid
+- Do not store file paths, uploaded file details, session-scoped artifacts, temporary execution details, or one-off task state.
+- Do not keep vague, low-confidence, or obviously short-lived information unless it reveals a durable user preference or background fact.
+
+4. Update behavior
+- Avoid adding duplicates that mean the same thing with slightly different wording.
+- If new information is clearer, more specific, or more current, prefer updating or replacing the older memory rather than accumulating near-duplicates.
+- If the new information is already covered or not worth long-term retention, prefer no change.
+
+5. Quality bar
+- Favor precision over recall.
+- Keep memories concise but specific.
+- Preserve the user's language when storing memories.
+- Treat explicit user statements as highest confidence.
+"""
+
+
 def _count_tokens(text: str, encoding_name: str = "cl100k_base") -> int:
     """Count tokens in text using tiktoken.
 

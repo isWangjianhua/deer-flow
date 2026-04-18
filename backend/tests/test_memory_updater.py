@@ -169,6 +169,35 @@ def test_memory_updater_uses_mem0_add_conversation_when_provider_enabled() -> No
     )
 
 
+def test_memory_updater_traces_mem0_write(monkeypatch) -> None:
+    updater = MemoryUpdater()
+    service = MagicMock()
+    traced = []
+    outputs = []
+
+    class _Span:
+        def __enter__(self):
+            traced.append(True)
+            return self
+
+        def end(self, *, outputs=None):
+            outputs_list.append(outputs)
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    outputs_list = outputs
+
+    monkeypatch.setattr("deerflow.agents.memory.updater.memory_trace", lambda *args, **kwargs: _Span())
+    monkeypatch.setattr("deerflow.agents.memory.updater.get_memory_config", lambda: _memory_config(enabled=True, provider="mem0"))
+    monkeypatch.setattr("deerflow.agents.memory.updater.get_mem0_service", lambda: service)
+
+    updater.update_memory(messages=["conversation"], thread_id="thread-1", user_id="user-123")
+
+    assert traced == [True]
+    assert outputs == [{"accepted": True, "message_count": 1, "submitted_messages": ["conversation"]}]
+
+
 def test_apply_updates_skips_same_batch_duplicates_and_keeps_source_metadata() -> None:
     updater = MemoryUpdater()
     current_memory = _make_memory()

@@ -241,3 +241,47 @@ def test_apply_prompt_template_prefers_agent_name_over_configured_display_name(m
     prompt = prompt_module.apply_prompt_template(agent_name="acme-agent")
 
     assert "You are acme-agent, an open-source super agent." in prompt
+
+
+def test_apply_prompt_template_traces_full_rendered_prompt(monkeypatch):
+    spans = []
+    outputs = []
+
+    class _Span:
+        def __enter__(self):
+            return self
+
+        def end(self, *, outputs=None):
+            outputs_list.append(outputs)
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    outputs_list = outputs
+
+    def _memory_trace(name, **kwargs):
+        spans.append((name, kwargs))
+        return _Span()
+
+    config = SimpleNamespace(
+        sandbox=SimpleNamespace(mounts=[]),
+        skills=SimpleNamespace(container_path="/mnt/skills"),
+        lead_agent=SimpleNamespace(display_name="Tester"),
+    )
+    monkeypatch.setattr("deerflow.config.get_app_config", lambda: config)
+    monkeypatch.setattr(prompt_module, "memory_trace", _memory_trace)
+    monkeypatch.setattr(prompt_module, "_get_enabled_skills", lambda: [])
+    monkeypatch.setattr(prompt_module, "get_deferred_tools_prompt_section", lambda: "")
+    monkeypatch.setattr(prompt_module, "_build_acp_section", lambda: "")
+    monkeypatch.setattr(prompt_module, "_get_memory_context", lambda agent_name=None: "")
+    monkeypatch.setattr(prompt_module, "get_agent_soul", lambda agent_name=None: "<soul>TEST</soul>")
+    monkeypatch.setattr(
+        "deerflow.config.memory_config.get_memory_config",
+        lambda: SimpleNamespace(enabled=True, injection_enabled=True, provider="file"),
+    )
+
+    rendered = prompt_module.apply_prompt_template(agent_name="Tester", user_id="user-1")
+
+    assert spans[0][0] == "lead_agent.prompt.render"
+    assert spans[0][1]["inputs"]["agent_name"] == "Tester"
+    assert outputs[0]["full_system_prompt"] == rendered
