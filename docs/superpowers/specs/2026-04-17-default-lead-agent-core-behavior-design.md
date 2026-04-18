@@ -1,14 +1,14 @@
-# Haizol Agent Core Behavior Design
+# Default Lead Agent Core Behavior Design
 
 Date: 2026-04-17
 
 ## Summary
 
-Reposition the default lead agent toward a moderate Haizol-specific behavior bias without turning the whole runtime into a hardcoded industry-only agent.
+Reposition the default lead agent toward a moderate default lead agent-specific behavior bias without turning the whole runtime into a hardcoded industry-only agent.
 
 This slice defines:
 
-- the chosen behavioral direction for `Haizol Agent (海智在线智能体)`
+- the chosen behavioral direction for `Default Lead Agent`
 - the boundary between top-level system prompt behavior, `SOUL.md`, and future skills/tools
 - the initial implementation decision to bias behavior through `backend/.deer-flow/SOUL.md` first
 - the conditions that would justify a later, minimal change to `backend/packages/harness/deerflow/agents/lead_agent/prompt.py`
@@ -24,7 +24,7 @@ This slice intentionally does not include:
 
 The current default lead-agent experience is still shaped like a general-purpose DeerFlow assistant.
 
-That is too generic for the desired Haizol positioning:
+That is too generic for the desired default lead agent positioning:
 
 - the product should feel more like a B2B industrial platform advisor than a generic chat assistant
 - the agent should sound professional, restrained, and judgment-oriented rather than like customer support or a generic productivity bot
@@ -35,10 +35,10 @@ At the same time, the runtime must remain generally useful. The lead agent shoul
 
 ## Goals
 
-- Make the default assistant feel like `Haizol Agent (海智在线智能体)` at a behavioral level.
+- Make the default assistant feel like `Default Lead Agent` at a behavioral level.
 - Keep the core runtime general-purpose.
 - Bias default behavior toward a B2B industrial platform consultant style.
-- Serve platform external users by default: factories and buyers.
+- Serve platform external users by default: external platform users.
 - When user identity is unclear, prefer neutral conditional guidance instead of blocking on clarification.
 - Make the assistant calmer, more structured, more risk-aware, and more action-oriented.
 - Keep detailed industrial reasoning in skills and tools.
@@ -47,7 +47,7 @@ At the same time, the runtime must remain generally useful. The lead agent shoul
 ## Non-Goals
 
 - Do not rewrite the lead agent into an industry-only vertical agent in this slice.
-- Do not move factory-side manufacturing heuristics into the core system prompt.
+- Do not move domain-specific heuristics into the core system prompt.
 - Do not change `skills_section`, `deferred_tools_section`, `subagent_section`, `working_directory`, or `citations` behavior.
 - Do not redesign bootstrap flow in this slice beyond taking inspiration from the existing SOUL template style.
 - Do not finalize the second skill's detailed scope in this document.
@@ -67,7 +67,7 @@ Important current prompt constraints:
 
 - the lead-agent prompt still frames the assistant as an `open-source super agent`
 - the current clarification rules are hard and broad: unclear or ambiguous requests are expected to trigger clarification before action
-- the current default response style is concise and action-oriented, but not specifically Haizol-shaped
+- the current default response style is concise and action-oriented, but not specifically default lead agent-shaped
 
 This means there are two distinct kinds of behavior shaping:
 
@@ -78,17 +78,17 @@ The chosen design for this slice is to start with the first, while explicitly do
 
 ## User-Approved Behavior Profile
 
-The approved default positioning for Haizol is:
+The approved default positioning for default lead agent is:
 
-- moderate Haizol-specific behavior bias, not a full hardcoded industry rewrite
-- a `B2B industrial platform consultant super agent`
-- detailed Haizol capabilities should live mainly in skills and tools
-- the default audience is external platform users: factories and buyers
+- moderate default lead agent-specific behavior bias, not a full hardcoded industry rewrite
+- a `professional domain-oriented super agent`
+- detailed default lead agent capabilities should live mainly in skills and tools
+- the default audience is external platform users: external platform users
 - if user identity is unclear, the agent should first provide neutral, conditional guidance, then note that priorities differ for factories vs buyers
 
 The approved relationship framing is:
 
-- `Haizol Agent (海智在线智能体)` should feel like `an industrial sourcing and factory-side business deputy`
+- `Default Lead Agent` should feel like `a trusted business-oriented deputy`
 
 The approved communication and judgment profile is:
 
@@ -97,7 +97,7 @@ The approved communication and judgment profile is:
 - steady judgment
 - restrained emotion
 - direct pushback when assumptions or business decisions are weak
-- explicit opposition when pricing, delivery, capability, or risk is clearly unstable
+- explicit opposition when delivery, capability, or risk is clearly unstable
 - when information is incomplete, give a conditional judgment first and then list `1-3` critical items to confirm
 - together with judgment, proactively provide executable next steps
 - if wrong, admit it directly, revise the conclusion, and explain why it changed
@@ -109,17 +109,17 @@ The approved communication and judgment profile is:
 Use a three-layer design:
 
 1. `system prompt` defines stable global operating rules
-2. `SOUL.md` defines Haizol's default personality, relationship framing, and behavioral bias
+2. `SOUL.md` defines default lead agent's default personality, relationship framing, and behavioral bias
 3. `skills + tools` define concrete industrial workflows and task-specific judgment
 
 For this slice, only layer 2 changes.
 
 The core decision is:
 
-- implement the Haizol behavior bias first by updating `backend/.deer-flow/SOUL.md`
+- implement the default lead agent behavior bias first by updating `backend/.deer-flow/SOUL.md`
 - do not change `backend/packages/harness/deerflow/agents/lead_agent/prompt.py` yet
 - validate behavior in real conversations
-- only if hard prompt rules still overpower the desired Haizol behavior should `prompt.py` receive small, targeted adjustments
+- only if hard prompt rules still overpower the desired default lead agent behavior should `prompt.py` receive small, targeted adjustments
 
 This keeps the initial change small, reversible, and easy to observe.
 
@@ -130,7 +130,7 @@ This keeps the initial change small, reversible, and easy to observe.
 Pros:
 
 - strongest immediate behavior shift
-- clearer Haizol branding at the most authoritative layer
+- clearer default lead agent branding at the most authoritative layer
 
 Cons:
 
@@ -161,7 +161,7 @@ Pros:
 Cons:
 
 - the agent still feels too generic in ordinary conversations
-- Haizol product identity would be weak unless a skill is explicitly triggered
+- default lead agent product identity would be weak unless a skill is explicitly triggered
 
 Option 2 is the chosen approach.
 
@@ -183,7 +183,7 @@ It should not absorb concrete industrial decision workflows in this slice.
 
 `SOUL.md` should carry:
 
-- Haizol brand identity
+- default lead agent brand identity
 - relationship framing
 - tone and speaking style
 - behavioral preference toward structured judgment and next-step guidance
@@ -210,7 +210,7 @@ That keeps the top-level assistant lean and keeps domain reasoning modular.
 
 The default SOUL should be rewritten around the following identity:
 
-`Haizol Agent (海智在线智能体) — a trusted deputy for industrial sourcing and factory-side business decisions, not a generic assistant.`
+`Default Lead Agent — a trusted deputy for industrial sourcing and factory-side business decisions, not a generic assistant.`
 
 The SOUL should express the following traits as concrete behavioral rules:
 
@@ -278,7 +278,7 @@ The SOUL-first approach is successful if the default lead agent shows the follow
 The SOUL-first approach is insufficient if:
 
 - clarification behavior still consistently overrides conditional judgment
-- Haizol identity is barely noticeable outside explicit skill-triggered flows
+- default lead agent identity is barely noticeable outside explicit skill-triggered flows
 - answers remain too generic or too deferential in business-risk situations
 
 ## Rollout
@@ -286,7 +286,7 @@ The SOUL-first approach is insufficient if:
 This design expects the following sequence:
 
 1. Update `backend/.deer-flow/SOUL.md`
-2. Run real or scripted conversation checks against both general and Haizol-relevant prompts
+2. Run real or scripted conversation checks against both general and default lead agent-relevant prompts
 3. Observe whether behavior is sufficiently shifted
 4. Only then decide whether `prompt.py` needs targeted adjustment
 5. After the core behavior is stable, define the second skill and the final skill/tool boundary in a separate follow-up design
@@ -295,6 +295,6 @@ This design expects the following sequence:
 
 The next design slice should address:
 
-- the second Haizol-specific skill for the non-factory side of the platform
+- the second default lead agent-specific skill for the non-factory side of the platform
 - final routing boundaries between factory-side, buyer-side, and platform-neutral interactions
 - whether bootstrap generation should evolve to better support branded multi-agent identities

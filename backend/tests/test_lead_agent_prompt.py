@@ -211,7 +211,7 @@ def test_apply_prompt_template_uses_configured_default_display_name(monkeypatch)
     config = SimpleNamespace(
         sandbox=SimpleNamespace(mounts=[]),
         skills=SimpleNamespace(container_path="/mnt/skills"),
-        lead_agent=SimpleNamespace(display_name="Haizol Agent (海智在线智能体)"),
+        lead_agent=SimpleNamespace(display_name="Acme Agent"),
     )
     monkeypatch.setattr("deerflow.config.get_app_config", lambda: config)
     monkeypatch.setattr(prompt_module, "_get_enabled_skills", lambda: [])
@@ -222,14 +222,14 @@ def test_apply_prompt_template_uses_configured_default_display_name(monkeypatch)
 
     prompt = prompt_module.apply_prompt_template()
 
-    assert "You are Haizol Agent (海智在线智能体), an open-source super agent." in prompt
+    assert "You are Acme Agent, an open-source super agent." in prompt
 
 
 def test_apply_prompt_template_prefers_agent_name_over_configured_display_name(monkeypatch):
     config = SimpleNamespace(
         sandbox=SimpleNamespace(mounts=[]),
         skills=SimpleNamespace(container_path="/mnt/skills"),
-        lead_agent=SimpleNamespace(display_name="Haizol Agent (海智在线智能体)"),
+        lead_agent=SimpleNamespace(display_name="Acme Agent"),
     )
     monkeypatch.setattr("deerflow.config.get_app_config", lambda: config)
     monkeypatch.setattr(prompt_module, "_get_enabled_skills", lambda: [])
@@ -238,6 +238,6 @@ def test_apply_prompt_template_prefers_agent_name_over_configured_display_name(m
     monkeypatch.setattr(prompt_module, "_get_memory_context", lambda agent_name=None: "")
     monkeypatch.setattr(prompt_module, "get_agent_soul", lambda agent_name=None: "")
 
-    prompt = prompt_module.apply_prompt_template(agent_name="haizol-agent")
+    prompt = prompt_module.apply_prompt_template(agent_name="acme-agent")
 
-    assert "You are haizol-agent, an open-source super agent." in prompt
+    assert "You are acme-agent, an open-source super agent." in prompt
