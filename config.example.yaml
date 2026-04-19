@@ -12,7 +12,7 @@
 # ============================================================================
 # Bump this number when the config schema changes.
 # Run `make config-upgrade` to merge new fields into your local config.yaml.
-config_version: 6
+config_version: 7
 
 # ============================================================================
 # Lead Agent
@@ -685,6 +685,7 @@ memory:
   fact_confidence_threshold: 0.7 # Minimum confidence for storing facts
   injection_enabled: true # Whether to inject retrieved memory at request time
   max_injection_tokens: 2000 # Maximum tokens for memory injection
+  mem0_write_token_budget: 3000 # Maximum tokens sent to Mem0 when writing the latest conversation increment
   mem0_config: # Mem0 OSS Python SDK config passed to Memory.from_config(...)
     vector_store:
       provider: qdrant

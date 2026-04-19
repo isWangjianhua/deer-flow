@@ -14,6 +14,7 @@ from typing import Any
 from deerflow.agents.memory.mem0_service import get_mem0_service
 from deerflow.agents.memory.prompt import (
     MEMORY_UPDATE_PROMPT,
+    _count_tokens,
     format_conversation_for_update,
 )
 from deerflow.agents.memory.storage import (
@@ -26,6 +27,8 @@ from deerflow.models import create_chat_model
 from deerflow.tracing import memory_trace, trace_messages, trace_thread_data
 
 logger = logging.getLogger(__name__)
+
+_MEM0_WRITE_TOKEN_BUDGET = 3000
 
 _SYNC_MEMORY_UPDATER_EXECUTOR = concurrent.futures.ThreadPoolExecutor(
     max_workers=4,
@@ -107,6 +110,128 @@ def _validate_confidence(confidence: float) -> float:
     if not math.isfinite(confidence) or confidence < 0 or confidence > 1:
         raise ValueError("confidence")
     return confidence
+
+
+def _coerce_mem0_text(content: Any) -> str:
+    if isinstance(content, str):
+        return content.strip()
+    if isinstance(content, list):
+        parts: list[str] = []
+        for block in content:
+            if isinstance(block, str):
+                parts.append(block)
+            elif isinstance(block, dict):
+                text = block.get("text")
+                if isinstance(text, str):
+                    parts.append(text)
+        return "\n".join(part.strip() for part in parts if part and part.strip()).strip()
+    return str(content).strip()
+
+
+def _message_to_mem0_dict(message: Any) -> dict[str, str] | None:
+    source_type: str | None = None
+    if isinstance(message, str):
+        role = "user"
+        content = message.strip()
+        name = None
+    elif isinstance(message, dict):
+        role = message.get("role")
+        source_type = message.get("type") or message.get("role")
+        content = _coerce_mem0_text(message.get("content", ""))
+        name = message.get("name")
+    else:
+        role = getattr(message, "type", None)
+        source_type = getattr(message, "type", None) or getattr(message, "role", None)
+        content = _coerce_mem0_text(getattr(message, "content", ""))
+        name = getattr(message, "name", None)
+
+    if role == "human":
+        role = "user"
+    elif role == "ai":
+        role = "assistant"
+    elif role not in {"user", "assistant", "system"}:
+        role = None
+
+    if role is None or not content:
+        return None
+
+    payload = {"role": role, "content": content}
+    if isinstance(source_type, str) and source_type.strip():
+        payload["type"] = source_type.strip()
+    if isinstance(name, str) and name.strip():
+        payload["name"] = name.strip()
+    return payload
+
+
+def _mem0_message_tokens(message: dict[str, str]) -> int:
+    return _count_tokens(f"{message['role']}: {message['content']}")
+
+
+def _truncate_text_to_token_budget(text: str, token_budget: int) -> str:
+    if token_budget <= 0:
+        return ""
+
+    token_count = _count_tokens(text)
+    if token_count <= token_budget:
+        return text
+
+    estimated_chars = max(1, int(len(text) * (token_budget / max(token_count, 1))))
+    truncated = text[:estimated_chars].rstrip()
+    while truncated and _count_tokens(truncated) > token_budget:
+        truncated = truncated[: max(1, len(truncated) - max(1, len(truncated) // 8))].rstrip()
+    return truncated
+
+
+def _select_latest_mem0_increment(payload: list[dict[str, str]]) -> list[dict[str, str]]:
+    if not payload:
+        return []
+
+    assistant_indices = [index for index, item in enumerate(payload) if item["role"] == "assistant"]
+    if len(assistant_indices) < 2:
+        return payload
+
+    return payload[assistant_indices[-2] + 1 :]
+
+
+def _prepare_mem0_messages(messages: list[Any], token_budget: int | None = None) -> list[dict[str, str]]:
+    if token_budget is None:
+        token_budget = _MEM0_WRITE_TOKEN_BUDGET
+
+    payload = [item for item in (_message_to_mem0_dict(message) for message in messages) if item is not None]
+    if not payload:
+        return []
+    payload = _select_latest_mem0_increment(payload)
+
+    selected: list[dict[str, str]] = []
+    used_tokens = 0
+    for item in reversed(payload):
+        remaining = token_budget - used_tokens
+        if remaining <= 0:
+            break
+
+        item_tokens = _mem0_message_tokens(item)
+        if item_tokens <= remaining:
+            selected.append(dict(item))
+            used_tokens += item_tokens
+            continue
+
+        prefix_tokens = _count_tokens(f"{item['role']}: ")
+        truncated_content = _truncate_text_to_token_budget(item["content"], remaining - prefix_tokens)
+        if truncated_content:
+            trimmed = dict(item)
+            trimmed["content"] = truncated_content
+            selected.append(trimmed)
+        break
+
+    selected.reverse()
+    if selected != payload:
+        logger.info(
+            "Prepared mem0 payload with %d/%d messages under token budget %d",
+            len(selected),
+            len(payload),
+            token_budget,
+        )
+    return selected
 
 
 def create_memory_fact(
@@ -468,23 +593,57 @@ class MemoryUpdater:
                 if not user_id:
                     logger.debug("No user_id provided for mem0 memory update; skipping")
                     return False
+                mem0_messages = _prepare_mem0_messages(messages, token_budget=config.mem0_write_token_budget)
+                if not mem0_messages:
+                    logger.debug("No mem0-compatible messages after payload preparation; skipping")
+                    return False
+                # Trace both layers explicitly:
+                # - raw_messages captures the full updater input for orchestration/debugging.
+                # - messages captures the prepared incremental payload actually sent to Mem0.
                 with memory_trace(
                     "MemoryUpdater.update_memory",
                     thread_id=thread_id,
                     user_id=user_id,
                     tags=["memory", "mem0", "write"],
-                    metadata={"message_count": len(messages), "mode": "conversation_add"},
-                    inputs={"messages": trace_messages(messages), "thread_data": trace_thread_data(thread_id=thread_id, user_id=user_id, message_count=len(messages), mode="conversation_add")},
+                    metadata={
+                        "input_message_count": len(messages),
+                        "prepared_message_count": len(mem0_messages),
+                        "mode": "conversation_add",
+                        "write_token_budget": config.mem0_write_token_budget,
+                    },
+                    inputs={
+                        "messages": trace_messages(mem0_messages),
+                        "raw_messages": trace_messages(messages),
+                        "thread_data": trace_thread_data(
+                            thread_id=thread_id,
+                            user_id=user_id,
+                            input_message_count=len(messages),
+                            prepared_message_count=len(mem0_messages),
+                            mode="conversation_add",
+                        ),
+                    },
                     parent=trace_parent,
                 ) as span:
                     result = get_mem0_service().add_conversation(
-                        messages=messages,
+                        messages=mem0_messages,
                         user_id=user_id,
                         run_id=thread_id,
                         metadata={"thread_id": thread_id or "", "source": thread_id or "unknown"},
                     )
                     if span is not None and hasattr(span, "end"):
-                        span.end(outputs={"messages": trace_messages(messages), "thread_data": trace_thread_data(thread_id=thread_id, user_id=user_id, accepted=result is not None, message_count=len(messages), mode="conversation_add")})
+                        span.end(
+                            outputs={
+                                "messages": trace_messages(mem0_messages),
+                                "thread_data": trace_thread_data(
+                                    thread_id=thread_id,
+                                    user_id=user_id,
+                                    accepted=result is not None,
+                                    input_message_count=len(messages),
+                                    prepared_message_count=len(mem0_messages),
+                                    mode="conversation_add",
+                                ),
+                            }
+                        )
                 return True
 
             prepared = await asyncio.to_thread(

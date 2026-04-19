@@ -12,6 +12,7 @@ def test_memory_config_exposes_mem0_retrieval_policy_defaults():
     assert config.query_window_turns == 3
     assert config.profile_budget_ratio == 0.3
     assert config.profile_categories == ["preference", "context", "knowledge"]
+    assert config.mem0_write_token_budget == 3000
 
 
 def test_build_mem0_injection_memory_returns_none_for_cold_start(monkeypatch):

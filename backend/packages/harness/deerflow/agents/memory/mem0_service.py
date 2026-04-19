@@ -34,7 +34,15 @@ def _coerce_text(content: Any) -> str:
 
 
 def _message_to_dict(message: Any) -> dict[str, str] | None:
-    role = getattr(message, "type", None)
+    if isinstance(message, dict):
+        role = message.get("role")
+        content = _coerce_text(message.get("content", ""))
+        name = message.get("name")
+    else:
+        role = getattr(message, "type", None)
+        content = _coerce_text(getattr(message, "content", ""))
+        name = getattr(message, "name", None)
+
     if role == "human":
         role = "user"
     elif role == "ai":
@@ -42,10 +50,13 @@ def _message_to_dict(message: Any) -> dict[str, str] | None:
     elif role not in {"user", "assistant", "system"}:
         role = None
 
-    content = _coerce_text(getattr(message, "content", ""))
     if role is None or not content:
         return None
-    return {"role": role, "content": content}
+
+    payload = {"role": role, "content": content}
+    if isinstance(name, str) and name.strip():
+        payload["name"] = name.strip()
+    return payload
 
 
 def _result_to_fact(result: dict[str, Any]) -> dict[str, Any]:
@@ -95,6 +106,16 @@ def _empty_compat_memory(*, facts: list[dict[str, Any]] | None = None) -> dict[s
         },
         "facts": facts,
     }
+
+
+def _trace_mem0_results(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    traced: list[dict[str, Any]] = []
+    for item in items:
+        content = item.get("memory") or item.get("text") or item.get("content")
+        if not isinstance(content, str) or not content:
+            continue
+        traced.append({"type": "memory", "content": content})
+    return traced
 
 
 class Mem0Service:
@@ -151,12 +172,12 @@ class Mem0Service:
                 "roles": [item["role"] for item in payload],
                 "has_metadata": bool(metadata),
             },
-            inputs={"messages": trace_messages(payload), "thread_data": trace_thread_data(thread_id=run_id, user_id=user_id, payload_count=len(payload), roles=[item["role"] for item in payload], run_id=run_id)},
+            inputs={"messages": trace_messages(messages), "thread_data": trace_thread_data(thread_id=run_id, user_id=user_id, payload_count=len(payload), roles=[item["role"] for item in payload], run_id=run_id)},
         ) as span:
             result = self._ensure_client().add(**kwargs)
             if span is not None and hasattr(span, "end"):
                 raw_results = (result.get("results") or result.get("memories") or []) if isinstance(result, dict) else []
-                result_messages = trace_messages(raw_results)
+                result_messages = _trace_mem0_results([item for item in raw_results if isinstance(item, dict)])
                 if result_messages:
                     thread_data = trace_thread_data(
                         thread_id=run_id,

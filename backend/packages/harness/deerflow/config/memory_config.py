@@ -105,6 +105,12 @@ class MemoryConfig(BaseModel):
         le=8000,
         description="Maximum tokens to use for memory injection",
     )
+    mem0_write_token_budget: int = Field(
+        default=3000,
+        ge=100,
+        le=32000,
+        description="Maximum tokens to send to Mem0 when preparing incremental write payloads.",
+    )
 
 
 # Global configuration instance

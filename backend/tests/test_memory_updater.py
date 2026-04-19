@@ -162,11 +162,93 @@ def test_memory_updater_uses_mem0_add_conversation_when_provider_enabled() -> No
 
     assert result is True
     service.add_conversation.assert_called_once_with(
-        messages=["conversation"],
+        messages=[{"role": "user", "content": "conversation"}],
         user_id="user-123",
         run_id="thread-1",
         metadata={"thread_id": "thread-1", "source": "thread-1"},
     )
+
+
+def test_memory_updater_limits_mem0_payload_to_recent_budget(monkeypatch: pytest.MonkeyPatch) -> None:
+    updater = MemoryUpdater()
+    service = MagicMock()
+
+    older_user = MagicMock()
+    older_user.type = "human"
+    older_user.content = "old context that should be dropped"
+
+    recent_user = MagicMock()
+    recent_user.type = "human"
+    recent_user.content = "U" * 40
+
+    recent_ai = MagicMock()
+    recent_ai.type = "ai"
+    recent_ai.content = "A" * 40
+    recent_ai.tool_calls = []
+
+    monkeypatch.setattr("deerflow.agents.memory.updater._count_tokens", lambda text, encoding_name="cl100k_base": len(text))
+
+    with (
+        patch(
+            "deerflow.agents.memory.updater.get_memory_config",
+            return_value=_memory_config(enabled=True, provider="mem0", mem0_write_token_budget=60),
+        ),
+        patch("deerflow.agents.memory.updater.get_mem0_service", return_value=service),
+    ):
+        result = updater.update_memory(
+            messages=[older_user, recent_user, recent_ai],
+            thread_id="thread-1",
+            user_id="user-123",
+        )
+
+    assert result is True
+    payload = service.add_conversation.call_args.kwargs["messages"]
+    assert payload[-1] == {"role": "assistant", "content": "A" * 40, "type": "ai"}
+    assert payload[0]["role"] == "user"
+    assert payload[0]["type"] == "human"
+    assert payload[0]["content"].startswith("U")
+    assert len(payload[0]["content"]) < 40
+    assert all(item["content"] != "old context that should be dropped" for item in payload)
+    assert sum(len(f"{item['role']}: {item['content']}") for item in payload) <= 60
+
+
+def test_memory_updater_sends_only_latest_increment_for_mem0() -> None:
+    updater = MemoryUpdater()
+    service = MagicMock()
+
+    first_user = MagicMock()
+    first_user.type = "human"
+    first_user.content = "first question"
+
+    first_ai = MagicMock()
+    first_ai.type = "ai"
+    first_ai.content = "first answer"
+    first_ai.tool_calls = []
+
+    second_user = MagicMock()
+    second_user.type = "human"
+    second_user.content = "second question"
+
+    second_ai = MagicMock()
+    second_ai.type = "ai"
+    second_ai.content = "second answer"
+    second_ai.tool_calls = []
+
+    with (
+        patch("deerflow.agents.memory.updater.get_memory_config", return_value=_memory_config(enabled=True, provider="mem0")),
+        patch("deerflow.agents.memory.updater.get_mem0_service", return_value=service),
+    ):
+        result = updater.update_memory(
+            messages=[first_user, first_ai, second_user, second_ai],
+            thread_id="thread-1",
+            user_id="user-123",
+        )
+
+    assert result is True
+    assert service.add_conversation.call_args.kwargs["messages"] == [
+        {"role": "user", "content": "second question", "type": "human"},
+        {"role": "assistant", "content": "second answer", "type": "ai"},
+    ]
 
 
 def test_memory_updater_traces_mem0_write(monkeypatch) -> None:
@@ -174,6 +256,7 @@ def test_memory_updater_traces_mem0_write(monkeypatch) -> None:
     service = MagicMock()
     traced = []
     outputs = []
+    trace_calls = []
 
     class _Span:
         def __enter__(self):
@@ -188,16 +271,72 @@ def test_memory_updater_traces_mem0_write(monkeypatch) -> None:
 
     outputs_list = outputs
 
-    monkeypatch.setattr("deerflow.agents.memory.updater.memory_trace", lambda *args, **kwargs: _Span())
+    def _memory_trace(*args, **kwargs):
+        trace_calls.append(kwargs)
+        return _Span()
+
+    monkeypatch.setattr("deerflow.agents.memory.updater.memory_trace", _memory_trace)
     monkeypatch.setattr("deerflow.agents.memory.updater.get_memory_config", lambda: _memory_config(enabled=True, provider="mem0"))
     monkeypatch.setattr("deerflow.agents.memory.updater.get_mem0_service", lambda: service)
 
     updater.update_memory(messages=["conversation"], thread_id="thread-1", user_id="user-123")
 
     assert traced == [True]
+    assert trace_calls[0]["inputs"]["messages"] == [{"type": "user", "content": "conversation"}]
+    assert trace_calls[0]["inputs"]["raw_messages"] == [{"type": "text", "content": "conversation"}]
+    assert trace_calls[0]["inputs"]["thread_data"]["input_message_count"] == 1
+    assert trace_calls[0]["inputs"]["thread_data"]["prepared_message_count"] == 1
     assert outputs[0]["thread_data"]["accepted"] is True
-    assert outputs[0]["thread_data"]["message_count"] == 1
-    assert outputs[0]["messages"] == [{"type": "text", "content": "conversation"}]
+    assert outputs[0]["thread_data"]["input_message_count"] == 1
+    assert outputs[0]["thread_data"]["prepared_message_count"] == 1
+    assert outputs[0]["messages"] == [{"type": "user", "content": "conversation"}]
+
+
+def test_memory_updater_trace_preserves_original_message_types(monkeypatch) -> None:
+    updater = MemoryUpdater()
+    service = MagicMock()
+    trace_calls = []
+    outputs = []
+
+    class _Span:
+        def __enter__(self):
+            return self
+
+        def end(self, *, outputs=None):
+            outputs_list.append(outputs)
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    outputs_list = outputs
+
+    def _memory_trace(*args, **kwargs):
+        trace_calls.append(kwargs)
+        return _Span()
+
+    human = MagicMock()
+    human.type = "human"
+    human.content = "hello"
+
+    ai = MagicMock()
+    ai.type = "ai"
+    ai.content = "hi"
+    ai.tool_calls = []
+
+    monkeypatch.setattr("deerflow.agents.memory.updater.memory_trace", _memory_trace)
+    monkeypatch.setattr("deerflow.agents.memory.updater.get_memory_config", lambda: _memory_config(enabled=True, provider="mem0"))
+    monkeypatch.setattr("deerflow.agents.memory.updater.get_mem0_service", lambda: service)
+
+    updater.update_memory(messages=[human, ai], thread_id="thread-1", user_id="user-123")
+
+    assert trace_calls[0]["inputs"]["messages"] == [
+        {"type": "human", "content": "hello"},
+        {"type": "ai", "content": "hi"},
+    ]
+    assert outputs[0]["messages"] == [
+        {"type": "human", "content": "hello"},
+        {"type": "ai", "content": "hi"},
+    ]
 
 
 def test_apply_updates_skips_same_batch_duplicates_and_keeps_source_metadata() -> None:

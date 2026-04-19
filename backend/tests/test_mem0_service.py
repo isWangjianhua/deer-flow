@@ -71,16 +71,80 @@ def test_add_conversation_sends_user_id_and_run_id():
     assert fake.add_calls[0]["messages"] == [{"role": "user", "content": "remember this"}]
 
 
+def test_add_conversation_accepts_prepared_dict_messages():
+    service = Mem0Service()
+    fake = _FakeMem0Client()
+    service._client = fake
+
+    service.add_conversation(
+        messages=[{"role": "user", "content": "remember this"}],
+        user_id="user_a",
+        run_id="thread_a",
+        metadata={"source": "thread_a"},
+    )
+
+    assert fake.add_calls[0]["messages"] == [{"role": "user", "content": "remember this"}]
+
+
 def test_add_conversation_traces_mem0_sdk_boundary(monkeypatch):
     service = Mem0Service()
     fake = _FakeMem0Client()
     service._client = fake
     traced = []
     outputs = []
+    trace_calls = []
 
     class _Span:
         def __enter__(self):
             traced.append(True)
+            return self
+
+        def end(self, *, outputs=None):
+            outputs_list.append(outputs)
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    outputs_list = outputs
+
+    def _memory_trace(*args, **kwargs):
+        trace_calls.append(kwargs)
+        return _Span()
+
+    monkeypatch.setattr("deerflow.agents.memory.mem0_service.memory_trace", _memory_trace)
+
+    class _Message:
+        type = "human"
+        content = "remember this"
+
+    service.add_conversation(messages=[_Message()], user_id="user_a", run_id="thread_a", metadata={"source": "thread_a"})
+
+    assert traced == [True]
+    assert trace_calls[0]["inputs"]["messages"] == [{"type": "human", "content": "remember this"}]
+    assert outputs[0]["thread_data"]["accepted"] is True
+    assert outputs[0]["thread_data"]["payload_count"] == 1
+    assert outputs[0]["thread_data"]["persisted_count"] == 0
+    assert outputs[0]["thread_data"]["result_source"] == "provider_ack_only"
+    assert outputs[0]["messages"][0]["content"] == "Mem0 accepted the conversation write, but did not return extracted memory items."
+
+
+def test_add_conversation_traces_mem0_results_as_memory_messages(monkeypatch):
+    service = Mem0Service()
+    fake = _FakeMem0Client()
+    fake.add = lambda **kwargs: {
+        "results": [
+            {
+                "id": "mem-1",
+                "memory": "User likes Python",
+                "score": 0.9,
+            }
+        ]
+    }
+    service._client = fake
+    outputs = []
+
+    class _Span:
+        def __enter__(self):
             return self
 
         def end(self, *, outputs=None):
@@ -96,14 +160,9 @@ def test_add_conversation_traces_mem0_sdk_boundary(monkeypatch):
         type = "human"
         content = "remember this"
 
-    service.add_conversation(messages=[_Message()], user_id="user_a", run_id="thread_a", metadata={"source": "thread_a"})
+    service.add_conversation(messages=[_Message()], user_id="user_a", run_id="thread_a")
 
-    assert traced == [True]
-    assert outputs[0]["thread_data"]["accepted"] is True
-    assert outputs[0]["thread_data"]["payload_count"] == 1
-    assert outputs[0]["thread_data"]["persisted_count"] == 0
-    assert outputs[0]["thread_data"]["result_source"] == "provider_ack_only"
-    assert outputs[0]["messages"][0]["content"] == "Mem0 accepted the conversation write, but did not return extracted memory items."
+    assert outputs[0]["messages"] == [{"type": "memory", "content": "User likes Python"}]
 
 
 def test_search_uses_user_filter_and_top_k():
