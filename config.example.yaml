@@ -685,7 +685,27 @@ memory:
   fact_confidence_threshold: 0.7 # Minimum confidence for storing facts
   injection_enabled: true # Whether to inject retrieved memory at request time
   max_injection_tokens: 2000 # Maximum tokens for memory injection
-  mem0_config: {} # Mem0 OSS Python SDK config passed to Memory.from_config(...)
+  mem0_config: # Mem0 OSS Python SDK config passed to Memory.from_config(...)
+    vector_store:
+      provider: qdrant
+      config:
+        collection_name: deerflow_mem0
+        host: 127.0.0.1
+        port: 6333
+        embedding_model_dims: 1024
+    llm:
+      provider: openai
+      config:
+        model: qwen-plus
+        api_key: $DASHSCOPE_API_KEY
+        openai_base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+    embedder:
+      provider: openai
+      config:
+        model: text-embedding-v4
+        api_key: $DASHSCOPE_API_KEY
+        openai_base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+        embedding_dims: 1024
 
 # ============================================================================
 # Skill Self-Evolution Configuration
