@@ -33,6 +33,12 @@ logger = logging.getLogger(__name__)
 _VALID_LG_MODES = {"values", "updates", "checkpoints", "tasks", "debug", "messages", "custom"}
 
 
+def _build_langgraph_runtime(*, thread_id: str, store: Any | None) -> "Runtime[dict[str, Any]]":
+    from langgraph.runtime import Runtime
+
+    return Runtime[dict[str, Any]](context={"thread_id": thread_id}, store=store)
+
+
 async def run_agent(
     bridge: StreamBridge,
     run_manager: RunManager,
@@ -98,11 +104,11 @@ async def run_agent(
 
         # 3. Build the agent
         from langchain_core.runnables import RunnableConfig
-        from langgraph.runtime import Runtime
 
-        # Inject runtime context so middlewares can access thread_id
-        # (langgraph-cli does this automatically; we must do it manually)
-        runtime = Runtime(context={"thread_id": thread_id}, store=store)
+        # Inject runtime context so middlewares can access thread_id.
+        # Keep the context schema concrete to avoid downstream serializer
+        # warnings when LangGraph or Pydantic touches the runtime object.
+        runtime = _build_langgraph_runtime(thread_id=thread_id, store=store)
         # If the caller already set a ``context`` key (LangGraph >= 0.6.0
         # prefers it over ``configurable`` for thread-level data), make
         # sure ``thread_id`` is available there too.
