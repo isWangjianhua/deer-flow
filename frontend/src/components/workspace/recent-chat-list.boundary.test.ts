@@ -20,4 +20,20 @@ void test("agent workspace routes do not render the legacy raw thread recent lis
     source.includes('pathname === "/workspace/account"'),
     "expected the account page to opt into the BFF recent chat list so the sidebar stays populated",
   );
+  assert.ok(
+    source.includes("renameConversation(") || source.includes("renameConversationMutation"),
+    "expected the BFF recent chat list to wire a rename conversation action",
+  );
+  assert.ok(
+    source.includes("deleteConversation(") || source.includes("deleteConversationMutation"),
+    "expected the BFF recent chat list to wire a delete conversation action",
+  );
+  assert.ok(
+    source.includes("handleDeleteConfirm") && source.includes("deleteDialogOpen"),
+    "expected the BFF recent chat list to require confirmation before deleting a conversation",
+  );
+  assert.ok(
+    source.includes('variant="destructive"') && source.includes("handleDeleteConfirm"),
+    "expected the delete confirmation dialog to render the delete action as a destructive button",
+  );
 });

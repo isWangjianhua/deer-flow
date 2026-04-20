@@ -1,5 +1,3 @@
-import { APP_BRAND_NAME } from "@/core/brand";
-
 import {
   CompassIcon,
   GraduationCapIcon,
@@ -10,6 +8,8 @@ import {
   SparklesIcon,
   VideoIcon,
 } from "lucide-react";
+
+import { APP_BRAND_NAME } from "@/core/brand";
 
 import type { Translations } from "./types";
 
@@ -245,6 +245,8 @@ export const enUS: Translations = {
   conversation: {
     noMessages: "No messages yet",
     startConversation: "Start a conversation to see messages here",
+    deleteConfirm:
+      "Are you sure you want to delete this conversation? This action cannot be undone.",
   },
 
   // Chats

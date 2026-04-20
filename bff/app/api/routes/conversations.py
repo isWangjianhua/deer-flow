@@ -8,8 +8,10 @@ from app.api.deps import get_current_user_id, get_db_session
 from app.clients.deerflow import DeerFlowClient
 from app.schemas.conversation import (
     ConversationCreateResponse,
+    ConversationDeleteResponse,
     ConversationDetailResponse,
     ConversationListItem,
+    ConversationRenameRequest,
     StreamMessageRequest,
 )
 from app.services.conversation_service import (
@@ -52,6 +54,31 @@ async def get_conversation(
         user_id,
         conversation_id,
     )
+
+
+@router.patch("/{conversation_id}", response_model=ConversationListItem)
+async def rename_conversation(
+    conversation_id: str,
+    payload: ConversationRenameRequest,
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db_session),
+) -> ConversationListItem:
+    conversation = ConversationService(db).rename_conversation(
+        user_id,
+        conversation_id,
+        payload.title,
+    )
+    return ConversationListItem.model_validate(conversation)
+
+
+@router.delete("/{conversation_id}", response_model=ConversationDeleteResponse)
+async def delete_conversation(
+    conversation_id: str,
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db_session),
+) -> ConversationDeleteResponse:
+    result = await ConversationService(db).delete_conversation(user_id, conversation_id)
+    return ConversationDeleteResponse.model_validate(result)
 
 
 @router.post("/{conversation_id}/messages/stream")

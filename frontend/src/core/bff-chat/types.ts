@@ -11,6 +11,11 @@ export type BffConversation = {
 
 export type BffConversationList = BffConversation[];
 
+export type DeleteConversationResult = {
+  success: boolean;
+  id: string;
+};
+
 export type CreateConversationResult = BffConversation;
 
 export type BffConversationDetail = BffConversation & {

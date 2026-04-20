@@ -40,6 +40,23 @@ class ConversationService:
         items = self.repo.list_by_user_id(user_id)
         return [ConversationListItem.model_validate(item) for item in items]
 
+    def rename_conversation(self, user_id: str, conversation_id: str, title: str) -> Conversation:
+        conversation = self.require_owned_conversation(user_id, conversation_id)
+        normalized_title = title.strip()
+        if not normalized_title:
+            raise error_response(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                "invalid_title",
+                "Conversation title is required",
+            )
+
+        if normalized_title == conversation.title:
+            return conversation
+
+        conversation.title = normalized_title
+        conversation.updated_at = datetime.now(UTC)
+        return self.repo.save(conversation)
+
     def _sync_conversation_snapshot(
         self,
         conversation: Conversation,
@@ -71,6 +88,12 @@ class ConversationService:
         if conversation.user_id != user_id:
             raise error_response(status.HTTP_403_FORBIDDEN, "forbidden", "Forbidden")
         return conversation
+
+    async def delete_conversation(self, user_id: str, conversation_id: str) -> dict[str, str | bool]:
+        conversation = self.require_owned_conversation(user_id, conversation_id)
+        await DeerFlowClient().delete_thread(conversation.deerflow_thread_id)
+        self.repo.delete(conversation)
+        return {"success": True, "id": conversation_id}
 
     async def get_conversation_detail(
         self,

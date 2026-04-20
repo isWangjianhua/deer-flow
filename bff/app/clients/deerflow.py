@@ -76,6 +76,12 @@ class DeerFlowClient:
             response.raise_for_status()
             return response.json()
 
+    async def delete_thread(self, thread_id: str) -> dict:
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.delete(f"{self.base_url}/api/threads/{thread_id}")
+            response.raise_for_status()
+            return response.json()
+
     async def stream_message(
         self,
         thread_id: str,

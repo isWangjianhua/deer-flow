@@ -41,6 +41,15 @@ class ConversationDetailResponse(BaseModel):
     values: ConversationStateValues
 
 
+class ConversationRenameRequest(BaseModel):
+    title: str
+
+
+class ConversationDeleteResponse(BaseModel):
+    success: bool
+    id: str
+
+
 class StreamMessageRequest(BaseModel):
     message: str
     model_name: str | None = None

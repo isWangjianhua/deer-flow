@@ -1,6 +1,10 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import {
   Download,
   FileJson,
@@ -44,7 +48,11 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { getAPIClient } from "@/core/api";
-import { listConversations } from "@/core/bff-chat";
+import {
+  deleteConversation,
+  listConversations,
+  renameConversation,
+} from "@/core/bff-chat";
 import { isBffChatRoute } from "@/core/bff-chat/ui";
 import { useI18n } from "@/core/i18n/hooks";
 import {
@@ -77,45 +85,298 @@ export function RecentChatList() {
 
 function BffRecentChatList({ pathname }: { pathname: string }) {
   const { t } = useI18n();
+  const router = useRouter();
+  const queryClient = useQueryClient();
   const { data: conversations = [] } = useQuery({
     queryKey: ["bff", "conversations"],
     queryFn: () => listConversations(),
     refetchOnWindowFocus: false,
   });
+  const [renameDialogOpen, setRenameDialogOpen] = useState(false);
+  const [renameConversationId, setRenameConversationId] = useState<string | null>(
+    null,
+  );
+  const [renameValue, setRenameValue] = useState("");
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteConversationId, setDeleteConversationId] = useState<string | null>(
+    null,
+  );
+
+  const closeRenameDialog = useCallback(() => {
+    setRenameDialogOpen(false);
+    setRenameConversationId(null);
+    setRenameValue("");
+  }, []);
+
+  const closeDeleteDialog = useCallback(() => {
+    setDeleteDialogOpen(false);
+    setDeleteConversationId(null);
+  }, []);
+
+  const { mutate: renameConversationMutation } = useMutation({
+    mutationFn: async ({
+      conversationId,
+      title,
+    }: {
+      conversationId: string;
+      title: string;
+    }) => renameConversation(conversationId, title),
+    onSuccess(updatedConversation) {
+      queryClient.setQueryData(
+        ["bff", "conversations"],
+        (oldData:
+          | Array<{
+              id: string;
+              title: string | null;
+              created_at: string;
+              updated_at: string;
+            }>
+          | undefined) => {
+          return oldData?.map((conversation) => {
+            if (conversation.id === updatedConversation.id) {
+              return {
+                ...conversation,
+                ...updatedConversation,
+              };
+            }
+            return conversation;
+          });
+        },
+      );
+      closeRenameDialog();
+    },
+    onError() {
+      toast.error("Failed to rename conversation");
+    },
+    onSettled() {
+      void queryClient.invalidateQueries({ queryKey: ["bff", "conversations"] });
+    },
+  });
+
+  const { mutate: deleteConversationMutation } = useMutation({
+    mutationFn: async ({ conversationId }: { conversationId: string }) =>
+      deleteConversation(conversationId),
+    onSuccess(_, { conversationId }) {
+      queryClient.setQueryData(
+        ["bff", "conversations"],
+        (oldData:
+          | Array<{
+              id: string;
+              title: string | null;
+              created_at: string;
+              updated_at: string;
+            }>
+          | undefined) => {
+          return oldData?.filter(
+            (conversation) => conversation.id !== conversationId,
+          );
+        },
+      );
+
+      if (pathname === `/workspace/chats/${conversationId}`) {
+        const conversationIndex = conversations.findIndex(
+          (conversation) => conversation.id === conversationId,
+        );
+        const nextConversation =
+          conversationIndex > -1
+            ? (conversations[conversationIndex + 1] ??
+                conversations[conversationIndex - 1])
+            : null;
+        const nextHref = nextConversation
+          ? `/workspace/chats/${nextConversation.id}`
+          : "/workspace/chats/new";
+        void router.push(nextHref);
+      }
+    },
+    onError() {
+      toast.error("Failed to delete conversation");
+    },
+    onSettled() {
+      void queryClient.invalidateQueries({ queryKey: ["bff", "conversations"] });
+    },
+  });
+
+  const handleRenameClick = useCallback(
+    (conversationId: string, currentTitle: string) => {
+      setRenameConversationId(conversationId);
+      setRenameValue(currentTitle);
+      setRenameDialogOpen(true);
+    },
+    [],
+  );
+
+  const handleRenameSubmit = useCallback(() => {
+    const title = renameValue.trim();
+    if (renameConversationId && title) {
+      renameConversationMutation({
+        conversationId: renameConversationId,
+        title,
+      });
+    }
+  }, [renameConversationId, renameConversationMutation, renameValue]);
+
+  const handleDelete = useCallback(
+    (conversationId: string) => {
+      setDeleteConversationId(conversationId);
+      setDeleteDialogOpen(true);
+    },
+    [],
+  );
+
+  const handleDeleteConfirm = useCallback(() => {
+    if (!deleteConversationId) {
+      return;
+    }
+
+    deleteConversationMutation({ conversationId: deleteConversationId });
+    closeDeleteDialog();
+  }, [closeDeleteDialog, deleteConversationId, deleteConversationMutation]);
+
+  const deleteConversationTitle =
+    conversations.find((conversation) => conversation.id === deleteConversationId)
+      ?.title?.trim() ?? t.pages.untitled;
+
+  const deleteConfirmMessage = `${t.conversation.deleteConfirm}\n\n${deleteConversationTitle}`;
+
+  const handleDeleteDialogChange = useCallback(
+    (open: boolean) => {
+      if (open) {
+        setDeleteDialogOpen(true);
+        return;
+      }
+      closeDeleteDialog();
+    },
+    [closeDeleteDialog],
+  );
 
   if (conversations.length === 0) {
     return null;
   }
 
   return (
-    <SidebarGroup>
-      <SidebarGroupLabel>{t.sidebar.recentChats}</SidebarGroupLabel>
-      <SidebarGroupContent className="group-data-[collapsible=icon]:pointer-events-none group-data-[collapsible=icon]:-mt-8 group-data-[collapsible=icon]:opacity-0">
-        <SidebarMenu>
-          <div className="flex w-full flex-col gap-1">
-            {conversations.map((conversation) => {
-              const href = `/workspace/chats/${conversation.id}`;
-              const isActive = href === pathname;
-              return (
-                <SidebarMenuItem
-                  key={conversation.id}
-                  className="group/side-menu-item"
-                >
-                  <SidebarMenuButton isActive={isActive} asChild>
-                    <Link
-                      className="text-muted-foreground block w-full whitespace-nowrap group-hover/side-menu-item:overflow-hidden"
-                      href={href}
-                    >
-                      {conversation.title?.trim() ?? "New chat"}
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              );
-            })}
+    <>
+      <SidebarGroup>
+        <SidebarGroupLabel>{t.sidebar.recentChats}</SidebarGroupLabel>
+        <SidebarGroupContent className="group-data-[collapsible=icon]:pointer-events-none group-data-[collapsible=icon]:-mt-8 group-data-[collapsible=icon]:opacity-0">
+          <SidebarMenu>
+            <div className="flex w-full flex-col gap-1">
+              {conversations.map((conversation) => {
+                const href = `/workspace/chats/${conversation.id}`;
+                const isActive = href === pathname;
+                const displayTitle =
+                  conversation.title?.trim() ?? t.pages.untitled;
+                const editableTitle = conversation.title?.trim() ?? "";
+
+                return (
+                  <SidebarMenuItem
+                    key={conversation.id}
+                    className="group/side-menu-item"
+                  >
+                    <SidebarMenuButton isActive={isActive} asChild>
+                      <div>
+                        <Link
+                          className="text-muted-foreground block w-full whitespace-nowrap group-hover/side-menu-item:overflow-hidden"
+                          href={href}
+                        >
+                          {displayTitle}
+                        </Link>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <SidebarMenuAction
+                              showOnHover
+                              className="bg-background/50 hover:bg-background"
+                            >
+                              <MoreHorizontal />
+                              <span className="sr-only">{t.common.more}</span>
+                            </SidebarMenuAction>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent
+                            className="w-48 rounded-lg"
+                            side={"right"}
+                            align={"start"}
+                          >
+                            <DropdownMenuItem
+                              onSelect={() =>
+                                handleRenameClick(conversation.id, editableTitle)
+                              }
+                            >
+                              <Pencil className="text-muted-foreground" />
+                              <span>{t.common.rename}</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onSelect={() => handleDelete(conversation.id)}
+                            >
+                              <Trash2 className="text-muted-foreground" />
+                              <span>{t.common.delete}</span>
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </div>
+          </SidebarMenu>
+        </SidebarGroupContent>
+      </SidebarGroup>
+
+      <Dialog
+        open={renameDialogOpen}
+        onOpenChange={(open) => {
+          if (open) {
+            setRenameDialogOpen(true);
+            return;
+          }
+          closeRenameDialog();
+        }}
+      >
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>{t.common.rename}</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <Input
+              value={renameValue}
+              onChange={(e) => setRenameValue(e.target.value)}
+              placeholder={t.common.rename}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !isIMEComposing(e)) {
+                  e.preventDefault();
+                  handleRenameSubmit();
+                }
+              }}
+            />
           </div>
-        </SidebarMenu>
-      </SidebarGroupContent>
-    </SidebarGroup>
+          <DialogFooter>
+            <Button variant="outline" onClick={closeRenameDialog}>
+              {t.common.cancel}
+            </Button>
+            <Button onClick={handleRenameSubmit}>{t.common.save}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={deleteDialogOpen} onOpenChange={handleDeleteDialogChange}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>{t.common.delete}</DialogTitle>
+          </DialogHeader>
+          <div className="py-4 text-sm whitespace-pre-line">
+            {deleteConfirmMessage}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={closeDeleteDialog}>
+              {t.common.cancel}
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteConfirm}>
+              {t.common.delete}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 

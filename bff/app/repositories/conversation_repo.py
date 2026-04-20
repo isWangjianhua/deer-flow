@@ -30,3 +30,7 @@ class ConversationRepository:
         self.db.commit()
         self.db.refresh(conversation)
         return conversation
+
+    def delete(self, conversation: Conversation) -> None:
+        self.db.delete(conversation)
+        self.db.commit()

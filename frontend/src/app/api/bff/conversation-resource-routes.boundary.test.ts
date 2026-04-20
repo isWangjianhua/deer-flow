@@ -18,6 +18,26 @@ void test("conversation suggestions route proxies to the internal BFF", async ()
   );
 });
 
+void test("conversation detail route exposes rename and delete through the internal BFF", async () => {
+  const source = await readFile(
+    new URL("./conversations/[conversation_id]/route.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.ok(
+    source.includes("export async function PATCH"),
+    "expected conversation detail route to expose a PATCH handler for rename",
+  );
+  assert.ok(
+    source.includes("export async function DELETE"),
+    "expected conversation detail route to expose a DELETE handler for hard delete",
+  );
+  assert.ok(
+    source.includes("/conversations/${conversationId}"),
+    "expected conversation detail route to proxy rename/delete through the internal BFF conversation route",
+  );
+});
+
 void test("conversation uploads route proxies to the internal BFF", async () => {
   const source = await readFile(
     new URL("./conversations/[conversation_id]/uploads/route.ts", import.meta.url),

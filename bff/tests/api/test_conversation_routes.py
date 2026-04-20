@@ -79,3 +79,68 @@ def test_get_conversation_detail(client, monkeypatch) -> None:
     assert payload["title"] == "Loaded conversation"
     assert payload["values"]["title"] == "Loaded conversation"
     assert payload["values"]["messages"][0]["id"] == "human-1"
+
+
+def test_rename_conversation_updates_owned_title(client, db_session, monkeypatch) -> None:
+    async def mock_create_thread(self) -> str:
+        return "thread-123"
+
+    async def mock_get_thread_history(self, thread_id: str, limit: int = 1) -> list[dict]:
+        assert thread_id == "thread-123"
+        assert limit == 1
+        return []
+
+    monkeypatch.setattr(DeerFlowClient, "create_thread", mock_create_thread)
+    monkeypatch.setattr(DeerFlowClient, "get_thread_history", mock_get_thread_history)
+
+    login = client.post("/auth/login", json={"username": "demo", "password": "demo1234"})
+    token = login.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    created = client.post("/conversations", headers=headers)
+    renamed = client.request(
+        "PATCH",
+        f"/conversations/{created.json()['id']}",
+        headers=headers,
+        json={"title": "Renamed from API"},
+    )
+    detail = client.get(f"/conversations/{created.json()['id']}", headers=headers)
+
+    assert renamed.status_code == 200
+    assert renamed.json()["title"] == "Renamed from API"
+    assert detail.status_code == 200
+    assert detail.json()["title"] == "Renamed from API"
+
+
+def test_delete_conversation_removes_owned_mapping(client, monkeypatch) -> None:
+    async def mock_create_thread(self) -> str:
+        return "thread-123"
+
+    deleted_threads: list[str] = []
+
+    async def mock_delete_thread(self, thread_id: str) -> dict:
+        deleted_threads.append(thread_id)
+        return {"success": True}
+
+    monkeypatch.setattr(DeerFlowClient, "create_thread", mock_create_thread)
+    monkeypatch.setattr(DeerFlowClient, "delete_thread", mock_delete_thread)
+
+    login = client.post("/auth/login", json={"username": "demo", "password": "demo1234"})
+    token = login.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    created = client.post("/conversations", headers=headers)
+    deleted = client.request(
+        "DELETE",
+        f"/conversations/{created.json()['id']}",
+        headers=headers,
+    )
+    listed = client.get("/conversations", headers=headers)
+    detail = client.get(f"/conversations/{created.json()['id']}", headers=headers)
+
+    assert deleted.status_code == 200
+    assert deleted.json() == {"success": True, "id": created.json()["id"]}
+    assert deleted_threads == ["thread-123"]
+    assert listed.status_code == 200
+    assert listed.json() == []
+    assert detail.status_code == 404

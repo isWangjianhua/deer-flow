@@ -35,6 +35,8 @@ gateway route structure.
 | `POST /conversations` | create a conversation |
 | `GET /conversations` | list conversations |
 | `GET /conversations/{conversation_id}` | conversation detail |
+| `PATCH /conversations/{conversation_id}` | rename a conversation |
+| `DELETE /conversations/{conversation_id}` | delete a conversation and mapped DeerFlow thread |
 | `POST /conversations/{conversation_id}/messages/stream` | SSE chat stream |
 | `POST /conversations/{conversation_id}/suggestions` | follow-up suggestions |
 | `GET /conversations/{conversation_id}/artifacts/{path}` | artifact access |

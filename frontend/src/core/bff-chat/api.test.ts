@@ -1,7 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-const { createConversation, generateSuggestions, getConversation, listConversations } = await import(
+const {
+  createConversation,
+  deleteConversation,
+  generateSuggestions,
+  getConversation,
+  listConversations,
+  renameConversation,
+} = await import(
   new URL("./api.ts", import.meta.url).href,
 );
 
@@ -69,6 +76,48 @@ void test("loads a conversation detail through the BFF", async () => {
 
   assert.equal(result.id, "conversation-1");
   assert.equal(result.values.title, "Existing chat");
+});
+
+void test("renames a conversation through the BFF", async () => {
+  const result = await renameConversation(
+    "conversation-1",
+    "Renamed chat",
+    async (input, init) => {
+      assert.equal(input, "/api/bff/conversations/conversation-1");
+      assert.equal(init?.method, "PATCH");
+      assert.equal(String(init?.body), JSON.stringify({ title: "Renamed chat" }));
+
+      return new Response(
+        JSON.stringify({
+          id: "conversation-1",
+          title: "Renamed chat",
+          created_at: "2026-04-10T00:00:00Z",
+          updated_at: "2026-04-11T00:00:00Z",
+          status: "active",
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    },
+  );
+
+  assert.equal(result.title, "Renamed chat");
+});
+
+void test("deletes a conversation through the BFF", async () => {
+  const result = await deleteConversation(
+    "conversation-1",
+    async (input, init) => {
+      assert.equal(input, "/api/bff/conversations/conversation-1");
+      assert.equal(init?.method, "DELETE");
+
+      return new Response(
+        JSON.stringify({ success: true, id: "conversation-1" }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    },
+  );
+
+  assert.deepEqual(result, { success: true, id: "conversation-1" });
 });
 
 void test("posts a user message to the BFF stream endpoint", async () => {

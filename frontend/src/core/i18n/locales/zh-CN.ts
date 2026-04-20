@@ -1,6 +1,4 @@
-import { APP_BRAND_NAME } from "@/core/brand";
-
-﻿import {
+import {
   CompassIcon,
   GraduationCapIcon,
   ImageIcon,
@@ -10,6 +8,8 @@ import { APP_BRAND_NAME } from "@/core/brand";
   SparklesIcon,
   VideoIcon,
 } from "lucide-react";
+
+import { APP_BRAND_NAME } from "@/core/brand";
 
 import type { Translations } from "./types";
 
@@ -233,6 +233,7 @@ export const zhCN: Translations = {
   conversation: {
     noMessages: "还没有消息",
     startConversation: "开始新的对话以查看消息",
+    deleteConfirm: "确定要删除该对话吗？此操作不可撤销。",
   },
 
   // Chats

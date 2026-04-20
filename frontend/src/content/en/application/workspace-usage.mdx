@@ -31,8 +31,15 @@ When the app runs in local auth mode:
 
 ## Current Limitations
 
-- conversation rename and delete are not yet exposed as first-class product
-  actions
 - the agents page is currently a disabled placeholder in the UI
 - some settings/resource APIs still remain gateway-backed server bridges rather
   than BFF-owned APIs
+
+## Sidebar Conversation Actions
+
+- recent conversations now expose a `...` menu in the sidebar
+- `Rename` updates the BFF conversation title without exposing DeerFlow thread
+  identifiers to the browser
+- `Delete` first asks for confirmation, then hard-deletes the mapped
+  conversation and DeerFlow thread data,
+  including runtime message history and thread-scoped uploads/artifacts

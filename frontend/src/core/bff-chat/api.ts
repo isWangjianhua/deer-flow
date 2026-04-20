@@ -9,6 +9,7 @@ import type {
   BffConversationDetail,
   BffConversationList,
   CreateConversationResult,
+  DeleteConversationResult,
 } from "./types";
 
 type FetchLike = typeof fetch;
@@ -90,6 +91,40 @@ export async function getConversation(
   }
 
   return (await response.json()) as BffConversationDetail;
+}
+
+export async function renameConversation(
+  conversationId: string,
+  title: string,
+  fetchImpl: FetchLike = fetch,
+) {
+  const response = await fetchImpl(`/api/bff/conversations/${conversationId}`, {
+    method: "PATCH",
+    headers: buildRequestHeaders("application/json"),
+    body: JSON.stringify({ title }),
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to rename conversation");
+  }
+
+  return (await response.json()) as CreateConversationResult;
+}
+
+export async function deleteConversation(
+  conversationId: string,
+  fetchImpl: FetchLike = fetch,
+) {
+  const response = await fetchImpl(`/api/bff/conversations/${conversationId}`, {
+    method: "DELETE",
+    headers: buildRequestHeaders(),
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to delete conversation");
+  }
+
+  return (await response.json()) as DeleteConversationResult;
 }
 
 export async function streamMessage(
