@@ -1,3 +1,26 @@
 # Work with Memory
 
-TBD
+## File memory
+
+Start with the default file-backed mode if you only need basic continuity.
+
+## Mem0 mode
+
+Switch to Mem0 when you want:
+
+- user-scoped runtime memory
+- retrieval based on recent query context
+- semantic storage backed by a vector store such as Qdrant
+
+## Practical checklist
+
+1. set `memory.provider=mem0`
+2. configure `mem0_config`
+3. make sure the vector store is reachable
+4. start the app through the root launcher so Qdrant preflight can happen when
+   needed
+
+## Product-path note
+
+The main BFF-backed chat flow forwards `user_id` to the runtime so memory can
+stay runtime-owned while still being user-specific.

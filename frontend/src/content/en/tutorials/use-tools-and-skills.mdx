@@ -1,3 +1,18 @@
 # Use Tools and Skills
 
-TBD
+## Goal
+
+Make the runtime aware of the tool and skill surfaces you want it to use.
+
+## Steps
+
+1. Configure tools in `config.yaml`.
+2. Enable the skills you want in `extensions_config.json`.
+3. If you are using MCP, configure your MCP servers in
+   `extensions_config.json`.
+4. Restart or reload the affected services if needed.
+
+## Practical tip
+
+If your MCP tool catalog is large, enable `tool_search` so the runtime can
+discover tools on demand instead of dumping every tool schema into the prompt.

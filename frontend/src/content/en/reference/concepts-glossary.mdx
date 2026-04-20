@@ -1,3 +1,46 @@
 # Concepts Glossary
 
-TBD
+## Harness
+
+The reusable DeerFlow runtime package that provides agents, tools, skills,
+sandboxing, memory, and subagent orchestration.
+
+## App
+
+The full product built on top of the harness: frontend, BFF, gateway, launch
+scripts, nginx routing, and deployment story.
+
+## Lead agent
+
+The single default runtime graph used by DeerFlow. Custom assistants still
+route through this graph with an injected `agent_name`.
+
+## BFF
+
+The product-facing FastAPI service that owns auth, `conversation_id`, and the
+main frontend chat boundary.
+
+## Thread
+
+The runtime conversation container identified by `thread_id`. It stores agent
+state, checkpoints, and thread-local filesystem data.
+
+## Conversation
+
+The product-facing chat resource identified by `conversation_id`. The BFF maps
+it to a runtime thread.
+
+## Skill
+
+A task-focused instruction package discovered from `SKILL.md` files under
+`skills/public` and `skills/custom`.
+
+## Sandbox
+
+The execution environment where the agent reads files, writes outputs, and
+runs commands.
+
+## Artifact
+
+A concrete output file produced during agent work and exposed through the
+artifact routes.

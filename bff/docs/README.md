@@ -1,21 +1,10 @@
-# BFF Docs
+# BFF Documentation
 
-This directory contains service-specific documentation for the FastAPI BFF.
+The BFF is the public backend boundary for the main frontend auth and chat
+flows. It is intentionally narrower than the DeerFlow gateway and exists to
+keep product-facing contracts stable while the runtime continues to evolve.
 
-## Documents
-
-- `ARCHITECTURE.md`
-  - service boundary, trust model, request flow, and deployment shape
-- `API.md`
-  - public API surface, identifier rules, and downstream DeerFlow mapping
-- `DEVELOPMENT.md`
-  - local development workflow, conventions, and next implementation milestones
-- `ROADMAP.md`
-  - recommended next branches, development order, and milestone sequencing
-
-## Reading Order
-
-If you are new to this service, read the docs in this order:
+## Recommended Reading Order
 
 1. `../README.md`
 2. `ARCHITECTURE.md`
@@ -23,10 +12,20 @@ If you are new to this service, read the docs in this order:
 4. `DEVELOPMENT.md`
 5. `ROADMAP.md`
 
-## Key Rules
+## What The BFF Owns
 
-- The main auth/chat browser path should talk to the BFF.
-- Some remaining browser-visible APIs are still same-origin Next.js bridge routes.
-- The BFF owns authentication, ownership checks, and public API stability.
-- DeerFlow Gateway stays internal and is treated as the agent runtime.
-- DeerFlow `thread_id` must never be exposed to frontend callers.
+- authentication and current-user lookup
+- local-user bootstrap and local self-registration
+- OIDC bearer-token validation for protected requests
+- `conversation_id -> deerflow_thread_id` mapping
+- ownership checks for conversation-scoped resources
+- SSE proxying and normalization for the BFF-backed chat path
+- model discovery for the frontend product path
+
+## What It Does Not Own
+
+- DeerFlow runtime internals
+- raw thread lifecycle as a public frontend contract
+- MCP, skills, and agents as first-class BFF APIs
+- browser-side OIDC redirect and callback UX
+  - the frontend owns that experience

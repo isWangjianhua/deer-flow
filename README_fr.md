@@ -554,10 +554,12 @@ Toutes les méthodes retournant des dicts sont validées en CI contre les modèl
 
 ## Documentation
 
+- [Site de documentation](frontend/src/content/en/index.mdx) - Source de la documentation Nextra, accessible localement via `/en/docs`
 - [Guide de contribution](CONTRIBUTING.md) - Mise en place de l'environnement de développement et workflow
-- [Guide de configuration](backend/docs/CONFIGURATION.md) - Instructions d'installation et de configuration
-- [Vue d'ensemble de l'architecture](backend/CLAUDE.md) - Détails de l'architecture technique
-- [Architecture backend](backend/README.md) - Architecture backend et référence API
+- [Architecture backend](backend/docs/ARCHITECTURE.md) - séparation harness/app, topologie runtime et flux du lead agent
+- [API backend](backend/docs/API.md) - routes REST Gateway et interfaces runtime compatibles
+- [Configuration backend](backend/docs/CONFIGURATION.md) - `config.yaml` et `extensions_config.json`
+- [Architecture BFF](bff/docs/ARCHITECTURE.md) - frontière produit pour l'authentification et les conversations
 
 ## ⚠️ Avertissement de sécurité
 

@@ -1,348 +1,211 @@
 # Contributing to DeerFlow
 
-Thank you for your interest in contributing to DeerFlow! This guide will help you set up your development environment and understand our development workflow.
+This repository is a full-stack project with five main moving parts in local
+development:
 
-## Development Environment Setup
+- LangGraph server
+- Gateway
+- BFF
+- Frontend
+- nginx
 
-We offer two development environments. **Docker is recommended** for the most consistent and hassle-free experience.
+Docker is the easiest path for a consistent environment, but local development
+is also supported.
 
-### Option 1: Docker Development (Recommended)
+## Recommended Development Paths
 
-Docker provides a consistent, isolated environment with all dependencies pre-configured. No need to install Node.js, Python, or nginx on your local machine.
+### Docker development
 
-#### Prerequisites
+Prerequisites:
 
 - Docker Desktop or Docker Engine
-- pnpm (for caching optimization)
+- optional: `pnpm` if you want to share the host cache for faster rebuilds
 
-#### Setup Steps
-
-1. **Configure the application**:
-   ```bash
-   # Copy example configuration
-   cp config.example.yaml config.yaml
-
-   # Set your API keys
-   export OPENAI_API_KEY="your-key-here"
-   # or edit config.yaml directly
-   ```
-
-2. **Initialize Docker environment** (first time only):
-   ```bash
-   make docker-init
-   ```
-   This will:
-   - Build Docker images
-   - Install frontend dependencies (pnpm)
-   - Install backend dependencies (uv)
-   - Share pnpm cache with host for faster builds
-
-3. **Start development services**:
-   ```bash
-   make docker-start
-   ```
-   `make docker-start` reads `config.yaml` and starts `provisioner` only for provisioner/Kubernetes sandbox mode.
-
-   All services will start with hot-reload enabled:
-   - Frontend changes are automatically reloaded
-   - Backend changes trigger automatic restart
-   - LangGraph server supports hot-reload
-
-4. **Access the application**:
-   - Web Interface: http://localhost:2026
-   - API Gateway: http://localhost:2026/api/*
-   - LangGraph: http://localhost:2026/api/langgraph/*
-
-#### Docker Commands
+Setup:
 
 ```bash
-# Build the custom k3s image (with pre-cached sandbox image)
+make config
 make docker-init
-# Start Docker services (mode-aware, localhost:2026)
 make docker-start
-# Stop Docker development services
-make docker-stop
-# View Docker development logs
-make docker-logs
-# View Docker frontend logs
-make docker-logs-frontend
-# View Docker gateway logs
-make docker-logs-gateway
 ```
 
-If Docker builds are slow in your network, you can override the default package registries before running `make docker-init` or `make docker-start`:
+Gateway mode:
 
 ```bash
-export UV_INDEX_URL=https://pypi.org/simple
-export NPM_REGISTRY=https://registry.npmjs.org
+make docker-start-pro
 ```
 
-#### Recommended host resources
+Access:
 
-Use these as practical starting points for development and review environments:
+- app: `http://localhost:2026`
 
-| Scenario | Starting point | Recommended | Notes |
-|---------|-----------|------------|-------|
-| `make dev` on one machine | 4 vCPU, 8 GB RAM | 8 vCPU, 16 GB RAM | Best when DeerFlow uses hosted model APIs. |
-| `make docker-start` review environment | 4 vCPU, 8 GB RAM | 8 vCPU, 16 GB RAM | Docker image builds and sandbox containers need extra headroom. |
-| Shared Linux test server | 8 vCPU, 16 GB RAM | 16 vCPU, 32 GB RAM | Prefer this for heavier multi-agent runs or multiple reviewers. |
+Notes:
 
-`2 vCPU / 4 GB` environments often fail to start reliably or become unresponsive under normal DeerFlow workloads.
+- `make docker-start` starts `provisioner` only when the configured sandbox
+  mode requires it
+- if Docker commands fail on Linux with daemon permission errors, add your user
+  to the `docker` group and re-login before retrying
 
-#### Linux: Docker daemon permission denied
+### Local development
 
-If `make docker-init`, `make docker-start`, or `make docker-stop` fails on Linux with an error like below, your current user likely does not have permission to access the Docker daemon socket:
-
-```text
-unable to get image 'deer-flow-dev-langgraph': permission denied while trying to connect to the Docker daemon socket at unix:///var/run/docker.sock
-```
-
-Recommended fix: add your current user to the `docker` group so Docker commands work without `sudo`.
-
-1. Confirm the `docker` group exists:
-   ```bash
-   getent group docker
-   ```
-2. Add your current user to the `docker` group:
-   ```bash
-   sudo usermod -aG docker $USER
-   ```
-3. Apply the new group membership. The most reliable option is to log out completely and then log back in. If you want to refresh the current shell session instead, run:
-   ```bash
-   newgrp docker
-   ```
-4. Verify Docker access:
-   ```bash
-   docker ps
-   ```
-5. Retry the DeerFlow command:
-   ```bash
-   make docker-stop
-   make docker-start
-   ```
-
-If `docker ps` still reports a permission error after `usermod`, fully log out and log back in before retrying.
-
-#### Docker Architecture
-
-```
-Host Machine
-  ↓
-Docker Compose (deer-flow-dev)
-  ├→ nginx (port 2026) ← Reverse proxy
-  ├→ web (port 3000) ← Frontend with hot-reload
-  ├→ api (port 8001) ← Gateway API with hot-reload
-   ├→ langgraph (port 2024) ← LangGraph server with hot-reload
-   └→ provisioner (optional, port 8002) ← Started only in provisioner/K8s sandbox mode
-```
-
-**Benefits of Docker Development**:
-- ✅ Consistent environment across different machines
-- ✅ No need to install Node.js, Python, or nginx locally
-- ✅ Isolated dependencies and services
-- ✅ Easy cleanup and reset
-- ✅ Hot-reload for all services
-- ✅ Production-like environment
-
-### Option 2: Local Development
-
-If you prefer to run services directly on your machine:
-
-#### Prerequisites
-
-Check that you have all required tools installed:
+Prerequisites:
 
 ```bash
 make check
 ```
 
 Required tools:
+
 - Node.js 22+
 - pnpm
-- uv (Python package manager)
+- uv
 - nginx
 
-#### Setup Steps
+Setup:
 
-1. **Configure the application** (same as Docker setup above)
+```bash
+make config
+make install
+make dev
+```
 
-2. **Install dependencies**:
-   ```bash
-   make install
-   ```
+Gateway mode:
 
-3. **Run development server** (starts all services with nginx):
-   ```bash
-   make dev
-   ```
+```bash
+make dev-pro
+```
 
-4. **Access the application**:
-   - Web Interface: http://localhost:2026
-   - All API requests are automatically proxied through nginx
+Access:
 
-#### Manual Service Control
+- app: `http://localhost:2026`
 
-If you need to start services individually:
+## Canonical Local Entry Point
 
-1. **Start backend services**:
-   ```bash
-   # Terminal 1: Start LangGraph Server (port 2024)
-   cd backend
-   make dev
+Prefer validating the full product path through:
 
-   # Terminal 2: Start Gateway API (port 8001)
-   cd backend
-   make gateway
+- `http://localhost:2026`
 
-   # Terminal 3: Start Frontend (port 3000)
-   cd frontend
-   pnpm dev
-   ```
+Why:
 
-2. **Start nginx**:
-   ```bash
-   make nginx
-   # or directly: nginx -c $(pwd)/docker/nginx/nginx.local.conf -g 'daemon off;'
-   ```
+- it includes nginx routing
+- it exercises the frontend same-origin bridge routes
+- it includes the BFF boundary used by the main auth and chat flows
 
-3. **Access the application**:
-   - Web Interface: http://localhost:2026
+`http://localhost:3000` is still useful for focused frontend work, but it is
+not the canonical end-to-end environment.
 
-#### Nginx Configuration
+## Manual Service Control
 
-The nginx configuration provides:
-- Unified entry point on port 2026
-- Routes `/api/langgraph/*` to LangGraph Server (2024)
-- Routes other `/api/*` endpoints to Gateway API (8001)
-- Routes non-API requests to Frontend (3000)
-- Centralized CORS handling
-- SSE/streaming support for real-time agent responses
-- Optimized timeouts for long-running operations
+If you need to run services separately, these are the important commands:
+
+### Standard mode
+
+```bash
+cd backend
+uv run langgraph dev --no-browser --host 0.0.0.0 --port 2024
+```
+
+```bash
+cd backend
+PYTHONPATH=. uv run uvicorn app.gateway.app:app --host 0.0.0.0 --port 8001 --reload
+```
+
+```bash
+cd bff
+uv run uvicorn app.main:app --host 0.0.0.0 --port 9000 --reload
+```
+
+```bash
+cd frontend
+pnpm dev
+```
+
+```bash
+nginx -g 'daemon off;' -c "$(pwd)/docker/nginx/nginx.local.conf" -p "$(pwd)"
+```
+
+### Gateway mode
+
+Skip the LangGraph process and run:
+
+- gateway
+- BFF
+- frontend
+- nginx
+
+In practice, the root `make dev-pro` launcher is usually simpler and less
+error-prone.
 
 ## Project Structure
 
-```
+```text
 deer-flow/
-├── config.example.yaml      # Configuration template
-├── extensions_config.example.json  # MCP and Skills configuration template
-├── Makefile                 # Build and development commands
-├── scripts/
-│   └── docker.sh           # Docker management script
+├── backend/
+│   ├── app/                   # FastAPI gateway and IM channels
+│   ├── packages/harness/      # deerflow runtime package
+│   ├── docs/
+│   └── tests/
+├── bff/                       # FastAPI BFF
+├── frontend/                  # Next.js app
 ├── docker/
-│   ├── docker-compose-dev.yaml  # Docker Compose configuration
-│   └── nginx/
-│       ├── nginx.conf      # Nginx config for Docker
-│       └── nginx.local.conf # Nginx config for local dev
-├── backend/                 # Backend application
-│   ├── src/
-│   │   ├── gateway/        # Gateway API (port 8001)
-│   │   ├── agents/         # LangGraph agents (port 2024)
-│   │   ├── mcp/            # Model Context Protocol integration
-│   │   ├── skills/         # Skills system
-│   │   └── sandbox/        # Sandbox execution
-│   ├── docs/               # Backend documentation
-│   └── Makefile            # Backend commands
-├── frontend/               # Frontend application
-│   └── Makefile            # Frontend commands
-└── skills/                 # Agent skills
-    ├── public/             # Public skills
-    └── custom/             # Custom skills
+├── scripts/
+├── skills/
+└── docs/
 ```
-
-## Architecture
-
-```
-Browser
-  ↓
-Nginx (port 2026) ← Unified entry point
-  ├→ Frontend (port 3000) ← / (non-API requests)
-  ├→ Gateway API (port 8001) ← /api/models, /api/mcp, /api/skills, /api/threads/*/artifacts
-  └→ LangGraph Server (port 2024) ← /api/langgraph/* (agent interactions)
-```
-
-## Development Workflow
-
-1. **Create a feature branch**:
-   ```bash
-   git switch master
-   git pull --ff-only origin master
-   git switch -c feat/your-feature-name
-   ```
-
-2. **Make your changes** with hot-reload enabled
-
-3. **Format and lint your code** (CI will reject unformatted code):
-   ```bash
-   # Backend
-   cd backend
-   make format   # ruff check --fix + ruff format
-
-   # Frontend
-   cd frontend
-   pnpm format:write   # Prettier
-   ```
-
-4. **Test your changes** thoroughly
-
-5. **Commit your changes**:
-   ```bash
-   git add .
-   git commit -m "feat: description of your changes"
-   ```
-
-6. **Push and create a Pull Request**:
-   ```bash
-   git push -u origin feat/your-feature-name
-   ```
-
-### Fork Maintenance Workflow
-
-This fork keeps `main` as an upstream mirror and `master` as the stable downstream branch.
-
-- Feature and fix branches should fork from `master` and open PRs back into `master`.
-- Upstream sync should happen on a short-lived `sync/upstream-*` branch created from `master`.
-- `main` should only receive fast-forward updates from `upstream/main`.
-
-See [docs/FORK_SYNC_WORKFLOW.md](docs/FORK_SYNC_WORKFLOW.md) for the full branch model, sync commands, alias examples, and PR rules.
 
 ## Testing
 
+Common checks:
+
 ```bash
-# Backend tests
 cd backend
 uv run pytest
+```
 
-# Frontend checks
+```bash
+cd bff
+uv run pytest
+```
+
+```bash
 cd frontend
 pnpm check
 ```
 
-### PR Regression Checks
+Useful focused checks:
 
-Every pull request runs the backend regression workflow at [.github/workflows/backend-unit-tests.yml](.github/workflows/backend-unit-tests.yml), including:
+- backend harness/app boundary:
+  - `backend/tests/test_harness_boundary.py`
+- BFF auth and conversation flow:
+  - `bff/tests/api/test_auth_routes.py`
+  - `bff/tests/api/test_conversation_routes.py`
+- frontend BFF chat boundary:
+  - `frontend/src/core/bff-chat/*.test.ts`
+- frontend end-to-end:
+  - `frontend/tests/e2e/auth.spec.ts`
+  - `frontend/tests/e2e/chat.spec.ts`
 
-- `tests/test_provisioner_kubeconfig.py`
-- `tests/test_docker_sandbox_mode_detection.py`
+## Branching and Sync
 
-## Code Style
+This fork keeps:
 
-- **Backend (Python)**: We use `ruff` for linting and formatting. Run `make format` before committing.
-- **Frontend (TypeScript)**: We use ESLint and Prettier. Run `pnpm format:write` before committing.
-- CI enforces formatting — PRs with unformatted code will fail the lint check.
+- `main` as the upstream mirror
+- `master` as the downstream working branch
 
-## Documentation
+Feature branches should branch from `master` and open PRs back into `master`.
 
-- [Configuration Guide](backend/docs/CONFIGURATION.md) - Setup and configuration
-- [Architecture Overview](backend/CLAUDE.md) - Technical architecture
-- [MCP Setup Guide](backend/docs/MCP_SERVER.md) - Model Context Protocol configuration
-- [Fork Sync Workflow](docs/FORK_SYNC_WORKFLOW.md) - Branch responsibilities and upstream sync procedure
+See `docs/FORK_SYNC_WORKFLOW.md` for the full sync procedure.
 
-## Need Help?
+## Contribution Workflow
 
-- Check existing [Issues](https://github.com/bytedance/deer-flow/issues)
-- Read the [Documentation](backend/docs/)
-- Ask questions in [Discussions](https://github.com/bytedance/deer-flow/discussions)
+1. update from `master`
+2. create a feature branch
+3. make the change
+4. run the smallest relevant verification set
+5. update affected docs
+6. open a PR back into `master`
 
-## License
+## Documentation Rule
 
-By contributing to DeerFlow, you agree that your contributions will be licensed under the [MIT License](./LICENSE).
+If your change affects architecture, startup commands, runtime ownership, auth,
+API behavior, or user workflow, update the matching docs in the same change.

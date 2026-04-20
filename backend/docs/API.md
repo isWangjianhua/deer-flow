@@ -1,655 +1,184 @@
-# API Reference
-
-This document provides a complete reference for the DeerFlow backend APIs.
-
-## Overview
-
-DeerFlow backend exposes two sets of APIs:
-
-1. **LangGraph API** - Agent interactions, threads, and streaming (`/api/langgraph/*`)
-2. **Gateway API** - Models, MCP, skills, uploads, and artifacts (`/api/*`)
-
-All APIs are accessed through the Nginx reverse proxy at port 2026.
-
-## LangGraph API
-
-Base URL: `/api/langgraph`
-
-The LangGraph API is provided by the LangGraph server and follows the LangGraph SDK conventions.
-
-### Threads
-
-#### Create Thread
-
-```http
-POST /api/langgraph/threads
-Content-Type: application/json
-```
-
-**Request Body:**
-```json
-{
-  "metadata": {}
-}
-```
-
-**Response:**
-```json
-{
-  "thread_id": "abc123",
-  "created_at": "2024-01-15T10:30:00Z",
-  "metadata": {}
-}
-```
-
-#### Get Thread State
-
-```http
-GET /api/langgraph/threads/{thread_id}/state
-```
-
-**Response:**
-```json
-{
-  "values": {
-    "messages": [...],
-    "sandbox": {...},
-    "artifacts": [...],
-    "thread_data": {...},
-    "title": "Conversation Title"
-  },
-  "next": [],
-  "config": {...}
-}
-```
-
-### Runs
-
-#### Create Run
-
-Execute the agent with input.
-
-```http
-POST /api/langgraph/threads/{thread_id}/runs
-Content-Type: application/json
-```
-
-**Request Body:**
-```json
-{
-  "input": {
-    "messages": [
-      {
-        "role": "user",
-        "content": "Hello, can you help me?"
-      }
-    ]
-  },
-  "config": {
-    "recursion_limit": 100,
-    "configurable": {
-      "model_name": "gpt-4",
-      "thinking_enabled": false,
-      "is_plan_mode": false
-    }
-  },
-  "stream_mode": ["values", "messages-tuple", "custom"]
-}
-```
-
-**Stream Mode Compatibility:**
-- Use: `values`, `messages-tuple`, `custom`, `updates`, `events`, `debug`, `tasks`, `checkpoints`
-- Do not use: `tools` (deprecated/invalid in current `langgraph-api` and will trigger schema validation errors)
-
-**Recursion Limit:**
-
-`config.recursion_limit` caps the number of graph steps LangGraph will execute
-in a single run. The `/api/langgraph/*` endpoints go straight to the LangGraph
-server and therefore inherit LangGraph's native default of **25**, which is
-too low for plan-mode or subagent-heavy runs — the agent typically errors out
-with `GraphRecursionError` after the first round of subagent results comes
-back, before the lead agent can synthesize the final answer.
-
-DeerFlow's own Gateway and IM-channel paths mitigate this by defaulting to
-`100` in `build_run_config` (see `backend/app/gateway/services.py`), but
-clients calling the LangGraph API directly must set `recursion_limit`
-explicitly in the request body. `100` matches the Gateway default and is a
-safe starting point; increase it if you run deeply nested subagent graphs.
-
-**Configurable Options:**
-- `model_name` (string): Override the default model
-- `thinking_enabled` (boolean): Enable extended thinking for supported models
-- `is_plan_mode` (boolean): Enable TodoList middleware for task tracking
-
-**Response:** Server-Sent Events (SSE) stream
-
-```
-event: values
-data: {"messages": [...], "title": "..."}
-
-event: messages
-data: {"content": "Hello! I'd be happy to help.", "role": "assistant"}
-
-event: end
-data: {}
-```
-
-#### Get Run History
-
-```http
-GET /api/langgraph/threads/{thread_id}/runs
-```
-
-**Response:**
-```json
-{
-  "runs": [
-    {
-      "run_id": "run123",
-      "status": "success",
-      "created_at": "2024-01-15T10:30:00Z"
-    }
-  ]
-}
-```
-
-#### Stream Run
-
-Stream responses in real-time.
-
-```http
-POST /api/langgraph/threads/{thread_id}/runs/stream
-Content-Type: application/json
-```
-
-Same request body as Create Run. Returns SSE stream.
-
----
-
-## Gateway API
-
-Base URL: `/api`
-
-### Models
-
-#### List Models
-
-Get all available LLM models from configuration.
-
-```http
-GET /api/models
-```
-
-**Response:**
-```json
-{
-  "models": [
-    {
-      "name": "gpt-4",
-      "display_name": "GPT-4",
-      "supports_thinking": false,
-      "supports_vision": true
-    },
-    {
-      "name": "claude-3-opus",
-      "display_name": "Claude 3 Opus",
-      "supports_thinking": false,
-      "supports_vision": true
-    },
-    {
-      "name": "deepseek-v3",
-      "display_name": "DeepSeek V3",
-      "supports_thinking": true,
-      "supports_vision": false
-    }
-  ]
-}
-```
-
-#### Get Model Details
-
-```http
-GET /api/models/{model_name}
-```
-
-**Response:**
-```json
-{
-  "name": "gpt-4",
-  "display_name": "GPT-4",
-  "model": "gpt-4",
-  "max_tokens": 4096,
-  "supports_thinking": false,
-  "supports_vision": true
-}
-```
-
-### MCP Configuration
-
-#### Get MCP Config
-
-Get current MCP server configurations.
-
-```http
-GET /api/mcp/config
-```
-
-**Response:**
-```json
-{
-  "mcpServers": {
-    "github": {
-      "enabled": true,
-      "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-github"],
-      "env": {
-        "GITHUB_TOKEN": "***"
-      },
-      "description": "GitHub operations"
-    },
-    "filesystem": {
-      "enabled": false,
-      "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-filesystem"],
-      "description": "File system access"
-    }
-  }
-}
-```
-
-#### Update MCP Config
-
-Update MCP server configurations.
-
-```http
-PUT /api/mcp/config
-Content-Type: application/json
-```
-
-**Request Body:**
-```json
-{
-  "mcpServers": {
-    "github": {
-      "enabled": true,
-      "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-github"],
-      "env": {
-        "GITHUB_TOKEN": "$GITHUB_TOKEN"
-      },
-      "description": "GitHub operations"
-    }
-  }
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "MCP configuration updated"
-}
-```
-
-### Skills
-
-#### List Skills
-
-Get all available skills.
-
-```http
-GET /api/skills
-```
-
-**Response:**
-```json
-{
-  "skills": [
-    {
-      "name": "pdf-processing",
-      "display_name": "PDF Processing",
-      "description": "Handle PDF documents efficiently",
-      "enabled": true,
-      "license": "MIT",
-      "path": "public/pdf-processing"
-    },
-    {
-      "name": "frontend-design",
-      "display_name": "Frontend Design",
-      "description": "Design and build frontend interfaces",
-      "enabled": false,
-      "license": "MIT",
-      "path": "public/frontend-design"
-    }
-  ]
-}
-```
-
-#### Get Skill Details
-
-```http
-GET /api/skills/{skill_name}
-```
-
-**Response:**
-```json
-{
-  "name": "pdf-processing",
-  "display_name": "PDF Processing",
-  "description": "Handle PDF documents efficiently",
-  "enabled": true,
-  "license": "MIT",
-  "path": "public/pdf-processing",
-  "allowed_tools": ["read_file", "write_file", "bash"],
-  "content": "# PDF Processing\n\nInstructions for the agent..."
-}
-```
-
-#### Enable Skill
-
-```http
-POST /api/skills/{skill_name}/enable
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Skill 'pdf-processing' enabled"
-}
-```
-
-#### Disable Skill
-
-```http
-POST /api/skills/{skill_name}/disable
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Skill 'pdf-processing' disabled"
-}
-```
-
-#### Install Skill
-
-Install a skill from a `.skill` file.
-
-```http
-POST /api/skills/install
-Content-Type: multipart/form-data
-```
-
-**Request Body:**
-- `file`: The `.skill` file to install
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Skill 'my-skill' installed successfully",
-  "skill": {
-    "name": "my-skill",
-    "display_name": "My Skill",
-    "path": "custom/my-skill"
-  }
-}
-```
-
-### File Uploads
-
-#### Upload Files
-
-Upload one or more files to a thread.
-
-```http
-POST /api/threads/{thread_id}/uploads
-Content-Type: multipart/form-data
-```
-
-**Request Body:**
-- `files`: One or more files to upload
-
-**Response:**
-```json
-{
-  "success": true,
-  "files": [
-    {
-      "filename": "document.pdf",
-      "size": 1234567,
-      "path": ".deer-flow/threads/abc123/user-data/uploads/document.pdf",
-      "virtual_path": "/mnt/user-data/uploads/document.pdf",
-      "artifact_url": "/api/threads/abc123/artifacts/mnt/user-data/uploads/document.pdf",
-      "markdown_file": "document.md",
-      "markdown_path": ".deer-flow/threads/abc123/user-data/uploads/document.md",
-      "markdown_virtual_path": "/mnt/user-data/uploads/document.md",
-      "markdown_artifact_url": "/api/threads/abc123/artifacts/mnt/user-data/uploads/document.md"
-    }
-  ],
-  "message": "Successfully uploaded 1 file(s)"
-}
-```
-
-**Supported Document Formats** (auto-converted to Markdown):
-- PDF (`.pdf`)
-- PowerPoint (`.ppt`, `.pptx`)
-- Excel (`.xls`, `.xlsx`)
-- Word (`.doc`, `.docx`)
-
-#### List Uploaded Files
-
-```http
-GET /api/threads/{thread_id}/uploads/list
-```
-
-**Response:**
-```json
-{
-  "files": [
-    {
-      "filename": "document.pdf",
-      "size": 1234567,
-      "path": ".deer-flow/threads/abc123/user-data/uploads/document.pdf",
-      "virtual_path": "/mnt/user-data/uploads/document.pdf",
-      "artifact_url": "/api/threads/abc123/artifacts/mnt/user-data/uploads/document.pdf",
-      "extension": ".pdf",
-      "modified": 1705997600.0
-    }
-  ],
-  "count": 1
-}
-```
-
-#### Delete File
-
-```http
-DELETE /api/threads/{thread_id}/uploads/{filename}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Deleted document.pdf"
-}
-```
-
-### Thread Cleanup
-
-Remove DeerFlow-managed local thread files under `.deer-flow/threads/{thread_id}` after the LangGraph thread itself has been deleted.
-
-```http
-DELETE /api/threads/{thread_id}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Deleted local thread data for abc123"
-}
-```
-
-**Error behavior:**
-- `422` for invalid thread IDs
-- `500` returns a generic `{"detail": "Failed to delete local thread data."}` response while full exception details stay in server logs
-
-### Artifacts
-
-#### Get Artifact
-
-Download or view an artifact generated by the agent.
-
-```http
-GET /api/threads/{thread_id}/artifacts/{path}
-```
-
-**Path Examples:**
-- `/api/threads/abc123/artifacts/mnt/user-data/outputs/result.txt`
-- `/api/threads/abc123/artifacts/mnt/user-data/uploads/document.pdf`
-
-**Query Parameters:**
-- `download` (boolean): If `true`, force download with Content-Disposition header
-
-**Response:** File content with appropriate Content-Type
-
----
-
-## Error Responses
-
-All APIs return errors in a consistent format:
-
-```json
-{
-  "detail": "Error message describing what went wrong"
-}
-```
-
-**HTTP Status Codes:**
-- `400` - Bad Request: Invalid input
-- `404` - Not Found: Resource not found
-- `422` - Validation Error: Request validation failed
-- `500` - Internal Server Error: Server-side error
-
----
-
-## Authentication
-
-Currently, DeerFlow does not implement authentication. All APIs are accessible without credentials.
-
-Note: This is about DeerFlow API authentication. MCP outbound connections can still use OAuth for configured HTTP/SSE MCP servers.
-
-For production deployments, it is recommended to:
-1. Use Nginx for basic auth or OAuth integration
-2. Deploy behind a VPN or private network
-3. Implement custom authentication middleware
-
----
-
-## Rate Limiting
-
-No rate limiting is implemented by default. For production deployments, configure rate limiting in Nginx:
-
-```nginx
-limit_req_zone $binary_remote_addr zone=api:10m rate=10r/s;
-
-location /api/ {
-    limit_req zone=api burst=20 nodelay;
-    proxy_pass http://backend;
-}
-```
-
----
-
-## WebSocket Support
-
-The LangGraph server supports WebSocket connections for real-time streaming. Connect to:
-
-```
-ws://localhost:2026/api/langgraph/threads/{thread_id}/runs/stream
-```
-
----
-
-## SDK Usage
-
-### Python (LangGraph SDK)
-
-```python
-from langgraph_sdk import get_client
-
-client = get_client(url="http://localhost:2026/api/langgraph")
-
-# Create thread
-thread = await client.threads.create()
-
-# Run agent
-async for event in client.runs.stream(
-    thread["thread_id"],
-    "lead_agent",
-    input={"messages": [{"role": "user", "content": "Hello"}]},
-    config={"configurable": {"model_name": "gpt-4"}},
-    stream_mode=["values", "messages-tuple", "custom"],
-):
-    print(event)
-```
-
-### JavaScript/TypeScript
-
-```typescript
-// Using fetch for Gateway API
-const response = await fetch('/api/models');
-const data = await response.json();
-console.log(data.models);
-
-// Using EventSource for streaming
-const eventSource = new EventSource(
-  `/api/langgraph/threads/${threadId}/runs/stream`
-);
-eventSource.onmessage = (event) => {
-  console.log(JSON.parse(event.data));
-};
-```
-
-### cURL Examples
-
-```bash
-# List models
-curl http://localhost:2026/api/models
-
-# Get MCP config
-curl http://localhost:2026/api/mcp/config
-
-# Upload file
-curl -X POST http://localhost:2026/api/threads/abc123/uploads \
-  -F "files=@document.pdf"
-
-# Enable skill
-curl -X POST http://localhost:2026/api/skills/pdf-processing/enable
-
-# Create thread and run agent
-curl -X POST http://localhost:2026/api/langgraph/threads \
-  -H "Content-Type: application/json" \
-  -d '{}'
-
-curl -X POST http://localhost:2026/api/langgraph/threads/abc123/runs \
-  -H "Content-Type: application/json" \
-  -d '{
-    "input": {"messages": [{"role": "user", "content": "Hello"}]},
-    "config": {
-      "recursion_limit": 100,
-      "configurable": {"model_name": "gpt-4"}
-    }
-  }'
-```
-
-> The `/api/langgraph/*` endpoints bypass DeerFlow's Gateway and inherit
-> LangGraph's native `recursion_limit` default of 25, which is too low for
-> plan-mode or subagent runs. Set `config.recursion_limit` explicitly — see
-> the [Create Run](#create-run) section for details.
+# Backend API Reference
+
+The backend exposes three HTTP surfaces that are easy to confuse if you only
+look at ports:
+
+1. **LangGraph native API**
+   - standard mode only
+   - proxied by nginx under `/api/langgraph/*`
+2. **Gateway REST + compatibility API**
+   - always available on the gateway service
+   - proxied by nginx under `/api/*`
+3. **BFF API**
+   - owned by the separate `/bff` service, not by the backend package
+   - mentioned here only because it is the main product-facing consumer of the
+     gateway compatibility routes
+
+## Standard vs Gateway Mode
+
+In standard mode:
+
+- `/api/langgraph/*` goes to the dedicated LangGraph server
+- `/api/*` goes to the FastAPI gateway
+
+In gateway mode:
+
+- there is no dedicated LangGraph server
+- frontend callers are pointed at `/api/langgraph-compat/*`
+- the gateway exposes LangGraph-compatible thread and run routes itself
+
+## Gateway REST Endpoints
+
+These routes live in `backend/app/gateway/routers/`.
+
+| Route | Purpose |
+| --- | --- |
+| `GET /health` | health check |
+| `GET /api/models` | list configured models |
+| `GET /api/models/{name}` | get one model |
+| `GET /api/mcp/config` | read MCP server config |
+| `PUT /api/mcp/config` | update MCP server config |
+| `GET /api/skills` | list enabled skills |
+| `GET /api/skills/{name}` | get one skill |
+| `PUT /api/skills/{name}` | enable or disable a skill |
+| `POST /api/skills/install` | install a skill archive |
+| `GET /api/skills/custom/*` | custom-skill CRUD and history |
+| `GET /api/memory/*` | compatibility memory routes |
+| `POST /api/threads/{thread_id}/uploads` | upload files into a thread |
+| `GET /api/threads/{thread_id}/uploads/list` | list uploaded files |
+| `DELETE /api/threads/{thread_id}/uploads/{filename}` | delete one uploaded file |
+| `GET /api/threads/{thread_id}/artifacts/{path}` | serve an artifact |
+| `POST /api/threads/{thread_id}/suggestions` | generate follow-up suggestions |
+| `GET /api/channels` | inspect IM channel status |
+| `POST /api/channels/{name}/restart` | restart an IM channel |
+| `GET /api/agents/*` | custom-agent and user-profile APIs when `agents_api.enabled=true` |
+
+Notes:
+
+- active web content returned from the artifact route is forced to download
+  rather than render inline
+- uploads may auto-convert PDF, Office, and spreadsheet files into Markdown
+- the memory routes are runtime/backward-compatibility surfaces, not the main
+  user-facing memory product boundary
+
+## Gateway Thread Endpoints
+
+These routes are implemented by `backend/app/gateway/routers/threads.py`.
+
+They provide a LangGraph-compatible thread model backed by the gateway store
+and checkpointer.
+
+| Route | Purpose |
+| --- | --- |
+| `POST /api/threads` | create or idempotently return a thread |
+| `POST /api/threads/search` | search thread records in the gateway store |
+| `GET /api/threads/{thread_id}` | fetch one thread record |
+| `PATCH /api/threads/{thread_id}` | merge metadata onto a thread |
+| `DELETE /api/threads/{thread_id}` | delete thread-local filesystem data and best-effort store/checkpointer state |
+| `GET /api/threads/{thread_id}/state` | fetch current serialized state |
+| `POST /api/threads/{thread_id}/state` | merge channel values back into state |
+| `POST /api/threads/{thread_id}/history` | fetch checkpoint history |
+
+Important detail:
+
+- BFF conversation creation uses `POST /api/threads`
+- BFF conversation detail sync uses thread history/state, not the public
+  frontend identifier
+
+## Gateway Run Endpoints
+
+These routes are implemented by:
+
+- `backend/app/gateway/routers/thread_runs.py`
+- `backend/app/gateway/routers/runs.py`
+- `backend/app/gateway/routers/assistants_compat.py`
+
+### Thread-bound runs
+
+| Route | Purpose |
+| --- | --- |
+| `POST /api/threads/{thread_id}/runs` | create a background run |
+| `POST /api/threads/{thread_id}/runs/stream` | create a run and stream SSE |
+| `POST /api/threads/{thread_id}/runs/wait` | create a run and wait for final state |
+| `GET /api/threads/{thread_id}/runs` | list runs for a thread |
+| `GET /api/threads/{thread_id}/runs/{run_id}` | inspect one run |
+| `POST /api/threads/{thread_id}/runs/{run_id}/cancel` | cancel a run |
+| `GET /api/threads/{thread_id}/runs/{run_id}/join` | join an existing stream |
+| `GET|POST /api/threads/{thread_id}/runs/{run_id}/stream` | join or cancel-then-stream an existing run |
+
+### Stateless runs
+
+| Route | Purpose |
+| --- | --- |
+| `POST /api/runs/stream` | stream a run without pre-creating a thread |
+| `POST /api/runs/wait` | run synchronously without pre-creating a thread |
+
+If the request supplies `config.configurable.thread_id`, the stateless routes
+reuse it. Otherwise the gateway generates a temporary thread id.
+
+### Assistant compatibility
+
+| Route | Purpose |
+| --- | --- |
+| `GET /api/assistants` | list the default assistant |
+| `POST /api/assistants/search` | list default + configured custom assistants |
+| `GET /api/assistants/{assistant_id}` | inspect one assistant |
+| `GET /api/assistants/{assistant_id}/graph` | compatibility graph metadata |
+| `GET /api/assistants/{assistant_id}/schemas` | compatibility schema metadata |
+
+The compatibility layer still routes all assistants through `lead_agent`.
+Custom assistants are resolved by injecting `configurable.agent_name`.
+
+## Gateway Run Request Shape
+
+The compatibility run routes accept a superset of LangGraph-style fields:
+
+- `assistant_id`
+- `input`
+- `config`
+- `metadata`
+- `stream_mode`
+- `interrupt_before`
+- `interrupt_after`
+- `multitask_strategy`
+- DeerFlow-specific `context`
+
+Supported `context` keys that are forwarded into `configurable` include:
+
+- `user_id`
+- `model_name`
+- `thinking_enabled`
+- `reasoning_effort`
+- `is_plan_mode`
+- `subagent_enabled`
+- `max_concurrent_subagents`
+
+The gateway also normalizes `recursion_limit` to `100` unless the caller
+overrides it explicitly.
+
+## SSE Semantics
+
+Gateway streaming uses `StreamBridge` and exposes LangGraph-compatible SSE
+frames.
+
+Important behavior:
+
+- `Content-Location` points at the canonical run resource so SDK helpers can
+  recover `run_id`
+- `X-Accel-Buffering: no` is set to avoid nginx buffering
+- `Last-Event-ID` replay is supported by the stream bridge
+- disconnect handling is controlled by `on_disconnect=cancel|continue`
+
+## Relationship To The BFF
+
+The BFF does not expose raw backend threads publicly.
+
+Instead it:
+
+1. creates a backend thread through `POST /api/threads`
+2. stores `conversation_id -> deerflow_thread_id`
+3. streams through `POST /api/threads/{thread_id}/runs/stream`
+4. normalizes SSE events for the frontend
+
+That is why the gateway thread and run APIs should be treated as runtime-facing
+contracts even though they are HTTP endpoints.

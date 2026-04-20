@@ -1,3 +1,51 @@
 # Quick Start
 
-TBD
+The fastest source-based harness entry point in this repository is the embedded
+Python client.
+
+## 1. Install backend dependencies
+
+```bash
+cd backend
+uv sync
+```
+
+## 2. Create a root `config.yaml`
+
+From the repository root:
+
+```bash
+make config
+```
+
+Then add at least one model entry under `models`.
+
+## 3. Run a minimal client example
+
+```python
+from deerflow.client import DeerFlowClient
+
+client = DeerFlowClient(model_name="your-model-name")
+reply = client.chat("Summarize what this repository does", thread_id="demo")
+print(reply)
+```
+
+## 4. Stream events when you need richer output
+
+```python
+from deerflow.client import DeerFlowClient
+
+client = DeerFlowClient(model_name="your-model-name", subagent_enabled=True)
+
+for event in client.stream("Inspect the project structure", thread_id="demo"):
+    print(event.type, event.data)
+```
+
+## When To Use The HTTP Stack Instead
+
+Use the app stack instead of the embedded client when you need:
+
+- the frontend UI
+- the BFF conversation boundary
+- same-origin browser routes
+- nginx routing and deployment parity

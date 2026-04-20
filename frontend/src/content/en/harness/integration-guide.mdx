@@ -1,3 +1,30 @@
 # Integration Guide
 
-TBD
+There are two practical integration styles in this repository.
+
+## 1. Embedded Python integration
+
+Use `DeerFlowClient` when you want to call the runtime directly from Python
+without running the whole HTTP stack.
+
+Good for:
+
+- internal tools
+- notebooks and scripts
+- service-side orchestration
+- source-level experimentation
+
+## 2. Service integration
+
+Use the gateway and BFF when you need:
+
+- browser-facing auth and conversation boundaries
+- SSE over HTTP
+- same-origin frontend routes
+- deployment and operations parity with the app
+
+## Boundary Reminder
+
+If you are building a user-facing product, do not expose raw runtime
+`thread_id` semantics to the browser unless you intentionally want to bypass the
+current BFF ownership model.

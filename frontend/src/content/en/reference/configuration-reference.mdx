@@ -1,3 +1,32 @@
 # Configuration Reference
 
-TBD
+## Main Files
+
+| File | Used by |
+| --- | --- |
+| `config.yaml` | gateway, runtime, BFF defaults, launcher scripts |
+| `extensions_config.json` | MCP server definitions and skill enablement |
+| `.env` | provider keys and shared runtime secrets |
+| `bff/.env` | BFF-only sensitive settings |
+| `frontend/.env` | frontend and auth environment |
+
+## High-Value `config.yaml` Sections
+
+| Section | Meaning |
+| --- | --- |
+| `models` | available runtime models |
+| `tool_groups` / `tools` | tool catalog |
+| `sandbox` | execution provider and limits |
+| `memory` | file memory vs Mem0 |
+| `skills` | skill discovery path |
+| `tool_search` | deferred MCP-tool loading |
+| `subagents` | timeout and per-agent overrides |
+| `agents_api` | whether custom-agent HTTP APIs are exposed |
+| `guardrails` | pre-tool-call authorization |
+| `bff` | BFF bind/auth/downstream defaults |
+
+## Local Environment Tips
+
+- keep secrets in env files when possible
+- keep `config.yaml` focused on structure and non-secret defaults
+- use `make config-upgrade` when `config.example.yaml` gains new fields

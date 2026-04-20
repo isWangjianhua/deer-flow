@@ -1,3 +1,50 @@
-# Configuration
+# Application Configuration
 
-TBD
+The app is configured across three main surfaces:
+
+## 1. Root `config.yaml`
+
+This file defines shared runtime behavior such as:
+
+- models
+- tools
+- sandbox
+- memory
+- BFF defaults under `bff:`
+- optional IM channels
+
+It is the most important file for the gateway and runtime.
+
+## 2. `bff/.env`
+
+The BFF keeps sensitive values here, especially:
+
+- `DATABASE_URL`
+- `BFF_SECRET_KEY`
+
+The BFF also reads non-sensitive defaults from the root `config.yaml`.
+
+## 3. `frontend/.env`
+
+The frontend uses environment variables for auth mode, same-origin bridge
+behavior, and internal service URLs.
+
+Key variables include:
+
+- `NEXT_PUBLIC_AUTH_MODE`
+- `NEXT_PUBLIC_BFF_BASE_URL`
+- `DEER_FLOW_INTERNAL_BFF_BASE_URL`
+- `BETTER_AUTH_*`
+
+## Important Local Behavior
+
+`scripts/serve.sh` manages some runtime-specific frontend overrides for you.
+Most notably, it rewrites `frontend/.env.local` so the frontend points at the
+right LangGraph or gateway-compatible route for the active mode.
+
+## Practical Advice
+
+- treat `config.yaml` as the source of truth for runtime capabilities
+- treat `bff/.env` as the source of truth for BFF secrets
+- treat `frontend/.env` as the source of truth for browser and Next.js auth
+  behavior

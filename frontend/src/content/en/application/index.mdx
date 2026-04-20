@@ -1,3 +1,34 @@
 # DeerFlow App
 
-TBD
+The DeerFlow App is the full product built on top of the runtime harness. In
+this repository it spans:
+
+- the Next.js frontend in `frontend/`
+- the FastAPI BFF in `bff/`
+- the FastAPI gateway and harness runtime in `backend/`
+- nginx and the launcher scripts at the repository root
+
+Use this section if your goal is to run DeerFlow as a working application,
+understand the user-facing workflows, or operate the whole stack in your own
+environment.
+
+## What This Section Covers
+
+- how to start the local stack
+- standard mode vs gateway mode
+- how auth, conversations, threads, artifacts, and uploads fit together
+- where the current frontend/BFF/gateway boundaries are
+- how to troubleshoot the app path that users actually see
+
+## Current Product Boundary
+
+Today the main user path looks like this:
+
+- browser requests stay same-origin through the frontend
+- the frontend routes `/api/bff/*` to the FastAPI BFF
+- the BFF owns auth and `conversation_id`
+- the DeerFlow gateway and runtime stay behind that boundary
+
+That means the app is already BFF-first for the main chat and account flows,
+even though some older browser-visible APIs still remain frontend bridge routes
+to gateway-owned surfaces.

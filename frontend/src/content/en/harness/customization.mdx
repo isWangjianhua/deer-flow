@@ -1,3 +1,25 @@
 # Customization
 
-TBD
+There are several customization layers in DeerFlow, each with a different
+scope.
+
+## Runtime-level customization
+
+- configure models, tools, memory, sandbox, and guardrails in `config.yaml`
+- enable or disable skills in `extensions_config.json`
+
+## Agent-level customization
+
+- custom agents route through `lead_agent` with `agent_name`
+- the lead agent can have a separate display name via `lead_agent.display_name`
+
+## Python-level customization
+
+If you need tighter control, use the harness Python APIs directly:
+
+- `DeerFlowClient`
+- `create_deerflow_agent`
+- custom middleware injection
+
+The design goal is to let you start with config and only drop to code when you
+need a stronger customization boundary.

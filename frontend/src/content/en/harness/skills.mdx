@@ -1,3 +1,31 @@
 # Skills
 
-TBD
+Skills are task-oriented instruction packages discovered from `SKILL.md` files.
+
+## Skill locations
+
+- `skills/public`
+- `skills/custom`
+
+## What a skill can contain
+
+- structured instructions
+- workflow guidance
+- references
+- helper scripts
+- templates and assets
+
+## Runtime behavior
+
+The runtime scans skills recursively, keeps their container paths stable, and
+injects the relevant skill instructions into the system prompt when they are
+enabled and selected.
+
+Enabled state is tracked in:
+
+- `extensions_config.json`
+
+## Why skills matter
+
+Skills let DeerFlow stay general-purpose at the base layer while still loading
+task-specific behavior only when needed.

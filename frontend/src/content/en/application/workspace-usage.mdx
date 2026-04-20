@@ -1,3 +1,38 @@
 # Workspace Usage
 
-TBD
+The current workspace experience is centered on BFF-backed chats.
+
+## Main Routes
+
+- `/workspace/chats/new`
+  - canonical new-chat route
+- `/workspace/chats`
+  - chat list
+- `/workspace/chats/{conversation_id}`
+  - main conversation page
+- `/workspace/account`
+  - account, session, and auth status page
+
+## Current User Flow
+
+1. sign in through the account page or the login-required dialog
+2. create a new conversation
+3. send a message
+4. receive streamed reasoning, tool, and final response events
+5. inspect artifacts and follow-up suggestions
+
+## Local Auth
+
+When the app runs in local auth mode:
+
+- the seeded demo user is `demo / demo1234`
+- users can also register new username/password accounts through the account
+  page
+
+## Current Limitations
+
+- conversation rename and delete are not yet exposed as first-class product
+  actions
+- the agents page is currently a disabled placeholder in the UI
+- some settings/resource APIs still remain gateway-backed server bridges rather
+  than BFF-owned APIs

@@ -1,3 +1,31 @@
 # Deploy Your Own DeerFlow
 
-TBD
+## Goal
+
+Run the full app with Docker Compose.
+
+## Steps
+
+1. Create `config.yaml`.
+2. Configure at least one model and the matching credentials.
+3. Prepare any BFF or frontend env files you need.
+4. Start production Compose:
+
+```bash
+make up
+```
+
+Or gateway mode:
+
+```bash
+make up-pro
+```
+
+5. Open the deployed app through the nginx entrypoint.
+
+## What to plan for
+
+- persistent runtime data under `backend/.deer-flow/`
+- Qdrant storage if Mem0 + Qdrant are enabled
+- BFF database persistence
+- network boundaries so the raw gateway is not exposed as a public browser API

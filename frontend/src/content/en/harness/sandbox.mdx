@@ -1,3 +1,27 @@
 # Sandbox
 
-TBD
+The sandbox is where DeerFlow does file and command work.
+
+## Providers
+
+- `LocalSandboxProvider`
+- `AioSandboxProvider`
+
+`AioSandboxProvider` can run directly against Docker or through the optional
+provisioner service for Kubernetes-backed sandboxes.
+
+## Virtual paths
+
+The agent sees stable virtual paths such as:
+
+- `/mnt/user-data/workspace`
+- `/mnt/user-data/uploads`
+- `/mnt/user-data/outputs`
+- `/mnt/skills`
+
+These are mapped onto thread-local real paths under `backend/.deer-flow/`.
+
+## Important local safety rule
+
+Host `bash` is disabled by default for the local sandbox. The runtime only
+exposes direct host shell execution when the config explicitly allows it.

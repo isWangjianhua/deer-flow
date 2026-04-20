@@ -1,3 +1,47 @@
-# API / Gateway Reference
+# API and Gateway Reference
 
-TBD
+There are three important API layers in the current product:
+
+## 1. Frontend same-origin routes
+
+Browser code mostly talks to:
+
+- `/api/bff/*`
+- `/api/mcp/*`
+- `/api/skills/*`
+- `/api/agents/*`
+
+The frontend owns these route handlers so the browser does not need to know the
+real internal host topology.
+
+## 2. BFF API
+
+The BFF owns the user-facing chat and auth contract:
+
+- auth
+- `/me`
+- conversations
+- uploads, artifacts, and suggestions for conversations
+- model discovery
+
+Its public identifier is `conversation_id`.
+
+## 3. DeerFlow gateway/runtime API
+
+The gateway owns:
+
+- models
+- MCP config
+- skills
+- thread CRUD/state/history
+- run lifecycle
+- uploads and artifacts
+- optional agent-management APIs
+
+Its runtime identifier is `thread_id`.
+
+## Practical Rule
+
+If you are writing browser code, prefer the same-origin route handlers first.
+If you are working on runtime integration or the BFF, use the gateway and BFF
+docs for the direct service contracts.

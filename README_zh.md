@@ -531,10 +531,12 @@ client.upload_files("thread-1", ["./report.pdf"])  # {"success": True, "files": 
 
 ## 文档
 
+- [文档站](frontend/src/content/en/index.mdx) - Nextra 文档内容源码，本地运行后可通过 `/en/docs` 访问
 - [贡献指南](CONTRIBUTING.md) - 开发环境搭建与协作流程
-- [配置指南](backend/docs/CONFIGURATION.md) - 安装与配置说明
-- [架构概览](backend/CLAUDE.md) - 技术架构说明
-- [后端架构](backend/README.md) - 后端架构与 API 参考
+- [后端架构](backend/docs/ARCHITECTURE.md) - harness/app 分层、运行时拓扑与 lead agent 流程
+- [后端 API](backend/docs/API.md) - Gateway REST 路由与运行时兼容接口
+- [后端配置](backend/docs/CONFIGURATION.md) - `config.yaml` 与 `extensions_config.json`
+- [BFF 架构](bff/docs/ARCHITECTURE.md) - 面向产品的认证与会话边界
 
 ## ⚠️ 安全使用
 

@@ -1,3 +1,57 @@
 # Quick Start
 
-TBD
+The fastest way to run the app locally is from the repository root.
+
+## 1. Generate local config
+
+```bash
+make config
+```
+
+This creates `config.yaml` from the example template.
+
+## 2. Add at least one model
+
+Edit `config.yaml` and define at least one entry under `models`. The runtime
+will not start without a configured model.
+
+Most teams also keep provider keys in the root `.env` file rather than
+hard-coding them into `config.yaml`.
+
+## 3. Install dependencies
+
+```bash
+make install
+```
+
+## 4. Start the app
+
+Standard mode:
+
+```bash
+make dev
+```
+
+Gateway mode:
+
+```bash
+make dev-pro
+```
+
+## 5. Open the canonical local URL
+
+Use:
+
+- `http://localhost:2026`
+
+This is the path that includes nginx, the frontend, the BFF boundary, and the
+gateway/runtime routing the product actually depends on.
+
+## Which mode should you use?
+
+- use `make dev` if you want the dedicated LangGraph server path
+- use `make dev-pro` if you want the lighter stack with the runtime embedded in
+  the gateway
+
+For the current frontend product path, both are usable. The main difference is
+how the runtime is hosted behind nginx.

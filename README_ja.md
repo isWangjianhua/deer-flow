@@ -507,10 +507,12 @@ client.upload_files("thread-1", ["./report.pdf"])  # {"success": True, "files": 
 
 ## ドキュメント
 
+- [ドキュメントサイト](frontend/src/content/en/index.mdx) - Nextra ドキュメントのソース。ローカル起動後は `/en/docs` から参照可能
 - [コントリビュートガイド](CONTRIBUTING.md) - 開発環境のセットアップとワークフロー
-- [設定ガイド](backend/docs/CONFIGURATION.md) - セットアップと設定の手順
-- [アーキテクチャ概要](backend/CLAUDE.md) - 技術的なアーキテクチャの詳細
-- [バックエンドアーキテクチャ](backend/README.md) - バックエンドアーキテクチャとAPIリファレンス
+- [バックエンドアーキテクチャ](backend/docs/ARCHITECTURE.md) - harness/app 分離、ランタイム構成、lead agent フロー
+- [バックエンド API](backend/docs/API.md) - Gateway REST ルートとランタイム互換インターフェース
+- [バックエンド設定](backend/docs/CONFIGURATION.md) - `config.yaml` と `extensions_config.json`
+- [BFF アーキテクチャ](bff/docs/ARCHITECTURE.md) - プロダクト向け認証と会話境界
 
 ## ⚠️ セキュリティに関する注意
 

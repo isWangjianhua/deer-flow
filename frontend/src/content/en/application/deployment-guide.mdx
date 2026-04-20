@@ -1,3 +1,62 @@
 # Deployment Guide
 
-TBD
+DeerFlow supports two practical deployment shapes:
+
+- local or single-machine development with the root launchers
+- Docker Compose deployment through `make up` or `make up-pro`
+
+## Production Docker Entry Points
+
+Standard mode:
+
+```bash
+make up
+```
+
+Gateway mode:
+
+```bash
+make up-pro
+```
+
+Shutdown:
+
+```bash
+make down
+```
+
+## What Gets Deployed
+
+The production Compose stack can include:
+
+- nginx
+- frontend
+- gateway
+- langgraph
+- qdrant
+- provisioner, only when required by the configured sandbox mode
+
+In gateway mode, the dedicated LangGraph container is skipped and nginx routes
+the LangGraph-compatible path to the gateway instead.
+
+## Persistent Runtime Data
+
+At minimum, plan for these persistent assets:
+
+- `config.yaml`
+- `extensions_config.json`
+- `backend/.deer-flow/`
+- any database file or replacement used by the BFF
+- Qdrant storage when using Mem0 with Qdrant
+
+## Security Reality
+
+Do not treat the raw gateway as a public internet API. The intended product
+shape is:
+
+- browser -> frontend origin
+- frontend same-origin routes -> BFF
+- BFF -> internal gateway/runtime
+
+If you expose DeerFlow across devices or networks, add an authentication layer
+and IP/network controls before you consider the deployment safe.

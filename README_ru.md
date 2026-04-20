@@ -440,10 +440,12 @@ client.upload_files("thread-1", ["./report.pdf"])  # {"success": True, "files": 
 
 ## Документация
 
+- [Сайт документации](frontend/src/content/en/index.mdx) — исходники Nextra-документации, локально доступны по `/en/docs`
 - [Руководство по участию](CONTRIBUTING.md) — настройка среды разработки, воркфлоу и гайдлайны
-- [Руководство по конфигурации](backend/docs/CONFIGURATION.md) — инструкции по настройке
-- [Обзор архитектуры](backend/CLAUDE.md) — технические детали
-- [Архитектура бэкенда](backend/README.md) — бэкенд и справочник API
+- [Архитектура бэкенда](backend/docs/ARCHITECTURE.md) — разделение harness/app, топология рантайма и поток lead agent
+- [API бэкенда](backend/docs/API.md) — REST-маршруты Gateway и совместимые runtime-интерфейсы
+- [Конфигурация бэкенда](backend/docs/CONFIGURATION.md) — `config.yaml` и `extensions_config.json`
+- [Архитектура BFF](bff/docs/ARCHITECTURE.md) — продуктовая граница аутентификации и разговоров
 
 ## ⚠️ Безопасность
 

@@ -1,55 +1,43 @@
-# Documentation
+# Backend Documentation
 
-This directory contains detailed documentation for the DeerFlow backend.
+This directory documents the DeerFlow backend runtime, which is split into two
+layers:
 
-## Quick Links
+- `backend/packages/harness/deerflow/`
+  - the reusable harness runtime, tools, skills, sandbox, memory, and agent
+    factory code
+- `backend/app/`
+  - the FastAPI gateway and IM-channel application layer built on top of the
+    harness
 
-| Document | Description |
-|----------|-------------|
-| [ARCHITECTURE.md](ARCHITECTURE.md) | System architecture overview |
-| [API.md](API.md) | Complete API reference |
-| [CONFIGURATION.md](CONFIGURATION.md) | Configuration options |
-| [SETUP.md](SETUP.md) | Quick setup guide |
+## Start Here
 
-## Feature Documentation
+Read these files first if you are orienting yourself in the current backend:
 
-| Document | Description |
-|----------|-------------|
-| [STREAMING.md](STREAMING.md) | Token-level streaming design: Gateway vs DeerFlowClient paths, `stream_mode` semantics, per-id dedup |
-| [FILE_UPLOAD.md](FILE_UPLOAD.md) | File upload functionality |
-| [PATH_EXAMPLES.md](PATH_EXAMPLES.md) | Path types and usage examples |
-| [summarization.md](summarization.md) | Context summarization feature |
-| [plan_mode_usage.md](plan_mode_usage.md) | Plan mode with TodoList |
-| [AUTO_TITLE_GENERATION.md](AUTO_TITLE_GENERATION.md) | Automatic title generation |
+| Document | Purpose |
+| --- | --- |
+| `ARCHITECTURE.md` | Current runtime topology, harness/app split, lead-agent flow, thread model, and service boundaries |
+| `API.md` | Gateway REST APIs plus the LangGraph-compatible thread and run surfaces exposed by the gateway |
+| `CONFIGURATION.md` | `config.yaml`, `extensions_config.json`, and the most important runtime switches |
+| `SETUP.md` | Local and Docker setup paths, standard vs gateway mode, and verification commands |
 
-## Development
+## Feature-Focused Docs
 
-| Document | Description |
-|----------|-------------|
-| [TODO.md](TODO.md) | Planned features and known issues |
+These documents stay useful when you need a subsystem-specific deep dive:
 
-## Getting Started
+| Document | Purpose |
+| --- | --- |
+| `STREAMING.md` | Gateway `StreamBridge` path vs embedded `DeerFlowClient` streaming |
+| `FILE_UPLOAD.md` | Upload flow, artifact paths, conversion behavior, and troubleshooting |
+| `MCP_SERVER.md` | MCP server configuration and runtime behavior |
+| `GUARDRAILS.md` | Guardrail middleware, providers, and policy options |
+| `middleware-execution-flow.md` | Middleware ordering matrix and request flow notes |
+| `summarization.md` | Context summarization behavior and configuration |
+| `PATH_EXAMPLES.md` | Virtual sandbox paths and filesystem mappings |
 
-1. **New to DeerFlow?** Start with [SETUP.md](SETUP.md) for quick installation
-2. **Configuring the system?** See [CONFIGURATION.md](CONFIGURATION.md)
-3. **Understanding the architecture?** Read [ARCHITECTURE.md](ARCHITECTURE.md)
-4. **Building integrations?** Check [API.md](API.md) for API reference
+## Historical / Design Notes
 
-## Document Organization
-
-```
-docs/
-├── README.md                  # This file
-├── ARCHITECTURE.md            # System architecture
-├── API.md                     # API reference
-├── CONFIGURATION.md           # Configuration guide
-├── SETUP.md                   # Setup instructions
-├── FILE_UPLOAD.md             # File upload feature
-├── PATH_EXAMPLES.md           # Path usage examples
-├── summarization.md           # Summarization feature
-├── plan_mode_usage.md         # Plan mode feature
-├── STREAMING.md               # Token-level streaming design
-├── AUTO_TITLE_GENERATION.md   # Title generation
-├── TITLE_GENERATION_IMPLEMENTATION.md  # Title implementation details
-└── TODO.md                    # Roadmap and issues
-```
+Several files in this directory are RFCs, reviews, or one-off implementation
+records. They are still worth keeping, but they should not be treated as the
+primary source of truth for the current architecture. Prefer the four entry
+documents above when updating code or onboarding a teammate.

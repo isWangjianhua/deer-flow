@@ -1,3 +1,41 @@
 # Agents and Threads
 
-TBD
+This repository currently separates the runtime identifier from the product
+identifier.
+
+## Public vs Internal IDs
+
+Public product ID:
+
+- `conversation_id`
+
+Internal runtime ID:
+
+- `thread_id`
+
+The BFF owns the mapping between them. The browser should only think in terms
+of `conversation_id`.
+
+## Agent Routing
+
+There is still a single lead graph at runtime:
+
+- `lead_agent`
+
+Custom assistants are implemented by routing through that same graph and
+injecting `configurable.agent_name`. This keeps the runtime surface simple
+while still allowing custom agent behavior.
+
+## Thread State
+
+Runtime threads store:
+
+- messages
+- title
+- artifacts
+- todos
+- sandbox state
+- thread-local workspace, uploads, and outputs paths
+
+The gateway compatibility routes expose that thread state. The BFF reads and
+reshapes it into the conversation detail the frontend uses.

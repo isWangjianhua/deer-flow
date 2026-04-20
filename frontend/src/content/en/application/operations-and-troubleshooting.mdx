@@ -1,3 +1,37 @@
 # Operations and Troubleshooting
 
-TBD
+## Prefer The Canonical Local URL
+
+When debugging product issues, start from:
+
+- `http://localhost:2026`
+
+That path exercises nginx, the frontend same-origin routes, the BFF boundary,
+and the gateway/runtime routing together.
+
+## Common Problems
+
+### The app starts but chat cannot send
+
+Check that:
+
+- the BFF is running on `:9000`
+- the gateway is running on `:8001`
+- the frontend is using the correct same-origin bridge route
+
+### Gateway mode behaves differently
+
+That is expected in one place: the runtime path is hosted by the gateway rather
+than the dedicated LangGraph server. `scripts/serve.sh` rewrites
+`frontend/.env.local` so the frontend uses the correct compat route.
+
+### Mem0 does not work locally
+
+If you enable `memory.provider=mem0` with Qdrant, make sure Qdrant is running.
+The launcher scripts can bootstrap it automatically, but it is still worth
+checking the container state if memory retrieval is missing.
+
+### `:3000` works but `:2026` does not
+
+That usually indicates an nginx or service-launch issue rather than a pure
+frontend bug.

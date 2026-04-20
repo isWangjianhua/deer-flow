@@ -1,92 +1,148 @@
-# Setup Guide
+# Backend Setup Guide
 
-Quick setup instructions for DeerFlow.
+This guide is for developers working on the backend runtime and gateway.
 
-## Configuration Setup
+## Recommended Entry Points
 
-DeerFlow uses a YAML configuration file that should be placed in the **project root directory**.
-
-### Steps
-
-1. **Navigate to project root**:
-   ```bash
-   cd /path/to/deer-flow
-   ```
-
-2. **Copy example configuration**:
-   ```bash
-   cp config.example.yaml config.yaml
-   ```
-
-3. **Edit configuration**:
-   ```bash
-   # Option A: Set environment variables (recommended)
-   export OPENAI_API_KEY="your-key-here"
-
-   # Option B: Edit config.yaml directly
-   vim config.yaml  # or your preferred editor
-   ```
-
-4. **Verify configuration**:
-   ```bash
-   cd backend
-   python -c "from deerflow.config import get_app_config; print('✓ Config loaded:', get_app_config().models[0].name)"
-   ```
-
-## Important Notes
-
-- **Location**: `config.yaml` should be in `deer-flow/` (project root), not `deer-flow/backend/`
-- **Git**: `config.yaml` is automatically ignored by git (contains secrets)
-- **Priority**: If both `backend/config.yaml` and `../config.yaml` exist, backend version takes precedence
-
-## Configuration File Locations
-
-The backend searches for `config.yaml` in this order:
-
-1. `DEER_FLOW_CONFIG_PATH` environment variable (if set)
-2. `backend/config.yaml` (current directory when running from backend/)
-3. `deer-flow/config.yaml` (parent directory - **recommended location**)
-
-**Recommended**: Place `config.yaml` in project root (`deer-flow/config.yaml`).
-
-## Sandbox Setup (Optional but Recommended)
-
-If you plan to use Docker/Container-based sandbox (configured in `config.yaml` under `sandbox.use: deerflow.community.aio_sandbox:AioSandboxProvider`), it's highly recommended to pre-pull the container image:
+From the repository root:
 
 ```bash
-# From project root
-make setup-sandbox
+make config
+make install
+make dev
 ```
 
-**Why pre-pull?**
-- The sandbox image (~500MB+) is pulled on first use, causing a long wait
-- Pre-pulling provides clear progress indication
-- Avoids confusion when first using the agent
+That starts the full local stack in standard mode:
 
-If you skip this step, the image will be automatically pulled on first agent execution, which may take several minutes depending on your network speed.
+- LangGraph server
+- Gateway
+- BFF
+- Frontend
+- nginx
 
-## Troubleshooting
-
-### Config file not found
+If you want the gateway to host the runtime itself:
 
 ```bash
-# Check where the backend is looking
-cd deer-flow/backend
-python -c "from deerflow.config.app_config import AppConfig; print(AppConfig.resolve_config_path())"
+make dev-pro
 ```
 
-If it can't find the config:
-1. Ensure you've copied `config.example.yaml` to `config.yaml`
-2. Verify you're in the correct directory
-3. Check the file exists: `ls -la ../config.yaml`
+## Minimal Backend-Only Setup
 
-### Permission denied
+If you only need the Python services:
 
 ```bash
-chmod 600 ../config.yaml  # Protect sensitive configuration
+cd backend
+uv sync
 ```
 
-## See Also
+You still need a root-level `config.yaml`.
 
-- [Configuration Guide](CONFIGURATION.md) - Detailed configuration options
-- [Architecture Overview](../CLAUDE.md) - System architecture
+Generate it from the repository root if missing:
+
+```bash
+make config
+```
+
+## Config Files
+
+Required:
+
+- repository-root `config.yaml`
+
+Usually also present:
+
+- repository-root `extensions_config.json`
+- root `.env` for model keys and runtime secrets
+- `bff/.env` if you are running the BFF
+
+## Local Standard Mode
+
+Start services individually if you are isolating the runtime:
+
+```bash
+cd backend
+uv run langgraph dev --no-browser --host 0.0.0.0 --port 2024
+```
+
+In another shell:
+
+```bash
+cd backend
+PYTHONPATH=. uv run uvicorn app.gateway.app:app --host 0.0.0.0 --port 8001 --reload
+```
+
+If you need the full product path, start the BFF and frontend through the root
+launcher instead of reproducing the entire stack by hand.
+
+## Local Gateway Mode
+
+Gateway mode skips the dedicated LangGraph process and exposes the runtime
+through gateway compatibility endpoints.
+
+```bash
+make dev-pro
+```
+
+This is the easiest way to test the BFF-backed chat flow end to end.
+
+## Docker Development
+
+If you prefer Docker:
+
+```bash
+make docker-init
+make docker-start
+```
+
+Or gateway mode:
+
+```bash
+make docker-start-pro
+```
+
+## Verification
+
+Useful checks after setup:
+
+```bash
+curl http://localhost:8001/health
+curl http://localhost:2026
+```
+
+If you are validating the product path, prefer the nginx entrypoint:
+
+- `http://localhost:2026`
+
+That path includes the frontend, same-origin bridge routes, BFF, and gateway
+ownership model that the product actually uses.
+
+## Common Issues
+
+### `config.yaml` not found
+
+Run:
+
+```bash
+make config
+```
+
+Or set `DEER_FLOW_CONFIG_PATH`.
+
+### Docker permission errors
+
+If Docker-backed sandbox commands fail with daemon permission errors on Linux,
+see the Docker note in the repository-level `CONTRIBUTING.md`.
+
+### Qdrant not running in Mem0 mode
+
+If `memory.provider=mem0` and the vector store provider is Qdrant, the startup
+scripts attempt to prepare Qdrant automatically. Check:
+
+```bash
+scripts/ensure-qdrant.sh --mode=dev --print-required
+```
+
+### Frontend works on `:3000` but not on `:2026`
+
+That usually indicates nginx routing or a missing BFF/gateway process. Use the
+root `make dev` or `make dev-pro` launchers when validating full-stack changes.

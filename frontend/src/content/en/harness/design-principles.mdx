@@ -1,3 +1,38 @@
 # Design Principles
 
-TBD
+## 1. One lead graph, many capabilities
+
+DeerFlow prefers a single lead agent with middleware, tool loading, and
+delegation instead of hard-coding many role-specific graphs.
+
+## 2. Runtime boundary first
+
+The harness exists to provide durable runtime capabilities:
+
+- tools
+- skills
+- sandboxing
+- memory
+- context management
+
+This is why DeerFlow describes itself as a harness rather than only a workflow
+graph.
+
+## 3. Filesystem as working memory
+
+The agent is expected to write outputs, inspect files, and produce artifacts.
+The filesystem is part of the runtime model, not an afterthought.
+
+## 4. Keep the runtime reusable
+
+The harness/app split matters. The reusable runtime lives in
+`deerflow.*`; app-specific HTTP code lives in `app.*`.
+
+## 5. Prefer explicit boundaries
+
+The current fork draws clear boundaries between:
+
+- browser vs BFF
+- BFF vs runtime
+- harness vs app
+- public `conversation_id` vs internal `thread_id`

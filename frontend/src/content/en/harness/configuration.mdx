@@ -1,3 +1,39 @@
 # Configuration
 
-TBD
+The harness is mainly configured through the repository-root `config.yaml`.
+
+## Most Important Sections
+
+- `models`
+- `tools`
+- `tool_groups`
+- `sandbox`
+- `skills`
+- `tool_search`
+- `memory`
+- `summarization`
+- `subagents`
+- `guardrails`
+
+## Extensions
+
+MCP servers and per-skill enablement live in:
+
+- `extensions_config.json`
+
+This is loaded alongside `config.yaml`.
+
+## Runtime Overrides
+
+At invocation time, DeerFlow can still override config defaults through the run
+context and `configurable` values, for example:
+
+- `model_name`
+- `thinking_enabled`
+- `reasoning_effort`
+- `is_plan_mode`
+- `subagent_enabled`
+- `agent_name`
+
+That split is intentional: `config.yaml` defines what the runtime is capable of,
+while invocation context defines how a specific run should behave.

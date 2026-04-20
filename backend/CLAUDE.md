@@ -14,8 +14,8 @@ DeerFlow is a LangGraph-based AI super agent system with a full-stack architectu
 - **Provisioner** (port 8002, optional in Docker dev): Started only when sandbox is configured for provisioner/Kubernetes mode
 
 **Runtime Modes**:
-- **Standard mode** (`make dev`): LangGraph Server handles agent execution as a separate process. 4 processes total.
-- **Gateway mode** (`make dev-pro`, experimental): Agent runtime embedded in Gateway via `RunManager` + `run_agent()` + `StreamBridge` (`packages/harness/deerflow/runtime/`). Service manages its own concurrency via async tasks. 3 processes total, no LangGraph Server.
+- **Standard mode** (`make dev`): LangGraph Server handles agent execution as a separate process. The canonical local stack has 5 processes: LangGraph, Gateway, BFF, Frontend, and nginx.
+- **Gateway mode** (`make dev-pro`, experimental): Agent runtime is embedded in Gateway via `RunManager` + `run_agent()` + `StreamBridge` (`packages/harness/deerflow/runtime/`). The canonical local stack has 4 processes: Gateway, BFF, Frontend, and nginx.
 
 **Project Structure**:
 ```
@@ -32,7 +32,7 @@ deer-flow/
 │   │       └── deerflow/
 │   │           ├── agents/            # LangGraph agent system
 │   │           │   ├── lead_agent/    # Main agent (factory + system prompt)
-│   │           │   ├── middlewares/   # 10 middleware components
+│   │           │   ├── middlewares/   # Lead-agent middleware chain (dynamic, ordered assembly)
 │   │           │   ├── memory/        # Memory extraction, queue, prompts
 │   │           │   └── thread_state.py # ThreadState schema
 │   │           ├── sandbox/           # Sandbox execution system
@@ -542,7 +542,8 @@ TodoList middleware for complex multi-step tasks:
 - Provides `write_todos` tool for task tracking
 - One task in_progress at a time, real-time updates
 
-See [docs/plan_mode_usage.md](docs/plan_mode_usage.md) for details.
+See the plan-mode notes in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and
+[docs/API.md](docs/API.md) for the current runtime view.
 
 ### Context Summarization
 
@@ -577,4 +578,4 @@ See `docs/` directory for detailed documentation:
 - [FILE_UPLOAD.md](docs/FILE_UPLOAD.md) - File upload feature
 - [PATH_EXAMPLES.md](docs/PATH_EXAMPLES.md) - Path types and usage
 - [summarization.md](docs/summarization.md) - Context summarization
-- [plan_mode_usage.md](docs/plan_mode_usage.md) - Plan mode with TodoList
+- plan mode is documented in `docs/ARCHITECTURE.md` and `docs/API.md`

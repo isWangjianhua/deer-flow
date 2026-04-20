@@ -1,3 +1,28 @@
 # Create Your First Harness
 
-TBD
+This tutorial uses the source-tree runtime directly.
+
+## Steps
+
+1. Install backend dependencies:
+
+```bash
+cd backend
+uv sync
+```
+
+2. Make sure the repository root has a valid `config.yaml`.
+
+3. Run a short Python snippet:
+
+```python
+from deerflow.client import DeerFlowClient
+
+client = DeerFlowClient(model_name="your-model-name")
+print(client.chat("List the top-level directories in this repository"))
+```
+
+## Next step
+
+Once the embedded client works, try enabling `subagent_enabled=True` or
+streaming events instead of only calling `chat()`.

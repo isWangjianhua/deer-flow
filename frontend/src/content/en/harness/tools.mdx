@@ -1,3 +1,33 @@
 # Tools
 
-TBD
+The harness combines several tool sources into one runtime tool set.
+
+## Tool sources
+
+- config-defined tools from `config.yaml`
+- built-in DeerFlow tools
+- MCP tools
+- ACP agent tools
+
+## Built-in tools
+
+Common built-ins include:
+
+- `present_file`
+- `ask_clarification`
+- `view_image`
+- `task`
+
+## Tool gating
+
+Some tools are conditional:
+
+- `view_image` only appears for vision-capable models
+- `task` only appears when subagents are enabled
+- host `bash` is hidden when the sandbox forbids host shell execution
+- MCP tools may be deferred behind `tool_search`
+
+## Why deferred tools exist
+
+Large MCP tool catalogs can overwhelm the prompt. `tool_search` lets DeerFlow
+advertise tools by name and description first, then load them on demand.

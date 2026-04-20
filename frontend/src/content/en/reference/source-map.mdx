@@ -1,3 +1,52 @@
 # Source Map
 
-TBD
+## Repository Layout
+
+```text
+backend/
+  app/                    FastAPI gateway and IM channels
+  packages/harness/       deerflow runtime package
+bff/
+  app/                    FastAPI BFF
+frontend/
+  src/app/                Next.js routes and API handlers
+  src/core/               protocol/state boundaries
+  src/content/            documentation pages
+skills/
+  public/                 committed skills
+  custom/                 local custom skills
+scripts/
+docker/
+docs/
+```
+
+## Ownership Map
+
+### Frontend
+
+- `frontend/src/app/api/bff/`
+  - same-origin BFF bridge
+- `frontend/src/core/bff-chat/`
+  - BFF chat protocol and state
+- `frontend/src/core/auth/`
+  - browser auth/session behavior
+
+### BFF
+
+- `bff/app/api/routes/`
+  - public BFF routes
+- `bff/app/services/`
+  - ownership and business rules
+- `bff/app/clients/deerflow.py`
+  - gateway integration
+
+### Backend
+
+- `backend/app/gateway/`
+  - gateway and compatibility routes
+- `backend/packages/harness/deerflow/agents/`
+  - lead agent and middleware
+- `backend/packages/harness/deerflow/runtime/`
+  - embedded runtime execution and stream bridge
+- `backend/packages/harness/deerflow/sandbox/`
+  - sandbox providers and tools

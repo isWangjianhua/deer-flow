@@ -1,3 +1,27 @@
 # Memory
 
-TBD
+DeerFlow currently supports two memory modes:
+
+## File memory
+
+- `memory.provider=file`
+- simple compatibility layer backed by JSON storage
+
+## Mem0 runtime memory
+
+- `memory.provider=mem0`
+- request-time retrieval
+- post-run write-back
+- optional Qdrant-backed vector storage
+
+## Key Architectural Point
+
+In Mem0 mode, memory is injected at model-call time instead of being baked into
+the cached system prompt forever. This keeps user-scoped memory fresher and
+lets the runtime tailor retrieval per request.
+
+## Current Product Path
+
+For the BFF-backed chat flow, the BFF forwards authenticated `user_id` into the
+runtime context so Mem0 retrieval can stay runtime-owned while still being
+user-scoped.

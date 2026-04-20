@@ -1,50 +1,33 @@
-import { Callout, Cards } from "nextra/components";
+# DeerFlow Harness
 
-# Install DeerFlow Harness
+The harness is the runtime layer that powers DeerFlow. In this repository it
+currently lives in `backend/packages/harness/deerflow/`.
 
-<Callout type="info" emoji="📦">
-  The DeerFlow Harness Python package will be published as <code>deerflow</code>
-  . It is not released yet, so installation is currently{" "}
-  <strong>Coming Soon</strong>.
-</Callout>
+## Current Packaging Reality
 
-The DeerFlow Harness is the Python SDK and runtime foundation for building your own Super Agent systems.
+The harness is not yet distributed as a public PyPI package in this fork’s
+workflow. Today the practical way to use it is:
 
-If you want to compose agents with skills, memory, tools, sandboxes, and subagents inside your own product or workflow, this is the part of DeerFlow you will build on.
+- work from the repository source tree
+- import the runtime modules directly
+- use `DeerFlowClient` when you want an embedded Python entry point
 
-## Package name
+## What The Harness Provides
 
-The package name will be:
+- lead-agent creation
+- middleware composition
+- model resolution
+- sandboxed file and command execution
+- skills and MCP tool loading
+- memory
+- subagent orchestration
+- an embedded Python client
 
-```bash
-pip install deerflow
-```
+## Who This Section Is For
 
-That package is not publicly available yet, but this is the installation path the documentation will use once it is released.
+Use this section if you want to:
 
-## Current status
-
-The DeerFlow Harness package is **coming soon**.
-
-At the moment, this section exists to establish the SDK entry point and package identity, while the public distribution flow is being finalized.
-
-## What the Harness will give you
-
-The Harness is designed for developers who want to build their own agent system on top of DeerFlow's runtime model.
-
-It will provide the foundation for:
-
-- building long-horizon agents,
-- composing runtime capabilities such as memory, tools, skills, and subagents,
-- running agents with sandboxed execution,
-- customizing agent behavior through configuration and code, and
-- integrating DeerFlow into your own application architecture.
-
-## What to do next
-
-Until the package is released, the best way to understand the DeerFlow Harness is to read the conceptual and implementation docs in this section.
-
-<Cards num={2}>
-  <Cards.Card title="Quick Start" href="/docs/harness/quick-start" />
-  <Cards.Card title="Configuration" href="/docs/harness/configuration" />
-</Cards>
+- build your own app on top of DeerFlow runtime primitives
+- understand how the lead agent is assembled
+- embed the runtime into Python without the full HTTP stack
+- customize tools, skills, agents, or middleware

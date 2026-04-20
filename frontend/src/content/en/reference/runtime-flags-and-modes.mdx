@@ -1,3 +1,42 @@
 # Runtime Flags and Modes
 
-TBD
+The stack varies along two dimensions:
+
+## Standard vs Gateway
+
+| Mode | What changes |
+| --- | --- |
+| standard | dedicated LangGraph server hosts the runtime |
+| gateway | gateway hosts the runtime and exposes a compatibility surface |
+
+## Dev vs Prod
+
+| Mode | What changes |
+| --- | --- |
+| dev | hot reload and development-oriented launchers |
+| prod | no hot reload, production frontend build path, Compose deployment path |
+
+## Common Commands
+
+| Goal | Command |
+| --- | --- |
+| local dev, standard | `make dev` |
+| local dev, gateway | `make dev-pro` |
+| local prod, standard | `make start` |
+| local prod, gateway | `make start-pro` |
+| Docker dev, standard | `make docker-start` |
+| Docker dev, gateway | `make docker-start-pro` |
+| Docker prod, standard | `make up` |
+| Docker prod, gateway | `make up-pro` |
+
+## Important Runtime Flag Behavior
+
+`scripts/serve.sh` manages:
+
+- dependency sync
+- config preflight
+- Qdrant startup when Mem0 + Qdrant require it
+- frontend `.env.local` rewrite for the correct LangGraph or gateway-compatible
+  route
+
+That is why the root launchers are the safest way to switch modes locally.

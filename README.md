@@ -718,11 +718,13 @@ All dict-returning methods are validated against Gateway Pydantic response model
 
 ## Documentation
 
+- [Docs Site](frontend/src/content/en/index.mdx) - Nextra-backed product and runtime documentation, served locally at `/en/docs`
 - [Contributing Guide](CONTRIBUTING.md) - Development environment setup and workflow
 - [Fork Sync Workflow](docs/FORK_SYNC_WORKFLOW.md) - Long-lived fork branch model and upstream sync process
-- [Configuration Guide](backend/docs/CONFIGURATION.md) - Setup and configuration instructions
-- [Architecture Overview](backend/CLAUDE.md) - Technical architecture details
-- [Backend Architecture](backend/README.md) - Backend architecture and API reference
+- [Backend Architecture](backend/docs/ARCHITECTURE.md) - Harness/app split, runtime topology, and lead-agent flow
+- [Backend API](backend/docs/API.md) - Gateway REST routes and runtime compatibility surfaces
+- [Backend Configuration](backend/docs/CONFIGURATION.md) - `config.yaml` and `extensions_config.json`
+- [BFF Architecture](bff/docs/ARCHITECTURE.md) - Product-facing auth and conversation boundary
 
 ## ⚠️ Security Notice
 

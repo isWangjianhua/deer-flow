@@ -1,3 +1,34 @@
 # First Conversation
 
-TBD
+## Goal
+
+Start the full app stack and send your first message through the canonical
+workspace path.
+
+## Steps
+
+1. Generate `config.yaml`:
+
+```bash
+make config
+```
+
+2. Add at least one model entry and the matching API key.
+
+3. Start the app:
+
+```bash
+make dev
+```
+
+4. Open:
+
+- `http://localhost:2026`
+
+5. Create a new chat from `/workspace/chats/new` and send a message.
+
+## What to watch for
+
+- streaming assistant output
+- reasoning and tool events
+- conversation creation in the chat list
