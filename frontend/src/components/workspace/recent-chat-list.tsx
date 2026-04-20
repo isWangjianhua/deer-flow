@@ -281,8 +281,6 @@ function BffRecentChatList({ pathname }: { pathname: string }) {
     conversations.find((conversation) => conversation.id === deleteConversationId)
       ?.title?.trim() ?? t.pages.untitled;
 
-  const deleteConfirmMessage = `${t.conversation.deleteConfirm}\n\n${deleteConversationTitle}`;
-
   const handleDeleteDialogChange = useCallback(
     (open: boolean) => {
       if (open) {
@@ -294,118 +292,99 @@ function BffRecentChatList({ pathname }: { pathname: string }) {
     [closeDeleteDialog],
   );
 
-  const pinnedConversations = conversations.filter(
-    (conversation) => conversation.is_pinned,
-  );
-  const recentConversations = conversations.filter(
-    (conversation) => !conversation.is_pinned,
-  );
-
-  const renderConversationSection = useCallback(
-    (title: string, items: BffConversation[]) => {
-      if (items.length === 0) {
-        return null;
-      }
-
-      return (
-        <SidebarGroup>
-          <SidebarGroupLabel>{title}</SidebarGroupLabel>
-          <SidebarGroupContent className="group-data-[collapsible=icon]:pointer-events-none group-data-[collapsible=icon]:-mt-8 group-data-[collapsible=icon]:opacity-0">
-            <SidebarMenu>
-              <div className="flex w-full flex-col gap-1">
-                {items.map((conversation) => {
-                  const href = `/workspace/chats/${conversation.id}`;
-                  const isActive = href === pathname;
-                  const displayTitle =
-                    conversation.title?.trim() ?? t.pages.untitled;
-                  const editableTitle = conversation.title?.trim() ?? "";
-
-                  return (
-                    <SidebarMenuItem
-                      key={conversation.id}
-                      className="group/side-menu-item"
-                    >
-                      <SidebarMenuButton isActive={isActive} asChild>
-                        <div>
-                          <Link
-                            className="text-muted-foreground block w-full whitespace-nowrap group-hover/side-menu-item:overflow-hidden"
-                            href={href}
-                          >
-                            {displayTitle}
-                          </Link>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <SidebarMenuAction
-                                showOnHover
-                                className="bg-background/50 hover:bg-background"
-                              >
-                                <MoreHorizontal />
-                                <span className="sr-only">{t.common.more}</span>
-                              </SidebarMenuAction>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent
-                              className="w-48 rounded-lg"
-                              side={"right"}
-                              align={"start"}
-                            >
-                              <DropdownMenuItem
-                                onSelect={() =>
-                                  handlePinToggle(
-                                    conversation.id,
-                                    !conversation.is_pinned,
-                                  )
-                                }
-                              >
-                                {conversation.is_pinned ? (
-                                  <PinOff className="text-muted-foreground" />
-                                ) : (
-                                  <Pin className="text-muted-foreground" />
-                                )}
-                                <span>
-                                  {conversation.is_pinned
-                                    ? t.common.unpin
-                                    : t.common.pin}
-                                </span>
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onSelect={() =>
-                                  handleRenameClick(conversation.id, editableTitle)
-                                }
-                              >
-                                <Pencil className="text-muted-foreground" />
-                                <span>{t.common.rename}</span>
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                onSelect={() => handleDelete(conversation.id)}
-                              >
-                                <Trash2 className="text-muted-foreground" />
-                                <span>{t.common.delete}</span>
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  );
-                })}
-              </div>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-      );
-    },
-    [handleDelete, handlePinToggle, handleRenameClick, pathname, t.common.delete, t.common.more, t.common.pin, t.common.rename, t.common.unpin, t.pages.untitled],
-  );
-
   if (conversations.length === 0) {
     return null;
   }
 
   return (
     <>
-      {renderConversationSection(t.sidebar.pinnedChats, pinnedConversations)}
-      {renderConversationSection(t.sidebar.recentChats, recentConversations)}
+      <SidebarGroup>
+        <SidebarGroupLabel>{t.sidebar.recentChats}</SidebarGroupLabel>
+        <SidebarGroupContent className="group-data-[collapsible=icon]:pointer-events-none group-data-[collapsible=icon]:-mt-8 group-data-[collapsible=icon]:opacity-0">
+          <SidebarMenu>
+            <div className="flex w-full flex-col gap-1">
+              {conversations.map((conversation) => {
+                const href = `/workspace/chats/${conversation.id}`;
+                const isActive = href === pathname;
+                const displayTitle =
+                  conversation.title?.trim() ?? t.pages.untitled;
+                const editableTitle = conversation.title?.trim() ?? "";
+
+                return (
+                  <SidebarMenuItem
+                    key={conversation.id}
+                    className="group/side-menu-item"
+                  >
+                    <SidebarMenuButton isActive={isActive} asChild>
+                      <div className="flex w-full items-center">
+                        <Link
+                          className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden whitespace-nowrap text-inherit"
+                          href={href}
+                        >
+                          {conversation.is_pinned ? (
+                            <Pin className="size-3 shrink-0 opacity-55" />
+                          ) : null}
+                          <span className="truncate">{displayTitle}</span>
+                        </Link>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <SidebarMenuAction
+                              showOnHover
+                              className="opacity-70 hover:opacity-100"
+                            >
+                              <MoreHorizontal />
+                              <span className="sr-only">{t.common.more}</span>
+                            </SidebarMenuAction>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent
+                            className="w-48 rounded-lg"
+                            side={"right"}
+                            align={"start"}
+                          >
+                            <DropdownMenuItem
+                              onSelect={() =>
+                                handlePinToggle(
+                                  conversation.id,
+                                  !conversation.is_pinned,
+                                )
+                              }
+                            >
+                              {conversation.is_pinned ? (
+                                <PinOff className="text-muted-foreground" />
+                              ) : (
+                                <Pin className="text-muted-foreground" />
+                              )}
+                              <span>
+                                {conversation.is_pinned
+                                  ? t.common.unpin
+                                  : t.common.pin}
+                              </span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onSelect={() =>
+                                handleRenameClick(conversation.id, editableTitle)
+                              }
+                            >
+                              <Pencil className="text-muted-foreground" />
+                              <span>{t.common.rename}</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onSelect={() => handleDelete(conversation.id)}
+                            >
+                              <Trash2 className="text-muted-foreground" />
+                              <span>{t.common.delete}</span>
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </div>
+          </SidebarMenu>
+        </SidebarGroupContent>
+      </SidebarGroup>
 
       <Dialog
         open={renameDialogOpen}
@@ -417,11 +396,11 @@ function BffRecentChatList({ pathname }: { pathname: string }) {
           closeRenameDialog();
         }}
       >
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[360px]">
           <DialogHeader>
             <DialogTitle>{t.common.rename}</DialogTitle>
           </DialogHeader>
-          <div className="py-4">
+          <div className="pt-1">
             <Input
               value={renameValue}
               onChange={(e) => setRenameValue(e.target.value)}
@@ -444,12 +423,15 @@ function BffRecentChatList({ pathname }: { pathname: string }) {
       </Dialog>
 
       <Dialog open={deleteDialogOpen} onOpenChange={handleDeleteDialogChange}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[360px]">
           <DialogHeader>
             <DialogTitle>{t.common.delete}</DialogTitle>
           </DialogHeader>
-          <div className="py-4 text-sm whitespace-pre-line">
-            {deleteConfirmMessage}
+          <div className="space-y-1.5 pt-1">
+            <p className="text-sm">{t.conversation.deleteConfirm}</p>
+            <p className="text-muted-foreground truncate text-sm">
+              {deleteConversationTitle}
+            </p>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={closeDeleteDialog}>

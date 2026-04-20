@@ -41,7 +41,11 @@ void test("agent workspace routes do not render the legacy raw thread recent lis
     "expected the BFF recent chat list to wire pin and unpin actions",
   );
   assert.ok(
-    source.includes("Pinned") || source.includes("pinnedConversations"),
-    "expected the BFF recent chat list to render pinned conversations in a dedicated top section",
+    !source.includes("t.sidebar.pinnedChats") && !source.includes("renderConversationSection"),
+    "expected the BFF recent chat list to keep pinned chats inside the same recent list rather than rendering a dedicated pinned section",
+  );
+  assert.ok(
+    source.includes("conversation.is_pinned") && source.includes("<Pin"),
+    "expected the BFF recent chat list to show a subtle inline pin icon for pinned conversations",
   );
 });
