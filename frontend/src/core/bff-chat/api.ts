@@ -14,6 +14,11 @@ import type {
 
 type FetchLike = typeof fetch;
 
+type UpdateConversationInput = {
+  title?: string;
+  is_pinned?: boolean;
+};
+
 type StreamMessageInput = {
   conversationId: string;
   message: string;
@@ -93,22 +98,38 @@ export async function getConversation(
   return (await response.json()) as BffConversationDetail;
 }
 
-export async function renameConversation(
+export async function updateConversation(
   conversationId: string,
-  title: string,
+  input: UpdateConversationInput,
   fetchImpl: FetchLike = fetch,
 ) {
   const response = await fetchImpl(`/api/bff/conversations/${conversationId}`, {
     method: "PATCH",
     headers: buildRequestHeaders("application/json"),
-    body: JSON.stringify({ title }),
+    body: JSON.stringify(input),
   });
 
   if (!response.ok) {
-    throw new Error("Failed to rename conversation");
+    throw new Error("Failed to update conversation");
   }
 
   return (await response.json()) as CreateConversationResult;
+}
+
+export async function renameConversation(
+  conversationId: string,
+  title: string,
+  fetchImpl: FetchLike = fetch,
+) {
+  return updateConversation(conversationId, { title }, fetchImpl);
+}
+
+export async function setConversationPinned(
+  conversationId: string,
+  isPinned: boolean,
+  fetchImpl: FetchLike = fetch,
+) {
+  return updateConversation(conversationId, { is_pinned: isPinned }, fetchImpl);
 }
 
 export async function deleteConversation(

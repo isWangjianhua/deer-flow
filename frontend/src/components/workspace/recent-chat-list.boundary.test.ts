@@ -36,4 +36,12 @@ void test("agent workspace routes do not render the legacy raw thread recent lis
     source.includes('variant="destructive"') && source.includes("handleDeleteConfirm"),
     "expected the delete confirmation dialog to render the delete action as a destructive button",
   );
+  assert.ok(
+    source.includes("Pin") || source.includes("pinConversation") || source.includes("handlePinToggle"),
+    "expected the BFF recent chat list to wire pin and unpin actions",
+  );
+  assert.ok(
+    source.includes("Pinned") || source.includes("pinnedConversations"),
+    "expected the BFF recent chat list to render pinned conversations in a dedicated top section",
+  );
 });

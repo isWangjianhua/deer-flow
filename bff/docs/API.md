@@ -39,7 +39,7 @@ Notes:
 | `POST /conversations` | create a conversation and downstream thread mapping |
 | `GET /conversations` | list conversations for the current user |
 | `GET /conversations/{conversation_id}` | fetch conversation detail plus runtime-derived values |
-| `PATCH /conversations/{conversation_id}` | rename a conversation after ownership validation |
+| `PATCH /conversations/{conversation_id}` | rename, pin, or unpin a conversation after ownership validation |
 | `DELETE /conversations/{conversation_id}` | hard-delete a conversation and its mapped DeerFlow thread |
 | `POST /conversations/{conversation_id}/messages/stream` | stream assistant output over SSE |
 

@@ -34,7 +34,11 @@ void test("conversation detail route exposes rename and delete through the inter
   );
   assert.ok(
     source.includes("/conversations/${conversationId}"),
-    "expected conversation detail route to proxy rename/delete through the internal BFF conversation route",
+    "expected conversation detail route to proxy rename/delete/pin through the internal BFF conversation route",
+  );
+  assert.ok(
+    source.includes('"PATCH"') && source.includes("await request.text()"),
+    "expected the conversation detail route to forward generic patch payloads such as pin state",
   );
 });
 

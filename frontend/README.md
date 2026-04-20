@@ -252,12 +252,12 @@ The main workspace chat path now uses a BFF-owned protocol rather than frontend-
 - `src/core/bff-chat/` owns conversation API calls, stream parsing, and frontend chat state updates.
 - `src/app/api/bff/conversations/` contains the same-origin bridge routes from the browser to the FastAPI BFF.
 - `src/app/workspace/chats/[conversation_id]/` is the main BFF-backed chat route.
-- the BFF currently owns `create`, `list`, `detail`, `rename`, `delete`, and `messages/stream` for conversations
+- the BFF currently owns `create`, `list`, `detail`, `rename`, `pin`, `delete`, and `messages/stream` for conversations
 
 Current chat limitations:
 
 - MCP, skills, and agents are same-origin server bridges today, not BFF-owned APIs
-- recent conversations now expose sidebar rename/delete actions through the BFF-backed chat path
+- recent conversations now expose sidebar pin/rename/delete actions through the BFF-backed chat path
 - agent-specific chat paths still retain more legacy runtime semantics than the main chat path
 
 Recommended next follow-up for the BFF chat path:

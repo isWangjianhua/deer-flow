@@ -11,6 +11,8 @@ import {
   FileText,
   MoreHorizontal,
   Pencil,
+  Pin,
+  PinOff,
   Share2,
   Trash2,
 } from "lucide-react";
@@ -52,7 +54,9 @@ import {
   deleteConversation,
   listConversations,
   renameConversation,
+  setConversationPinned,
 } from "@/core/bff-chat";
+import type { BffConversation } from "@/core/bff-chat";
 import { isBffChatRoute } from "@/core/bff-chat/ui";
 import { useI18n } from "@/core/i18n/hooks";
 import {
@@ -102,6 +106,48 @@ function BffRecentChatList({ pathname }: { pathname: string }) {
     null,
   );
 
+  const sortConversations = useCallback((items: BffConversation[]) => {
+    return [...items].sort((left, right) => {
+      if (left.is_pinned !== right.is_pinned) {
+        return left.is_pinned ? -1 : 1;
+      }
+
+      if (left.is_pinned && right.is_pinned) {
+        return (
+          new Date(right.pinned_at ?? 0).getTime() -
+          new Date(left.pinned_at ?? 0).getTime()
+        );
+      }
+
+      return (
+        new Date(right.updated_at).getTime() -
+        new Date(left.updated_at).getTime()
+      );
+    });
+  }, []);
+
+  const updateConversationCache = useCallback(
+    (updatedConversation: BffConversation) => {
+      queryClient.setQueryData(
+        ["bff", "conversations"],
+        (oldData: BffConversation[] | undefined) => {
+          const merged = oldData?.map((conversation) => {
+            if (conversation.id === updatedConversation.id) {
+              return {
+                ...conversation,
+                ...updatedConversation,
+              };
+            }
+            return conversation;
+          });
+
+          return merged ? sortConversations(merged) : merged;
+        },
+      );
+    },
+    [queryClient, sortConversations],
+  );
+
   const closeRenameDialog = useCallback(() => {
     setRenameDialogOpen(false);
     setRenameConversationId(null);
@@ -122,31 +168,30 @@ function BffRecentChatList({ pathname }: { pathname: string }) {
       title: string;
     }) => renameConversation(conversationId, title),
     onSuccess(updatedConversation) {
-      queryClient.setQueryData(
-        ["bff", "conversations"],
-        (oldData:
-          | Array<{
-              id: string;
-              title: string | null;
-              created_at: string;
-              updated_at: string;
-            }>
-          | undefined) => {
-          return oldData?.map((conversation) => {
-            if (conversation.id === updatedConversation.id) {
-              return {
-                ...conversation,
-                ...updatedConversation,
-              };
-            }
-            return conversation;
-          });
-        },
-      );
+      updateConversationCache(updatedConversation);
       closeRenameDialog();
     },
     onError() {
       toast.error("Failed to rename conversation");
+    },
+    onSettled() {
+      void queryClient.invalidateQueries({ queryKey: ["bff", "conversations"] });
+    },
+  });
+
+  const { mutate: pinConversationMutation } = useMutation({
+    mutationFn: async ({
+      conversationId,
+      isPinned,
+    }: {
+      conversationId: string;
+      isPinned: boolean;
+    }) => setConversationPinned(conversationId, isPinned),
+    onSuccess(updatedConversation) {
+      updateConversationCache(updatedConversation);
+    },
+    onError() {
+      toast.error("Failed to update pinned conversation");
     },
     onSettled() {
       void queryClient.invalidateQueries({ queryKey: ["bff", "conversations"] });
@@ -159,14 +204,7 @@ function BffRecentChatList({ pathname }: { pathname: string }) {
     onSuccess(_, { conversationId }) {
       queryClient.setQueryData(
         ["bff", "conversations"],
-        (oldData:
-          | Array<{
-              id: string;
-              title: string | null;
-              created_at: string;
-              updated_at: string;
-            }>
-          | undefined) => {
+        (oldData: BffConversation[] | undefined) => {
           return oldData?.filter(
             (conversation) => conversation.id !== conversationId,
           );
@@ -223,6 +261,13 @@ function BffRecentChatList({ pathname }: { pathname: string }) {
     [],
   );
 
+  const handlePinToggle = useCallback(
+    (conversationId: string, isPinned: boolean) => {
+      pinConversationMutation({ conversationId, isPinned });
+    },
+    [pinConversationMutation],
+  );
+
   const handleDeleteConfirm = useCallback(() => {
     if (!deleteConversationId) {
       return;
@@ -249,78 +294,118 @@ function BffRecentChatList({ pathname }: { pathname: string }) {
     [closeDeleteDialog],
   );
 
+  const pinnedConversations = conversations.filter(
+    (conversation) => conversation.is_pinned,
+  );
+  const recentConversations = conversations.filter(
+    (conversation) => !conversation.is_pinned,
+  );
+
+  const renderConversationSection = useCallback(
+    (title: string, items: BffConversation[]) => {
+      if (items.length === 0) {
+        return null;
+      }
+
+      return (
+        <SidebarGroup>
+          <SidebarGroupLabel>{title}</SidebarGroupLabel>
+          <SidebarGroupContent className="group-data-[collapsible=icon]:pointer-events-none group-data-[collapsible=icon]:-mt-8 group-data-[collapsible=icon]:opacity-0">
+            <SidebarMenu>
+              <div className="flex w-full flex-col gap-1">
+                {items.map((conversation) => {
+                  const href = `/workspace/chats/${conversation.id}`;
+                  const isActive = href === pathname;
+                  const displayTitle =
+                    conversation.title?.trim() ?? t.pages.untitled;
+                  const editableTitle = conversation.title?.trim() ?? "";
+
+                  return (
+                    <SidebarMenuItem
+                      key={conversation.id}
+                      className="group/side-menu-item"
+                    >
+                      <SidebarMenuButton isActive={isActive} asChild>
+                        <div>
+                          <Link
+                            className="text-muted-foreground block w-full whitespace-nowrap group-hover/side-menu-item:overflow-hidden"
+                            href={href}
+                          >
+                            {displayTitle}
+                          </Link>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <SidebarMenuAction
+                                showOnHover
+                                className="bg-background/50 hover:bg-background"
+                              >
+                                <MoreHorizontal />
+                                <span className="sr-only">{t.common.more}</span>
+                              </SidebarMenuAction>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent
+                              className="w-48 rounded-lg"
+                              side={"right"}
+                              align={"start"}
+                            >
+                              <DropdownMenuItem
+                                onSelect={() =>
+                                  handlePinToggle(
+                                    conversation.id,
+                                    !conversation.is_pinned,
+                                  )
+                                }
+                              >
+                                {conversation.is_pinned ? (
+                                  <PinOff className="text-muted-foreground" />
+                                ) : (
+                                  <Pin className="text-muted-foreground" />
+                                )}
+                                <span>
+                                  {conversation.is_pinned
+                                    ? t.common.unpin
+                                    : t.common.pin}
+                                </span>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onSelect={() =>
+                                  handleRenameClick(conversation.id, editableTitle)
+                                }
+                              >
+                                <Pencil className="text-muted-foreground" />
+                                <span>{t.common.rename}</span>
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onSelect={() => handleDelete(conversation.id)}
+                              >
+                                <Trash2 className="text-muted-foreground" />
+                                <span>{t.common.delete}</span>
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </div>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      );
+    },
+    [handleDelete, handlePinToggle, handleRenameClick, pathname, t.common.delete, t.common.more, t.common.pin, t.common.rename, t.common.unpin, t.pages.untitled],
+  );
+
   if (conversations.length === 0) {
     return null;
   }
 
   return (
     <>
-      <SidebarGroup>
-        <SidebarGroupLabel>{t.sidebar.recentChats}</SidebarGroupLabel>
-        <SidebarGroupContent className="group-data-[collapsible=icon]:pointer-events-none group-data-[collapsible=icon]:-mt-8 group-data-[collapsible=icon]:opacity-0">
-          <SidebarMenu>
-            <div className="flex w-full flex-col gap-1">
-              {conversations.map((conversation) => {
-                const href = `/workspace/chats/${conversation.id}`;
-                const isActive = href === pathname;
-                const displayTitle =
-                  conversation.title?.trim() ?? t.pages.untitled;
-                const editableTitle = conversation.title?.trim() ?? "";
-
-                return (
-                  <SidebarMenuItem
-                    key={conversation.id}
-                    className="group/side-menu-item"
-                  >
-                    <SidebarMenuButton isActive={isActive} asChild>
-                      <div>
-                        <Link
-                          className="text-muted-foreground block w-full whitespace-nowrap group-hover/side-menu-item:overflow-hidden"
-                          href={href}
-                        >
-                          {displayTitle}
-                        </Link>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <SidebarMenuAction
-                              showOnHover
-                              className="bg-background/50 hover:bg-background"
-                            >
-                              <MoreHorizontal />
-                              <span className="sr-only">{t.common.more}</span>
-                            </SidebarMenuAction>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent
-                            className="w-48 rounded-lg"
-                            side={"right"}
-                            align={"start"}
-                          >
-                            <DropdownMenuItem
-                              onSelect={() =>
-                                handleRenameClick(conversation.id, editableTitle)
-                              }
-                            >
-                              <Pencil className="text-muted-foreground" />
-                              <span>{t.common.rename}</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              onSelect={() => handleDelete(conversation.id)}
-                            >
-                              <Trash2 className="text-muted-foreground" />
-                              <span>{t.common.delete}</span>
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </div>
-          </SidebarMenu>
-        </SidebarGroupContent>
-      </SidebarGroup>
+      {renderConversationSection(t.sidebar.pinnedChats, pinnedConversations)}
+      {renderConversationSection(t.sidebar.recentChats, recentConversations)}
 
       <Dialog
         open={renameDialogOpen}

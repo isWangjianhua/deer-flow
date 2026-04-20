@@ -1,3 +1,5 @@
+from sqlalchemy import inspect, text
+
 from fastapi import FastAPI
 
 from app.api.routes import auth, conversation_resources, conversations, models, users
@@ -7,8 +9,27 @@ from app.db.session import SessionLocal, engine
 from app.models.user import User
 
 
+def ensure_conversation_schema() -> None:
+    inspector = inspect(engine)
+    if "conversations" not in inspector.get_table_names():
+        return
+
+    columns = {column["name"] for column in inspector.get_columns("conversations")}
+
+    with engine.begin() as conn:
+        if "is_pinned" not in columns:
+            conn.execute(
+                text(
+                    "ALTER TABLE conversations ADD COLUMN is_pinned BOOLEAN NOT NULL DEFAULT 0"
+                )
+            )
+        if "pinned_at" not in columns:
+            conn.execute(text("ALTER TABLE conversations ADD COLUMN pinned_at DATETIME"))
+
+
 def init_db() -> None:
     Base.metadata.create_all(bind=engine)
+    ensure_conversation_schema()
 
     with SessionLocal() as db:
         existing = db.query(User).filter(User.username == "demo").first()

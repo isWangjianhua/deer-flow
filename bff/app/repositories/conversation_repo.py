@@ -18,7 +18,11 @@ class ConversationRepository:
         statement = (
             select(Conversation)
             .where(Conversation.user_id == user_id)
-            .order_by(Conversation.updated_at.desc())
+            .order_by(
+                Conversation.is_pinned.desc(),
+                Conversation.pinned_at.desc(),
+                Conversation.updated_at.desc(),
+            )
         )
         return list(self.db.scalars(statement))
 

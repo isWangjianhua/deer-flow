@@ -44,6 +44,8 @@ export const enUS: Translations = {
     preview: "Preview",
     cancel: "Cancel",
     save: "Save",
+    pin: "Pin chat",
+    unpin: "Unpin chat",
     install: "Install",
     create: "Create",
     import: "Import",
@@ -169,6 +171,7 @@ export const enUS: Translations = {
 
   // Sidebar
   sidebar: {
+    pinnedChats: "Pinned",
     newChat: "New chat",
     chats: "Chats",
     recentChats: "Recent chats",

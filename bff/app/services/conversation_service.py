@@ -41,19 +41,46 @@ class ConversationService:
         return [ConversationListItem.model_validate(item) for item in items]
 
     def rename_conversation(self, user_id: str, conversation_id: str, title: str) -> Conversation:
+        return self.patch_conversation(user_id, conversation_id, title=title)
+
+    def patch_conversation(
+        self,
+        user_id: str,
+        conversation_id: str,
+        *,
+        title: str | None = None,
+        is_pinned: bool | None = None,
+    ) -> Conversation:
         conversation = self.require_owned_conversation(user_id, conversation_id)
-        normalized_title = title.strip()
-        if not normalized_title:
+        changed = False
+
+        if title is None and is_pinned is None:
             raise error_response(
                 status.HTTP_422_UNPROCESSABLE_ENTITY,
-                "invalid_title",
-                "Conversation title is required",
+                "invalid_patch",
+                "At least one conversation field must be provided",
             )
 
-        if normalized_title == conversation.title:
+        if title is not None:
+            normalized_title = title.strip()
+            if not normalized_title:
+                raise error_response(
+                    status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    "invalid_title",
+                    "Conversation title is required",
+                )
+            if normalized_title != conversation.title:
+                conversation.title = normalized_title
+                changed = True
+
+        if is_pinned is not None and is_pinned != conversation.is_pinned:
+            conversation.is_pinned = is_pinned
+            conversation.pinned_at = datetime.now(UTC) if is_pinned else None
+            changed = True
+
+        if not changed:
             return conversation
 
-        conversation.title = normalized_title
         conversation.updated_at = datetime.now(UTC)
         return self.repo.save(conversation)
 

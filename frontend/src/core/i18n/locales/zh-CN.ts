@@ -44,6 +44,8 @@ export const zhCN: Translations = {
     preview: "预览",
     cancel: "取消",
     save: "保存",
+    pin: "置顶对话",
+    unpin: "取消置顶",
     install: "安装",
     create: "创建",
     import: "导入",
@@ -163,6 +165,7 @@ export const zhCN: Translations = {
 
   // Sidebar
   sidebar: {
+    pinnedChats: "置顶",
     newChat: "新对话",
     chats: "对话",
     recentChats: "最近的对话",

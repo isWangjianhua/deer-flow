@@ -11,7 +11,7 @@ from app.schemas.conversation import (
     ConversationDeleteResponse,
     ConversationDetailResponse,
     ConversationListItem,
-    ConversationRenameRequest,
+    ConversationPatchRequest,
     StreamMessageRequest,
 )
 from app.services.conversation_service import (
@@ -57,16 +57,17 @@ async def get_conversation(
 
 
 @router.patch("/{conversation_id}", response_model=ConversationListItem)
-async def rename_conversation(
+async def patch_conversation(
     conversation_id: str,
-    payload: ConversationRenameRequest,
+    payload: ConversationPatchRequest,
     user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db_session),
 ) -> ConversationListItem:
-    conversation = ConversationService(db).rename_conversation(
+    conversation = ConversationService(db).patch_conversation(
         user_id,
         conversation_id,
-        payload.title,
+        title=payload.title,
+        is_pinned=payload.is_pinned,
     )
     return ConversationListItem.model_validate(conversation)
 

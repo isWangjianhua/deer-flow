@@ -144,3 +144,43 @@ def test_delete_conversation_removes_owned_mapping(client, monkeypatch) -> None:
     assert listed.status_code == 200
     assert listed.json() == []
     assert detail.status_code == 404
+
+
+def test_pin_and_unpin_conversation_update_sidebar_order(client, monkeypatch) -> None:
+    created_threads: list[str] = []
+
+    async def mock_create_thread(self) -> str:
+        thread_id = f"thread-{len(created_threads) + 1}"
+        created_threads.append(thread_id)
+        return thread_id
+
+    monkeypatch.setattr(DeerFlowClient, "create_thread", mock_create_thread)
+
+    login = client.post("/auth/login", json={"username": "demo", "password": "demo1234"})
+    token = login.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    first = client.post("/conversations", headers=headers)
+    second = client.post("/conversations", headers=headers)
+
+    pinned = client.request(
+        "PATCH",
+        f"/conversations/{second.json()['id']}",
+        headers=headers,
+        json={"is_pinned": True},
+    )
+    listed = client.get("/conversations", headers=headers)
+    unpinned = client.request(
+        "PATCH",
+        f"/conversations/{second.json()['id']}",
+        headers=headers,
+        json={"is_pinned": False},
+    )
+
+    assert pinned.status_code == 200
+    assert pinned.json()["is_pinned"] is True
+    assert listed.status_code == 200
+    assert listed.json()[0]["id"] == second.json()["id"]
+    assert listed.json()[0]["is_pinned"] is True
+    assert unpinned.status_code == 200
+    assert unpinned.json()["is_pinned"] is False

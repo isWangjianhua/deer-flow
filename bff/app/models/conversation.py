@@ -15,6 +15,8 @@ class Conversation(Base):
     deerflow_thread_id: Mapped[str] = mapped_column(String(128), unique=True, index=True)
     title: Mapped[str] = mapped_column(String(255), default="New conversation")
     status: Mapped[str] = mapped_column(String(32), default="active")
+    is_pinned: Mapped[bool] = mapped_column(default=False)
+    pinned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(UTC),

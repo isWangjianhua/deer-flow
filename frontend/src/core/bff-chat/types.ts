@@ -5,6 +5,8 @@ import type { Todo } from "@/core/todos";
 export type BffConversation = {
   id: string;
   title: string | null;
+  is_pinned: boolean;
+  pinned_at: string | null;
   created_at: string;
   updated_at: string;
 };

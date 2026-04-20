@@ -8,6 +8,8 @@ const {
   getConversation,
   listConversations,
   renameConversation,
+  setConversationPinned,
+  updateConversation,
 } = await import(
   new URL("./api.ts", import.meta.url).href,
 );
@@ -40,6 +42,8 @@ void test("lists conversations through the BFF", async () => {
         {
           id: "conversation-1",
           title: "Existing chat",
+          is_pinned: false,
+          pinned_at: null,
           created_at: "2026-04-10T00:00:00Z",
           updated_at: "2026-04-10T00:00:00Z",
         },
@@ -61,6 +65,8 @@ void test("loads a conversation detail through the BFF", async () => {
         id: "conversation-1",
         title: "Existing chat",
         status: "active",
+        is_pinned: false,
+        pinned_at: null,
         created_at: "2026-04-10T00:00:00Z",
         updated_at: "2026-04-10T00:00:00Z",
         values: {
@@ -91,6 +97,8 @@ void test("renames a conversation through the BFF", async () => {
         JSON.stringify({
           id: "conversation-1",
           title: "Renamed chat",
+          is_pinned: false,
+          pinned_at: null,
           created_at: "2026-04-10T00:00:00Z",
           updated_at: "2026-04-11T00:00:00Z",
           status: "active",
@@ -118,6 +126,58 @@ void test("deletes a conversation through the BFF", async () => {
   );
 
   assert.deepEqual(result, { success: true, id: "conversation-1" });
+});
+
+void test("patches conversation pin state through the BFF", async () => {
+  const result = await updateConversation(
+    "conversation-1",
+    { is_pinned: true },
+    async (input, init) => {
+      assert.equal(input, "/api/bff/conversations/conversation-1");
+      assert.equal(init?.method, "PATCH");
+      assert.equal(String(init?.body), JSON.stringify({ is_pinned: true }));
+
+      return new Response(
+        JSON.stringify({
+          id: "conversation-1",
+          title: "Pinned chat",
+          created_at: "2026-04-10T00:00:00Z",
+          updated_at: "2026-04-11T00:00:00Z",
+          status: "active",
+          is_pinned: true,
+          pinned_at: "2026-04-11T00:00:00Z",
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    },
+  );
+
+  assert.equal(result.is_pinned, true);
+});
+
+void test("pins a conversation through the convenience helper", async () => {
+  const result = await setConversationPinned(
+    "conversation-1",
+    true,
+    async (_input, init) => {
+      assert.equal(String(init?.body), JSON.stringify({ is_pinned: true }));
+
+      return new Response(
+        JSON.stringify({
+          id: "conversation-1",
+          title: "Pinned chat",
+          is_pinned: true,
+          pinned_at: "2026-04-11T00:00:00Z",
+          created_at: "2026-04-10T00:00:00Z",
+          updated_at: "2026-04-11T00:00:00Z",
+          status: "active",
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    },
+  );
+
+  assert.equal(result.is_pinned, true);
 });
 
 void test("posts a user message to the BFF stream endpoint", async () => {

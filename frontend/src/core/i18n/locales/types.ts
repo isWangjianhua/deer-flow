@@ -31,6 +31,8 @@ export interface Translations {
     preview: string;
     cancel: string;
     save: string;
+    pin: string;
+    unpin: string;
     install: string;
     create: string;
     import: string;
@@ -111,6 +113,7 @@ export interface Translations {
 
   // Sidebar
   sidebar: {
+    pinnedChats: string;
     recentChats: string;
     newChat: string;
     chats: string;

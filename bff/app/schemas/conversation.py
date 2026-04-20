@@ -10,6 +10,8 @@ class ConversationCreateResponse(BaseModel):
     id: str
     title: str
     status: str
+    is_pinned: bool = False
+    pinned_at: datetime | None = None
     created_at: datetime
 
 
@@ -19,6 +21,8 @@ class ConversationListItem(BaseModel):
     id: str
     title: str
     status: str
+    is_pinned: bool = False
+    pinned_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -36,13 +40,16 @@ class ConversationDetailResponse(BaseModel):
     id: str
     title: str
     status: str
+    is_pinned: bool = False
+    pinned_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
     values: ConversationStateValues
 
 
-class ConversationRenameRequest(BaseModel):
-    title: str
+class ConversationPatchRequest(BaseModel):
+    title: str | None = None
+    is_pinned: bool | None = None
 
 
 class ConversationDeleteResponse(BaseModel):

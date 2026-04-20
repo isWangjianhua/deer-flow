@@ -71,3 +71,25 @@ def test_delete_conversation_removes_record_after_thread_cleanup(db_session, mon
     assert deleted == {"success": True, "id": created.id}
     assert calls == ["thread-123"]
     assert persisted is None
+
+
+def test_pin_and_unpin_conversation_update_owned_state(db_session) -> None:
+    user = User(username="alice", password_hash="hashed")
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+
+    service = ConversationService(db_session)
+    created = service.create_conversation(
+        user_id=user.id,
+        deerflow_thread_id="thread-123",
+    )
+
+    pinned = service.patch_conversation(user.id, created.id, is_pinned=True)
+    assert pinned.is_pinned is True
+    assert pinned.pinned_at is not None
+
+    unpinned = service.patch_conversation(user.id, created.id, is_pinned=False)
+
+    assert unpinned.is_pinned is False
+    assert unpinned.pinned_at is None
