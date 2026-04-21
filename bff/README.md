@@ -33,6 +33,7 @@ gateway route structure.
 | `POST /auth/register` | local registration |
 | `GET /me` | current user |
 | `GET /models` | model list for the frontend |
+| `GET /memory` | readonly user-scoped Memory for the frontend |
 | `POST /conversations` | create a conversation |
 | `GET /conversations` | list conversations |
 | `GET /conversations/{conversation_id}` | conversation detail |
@@ -94,8 +95,9 @@ Sensitive values stay in `bff/.env`, especially:
 `app/clients/deerflow.py` is the only place that should talk to DeerFlow
 Gateway directly from the BFF. When BFF code needs user-scoped Mem0 memory, it
 must call the client with `user_id=...`; the client is responsible for sending
-`X-User-Id` to Gateway. Keep that header logic centralized there instead of
-rebuilding it in routes or services.
+`X-User-Id` to Gateway. The readonly `GET /memory` route follows this rule and
+is now the browser-facing Memory contract. Keep that header logic centralized
+there instead of rebuilding it in routes or services.
 
 ## Read Next
 

@@ -6,16 +6,20 @@ async function readSource(relativePath: string) {
   return readFile(new URL(relativePath, import.meta.url), "utf8");
 }
 
-void test("memory API uses same-origin memory routes", async () => {
+void test("memory API uses the BFF-owned memory route", async () => {
   const source = await readSource("./memory/api.ts");
 
   assert.ok(
-    source.includes('fetch("/api/memory"'),
-    "expected memory API to use the same-origin /api/memory route",
+    source.includes('fetch("/api/bff/memory"'),
+    "expected memory API to use the BFF-owned /api/bff/memory route",
   );
   assert.ok(
-    !source.includes("getBackendBaseURL"),
-    "expected memory API to stop reading the raw backend base URL",
+    !source.includes('fetch("/api/memory"'),
+    "expected memory API to stop targeting the old frontend-owned /api/memory route",
+  );
+  assert.ok(
+    !source.includes("clearMemory"),
+    "expected the readonly memory client to drop clearMemory",
   );
 });
 

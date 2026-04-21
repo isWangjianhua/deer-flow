@@ -138,9 +138,10 @@ Current same-origin browser behavior:
 - main chat artifact viewing/downloading goes through `/api/bff/conversations/*/artifacts/*`
 - main chat follow-up suggestions go through `/api/bff/conversations/*/suggestions`
 - main chat attachment uploads go through `/api/bff/conversations/*/uploads`
-- MCP, skills, agents, and memory go through same-origin Next.js bridge routes
-- `Settings > Memory` is available again and reads from the same-origin `/api/memory*` bridge
-- when `memory.provider=mem0`, the Memory bridge resolves the authenticated BFF user and forwards `X-User-Id` so memory stays user-scoped
+- chat create/list/detail/stream and readonly Memory now go through `/api/bff/*`
+- MCP, skills, and agents still go through same-origin Next.js bridge routes
+- `Settings > Memory` is readonly in this slice and reads from `/api/bff/memory`
+- when `memory.provider=mem0`, BFF resolves the current user and preserves user-scoped Memory reads via `X-User-Id`
 - `/workspace/account` is now a product-facing account/status page with a shared auth panel, session diagnostics, and unauthenticated chat recovery
 
 Implementation note:
@@ -167,7 +168,7 @@ Current startup story:
 
 Current nginx ownership:
 
-- browser-visible `/api/models`, `/api/memory`, `/api/mcp`, `/api/skills`, `/api/agents`, and `/api/threads/*`
+- browser-visible `/api/models`, `/api/mcp`, `/api/skills`, `/api/agents`, and `/api/threads/*`
   now fall through to `frontend`
 - Next.js same-origin route handlers own those browser entrypoints
 - direct browser access to `http://127.0.0.1:8001` is still non-canonical because the gateway expects
