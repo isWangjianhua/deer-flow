@@ -2,8 +2,8 @@
 
 import { ShieldCheck } from "lucide-react";
 
-import { AuthPanel } from "@/components/auth/auth-panel";
 import { AccountSessionCard } from "@/components/auth/account-session-card";
+import { AuthPanel } from "@/components/auth/auth-panel";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { Badge } from "@/components/ui/badge";
 import { useBrowserAuthSession } from "@/core/auth/browser";

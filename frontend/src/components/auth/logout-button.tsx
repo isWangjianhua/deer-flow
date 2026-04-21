@@ -2,7 +2,8 @@
 
 import type { VariantProps } from "class-variance-authority";
 
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
+import type { buttonVariants } from "@/components/ui/button";
 import { signOut } from "@/core/auth/browser";
 
 export function LogoutButton({
