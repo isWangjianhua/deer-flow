@@ -141,8 +141,10 @@ export function MemorySettingsPage() {
     [memory, normalizedQuery],
   );
 
-  const showSummaries = filter === "all" || filter === "summaries";
-  const showFacts = filter === "all" || filter === "facts";
+  const summariesAvailable = memory ? !isMemorySummaryEmpty(memory) : false;
+  const showSummaries =
+    summariesAvailable && (filter === "all" || filter === "summaries");
+  const showFacts = !summariesAvailable || filter === "all" || filter === "facts";
 
   return (
     <SettingsSection
@@ -170,9 +172,11 @@ export function MemorySettingsPage() {
             <div className="text-muted-foreground text-sm">
               {t.common.lastUpdated}: {memory.lastUpdated ? formatTimeAgo(memory.lastUpdated) : null}
             </div>
-            <div className="text-muted-foreground text-sm">
-              {t.settings.memory.summaryReadOnly}
-            </div>
+            {summariesAvailable ? (
+              <div className="text-muted-foreground text-sm">
+                {t.settings.memory.summaryReadOnly}
+              </div>
+            ) : null}
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
               <Input
                 value={query}
@@ -182,21 +186,29 @@ export function MemorySettingsPage() {
               />
               <ToggleGroup
                 type="single"
-                value={filter}
+                value={summariesAvailable ? filter : "facts"}
                 onValueChange={(value) => {
-                  if (value === "all" || value === "facts" || value === "summaries") {
-                    setFilter(value);
+                  if (
+                    value === "facts" ||
+                    (summariesAvailable && value === "all") ||
+                    (summariesAvailable && value === "summaries")
+                  ) {
+                    setFilter(value as MemoryViewFilter);
                   }
                 }}
               >
-                <ToggleGroupItem value="all">
-                  {t.settings.memory.filterAll}
-                </ToggleGroupItem>
+                {summariesAvailable ? (
+                  <>
+                    <ToggleGroupItem value="all">
+                      {t.settings.memory.filterAll}
+                    </ToggleGroupItem>
+                    <ToggleGroupItem value="summaries">
+                      {t.settings.memory.filterSummaries}
+                    </ToggleGroupItem>
+                  </>
+                ) : null}
                 <ToggleGroupItem value="facts">
                   {t.settings.memory.filterFacts}
-                </ToggleGroupItem>
-                <ToggleGroupItem value="summaries">
-                  {t.settings.memory.filterSummaries}
                 </ToggleGroupItem>
               </ToggleGroup>
             </div>
