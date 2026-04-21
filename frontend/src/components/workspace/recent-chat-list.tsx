@@ -59,9 +59,6 @@ export function RecentChatList() {
     return <BffRecentChatList pathname={pathname} />;
   }
 
-  if (pathname.startsWith("/workspace/agents")) {
-    return null;
-  }
 
   return null;
 }
