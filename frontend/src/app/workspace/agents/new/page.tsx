@@ -27,6 +27,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { AgentsDisabledState } from "@/components/workspace/agents/agents-disabled-state";
 import { ArtifactsProvider } from "@/components/workspace/artifacts";
 import { MessageList } from "@/components/workspace/messages";
 import { ThreadContext } from "@/components/workspace/messages/context";
@@ -37,6 +38,7 @@ import {
   createAgent,
   getAgent,
 } from "@/core/agents/api";
+import { isAgentsUiEnabled } from "@/core/agents/feature";
 import { useI18n } from "@/core/i18n/hooks";
 import { useThreadStream } from "@/core/threads/hooks";
 import { uuid } from "@/core/utils/uuid";
@@ -84,7 +86,7 @@ function getCreateAgentErrorMessage(
   return fallbackMessage;
 }
 
-export default function NewAgentPage() {
+function NewAgentPageEnabled() {
   const { t } = useI18n();
   const router = useRouter();
 
@@ -419,4 +421,8 @@ export default function NewAgentPage() {
       </ArtifactsProvider>
     </ThreadContext.Provider>
   );
+}
+
+export default function NewAgentPage() {
+  return isAgentsUiEnabled() ? <NewAgentPageEnabled /> : <AgentsDisabledState />;
 }

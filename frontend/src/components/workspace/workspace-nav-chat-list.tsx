@@ -10,6 +10,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
+import { isAgentsUiEnabled } from "@/core/agents/feature";
 import { useI18n } from "@/core/i18n/hooks";
 
 export function WorkspaceNavChatList() {
@@ -26,17 +27,19 @@ export function WorkspaceNavChatList() {
             </Link>
           </SidebarMenuButton>
         </SidebarMenuItem>
-        <SidebarMenuItem>
-          <SidebarMenuButton
-            isActive={pathname.startsWith("/workspace/agents")}
-            asChild
-          >
-            <Link className="text-muted-foreground" href="/workspace/agents">
-              <BotIcon />
-              <span>{t.sidebar.agents}</span>
-            </Link>
-          </SidebarMenuButton>
-        </SidebarMenuItem>
+        {isAgentsUiEnabled() ? (
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              isActive={pathname.startsWith("/workspace/agents")}
+              asChild
+            >
+              <Link className="text-muted-foreground" href="/workspace/agents">
+                <BotIcon />
+                <span>{t.sidebar.agents}</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        ) : null}
       </SidebarMenu>
     </SidebarGroup>
   );

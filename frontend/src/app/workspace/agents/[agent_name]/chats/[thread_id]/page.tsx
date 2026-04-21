@@ -9,6 +9,7 @@ import { LoginRequiredDialog } from "@/components/auth/login-required-dialog";
 import { useLoginRequiredSubmit } from "@/components/auth/use-login-required-submit";
 import { Button } from "@/components/ui/button";
 import { AgentWelcome } from "@/components/workspace/agent-welcome";
+import { AgentsDisabledState } from "@/components/workspace/agents/agents-disabled-state";
 import { ArtifactTrigger } from "@/components/workspace/artifacts";
 import { ChatBox, useThreadChat } from "@/components/workspace/chats";
 import { ExportTrigger } from "@/components/workspace/export-trigger";
@@ -24,6 +25,7 @@ import { TodoList } from "@/components/workspace/todo-list";
 import { TokenUsageIndicator } from "@/components/workspace/token-usage-indicator";
 import { Tooltip } from "@/components/workspace/tooltip";
 import { useAgent } from "@/core/agents";
+import { isAgentsUiEnabled } from "@/core/agents/feature";
 import { useI18n } from "@/core/i18n/hooks";
 import { useNotification } from "@/core/notification/hooks";
 import { useThreadSettings } from "@/core/settings";
@@ -32,7 +34,7 @@ import { textOfMessage } from "@/core/threads/utils";
 import { env } from "@/env";
 import { cn } from "@/lib/utils";
 
-export default function AgentChatPage() {
+function AgentChatPageEnabled() {
   const { t } = useI18n();
   const [showFollowups, setShowFollowups] = useState(false);
   const {
@@ -225,4 +227,8 @@ export default function AgentChatPage() {
       </ChatBox>
     </ThreadContext.Provider>
   );
+}
+
+export default function AgentChatPage() {
+  return isAgentsUiEnabled() ? <AgentChatPageEnabled /> : <AgentsDisabledState />;
 }

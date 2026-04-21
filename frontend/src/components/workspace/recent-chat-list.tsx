@@ -41,6 +41,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
+import { isAgentsUiEnabled } from "@/core/agents/feature";
 import {
   deleteConversation,
   listConversations,
@@ -55,12 +56,12 @@ import { isIMEComposing } from "@/lib/ime";
 export function RecentChatList() {
   const pathname = usePathname();
 
-  if (
-    isBffChatRoute(pathname) ||
-    pathname === "/workspace/account" ||
-    pathname.startsWith("/workspace/agents")
-  ) {
+  if (isBffChatRoute(pathname) || pathname === "/workspace/account") {
     return <BffRecentChatList pathname={pathname} />;
+  }
+
+  if (pathname.startsWith("/workspace/agents")) {
+    return isAgentsUiEnabled() ? <BffRecentChatList pathname={pathname} /> : null;
   }
 
   return null;
