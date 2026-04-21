@@ -6,8 +6,8 @@ void test("recent chat list stays visible on agents routes", async () => {
   const source = await readFile(new URL("./recent-chat-list.tsx", import.meta.url), "utf8");
 
   assert.ok(
-    !source.includes('if (pathname.startsWith("/workspace/agents")) {\n    return null;\n  }'),
-    "expected agents routes to keep rendering the recent chat list",
+    source.includes('pathname.startsWith("/workspace/agents")'),
+    "expected agents routes to be part of the recent chat render condition",
   );
   assert.ok(
     source.includes('return <BffRecentChatList pathname={pathname} />;'),
