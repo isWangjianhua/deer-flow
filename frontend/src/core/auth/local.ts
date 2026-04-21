@@ -24,7 +24,6 @@ export type BrowserSession = {
   };
 };
 
-export const LOCAL_BFF_TOKEN_STORAGE_KEY = "deer-flow-local-bff-token";
 export const LOCAL_BFF_SESSION_STORAGE_KEY = "deer-flow-local-bff-session";
 export const LOCAL_AUTH_EVENT = "deer-flow:auth-local-changed";
 
@@ -36,10 +35,6 @@ export function isLocalDevAuthMode(
 
 export function getBffLocalAuthCookieName() {
   return "deer-flow-local-bff-token";
-}
-
-export function getLocalBffHeaderName() {
-  return "x-deerflow-local-bff-token";
 }
 
 export function toLocalDevSession(user: BffUserResponse): BrowserSession {
@@ -99,10 +94,7 @@ export function readLocalDevSession() {
   }
 }
 
-export function writeLocalDevSession(
-  session: BrowserSession | null,
-  accessToken?: string | null,
-) {
+export function writeLocalDevSession(session: BrowserSession | null) {
   if (typeof window === "undefined") {
     return;
   }
@@ -116,19 +108,5 @@ export function writeLocalDevSession(
     window.localStorage.removeItem(LOCAL_BFF_SESSION_STORAGE_KEY);
   }
 
-  if (accessToken) {
-    window.localStorage.setItem(LOCAL_BFF_TOKEN_STORAGE_KEY, accessToken);
-  } else if (accessToken === null || !session) {
-    window.localStorage.removeItem(LOCAL_BFF_TOKEN_STORAGE_KEY);
-  }
-
   window.dispatchEvent(new Event(LOCAL_AUTH_EVENT));
-}
-
-export function readLocalBffAccessToken() {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  return window.localStorage.getItem(LOCAL_BFF_TOKEN_STORAGE_KEY);
 }

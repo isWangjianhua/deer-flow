@@ -4,7 +4,6 @@ import test from "node:test";
 const {
   LOCAL_AUTH_EVENT,
   getBffLocalAuthCookieName,
-  getLocalBffHeaderName,
   isLocalDevAuthMode,
   toLocalDevSession,
   writeLocalDevSession,
@@ -12,7 +11,6 @@ const {
 
 void test("uses a stable cookie name for local bff auth", () => {
   assert.equal(getBffLocalAuthCookieName(), "deer-flow-local-bff-token");
-  assert.equal(getLocalBffHeaderName(), "x-deerflow-local-bff-token");
 });
 
 void test("maps local auth mode from env-style config", () => {
@@ -38,36 +36,34 @@ void test("broadcasts local auth changes after persisting the session", () => {
   const originalWindow = globalThis.window;
   const storage = new Map<string, string>();
   const dispatched: string[] = [];
-  const fakeWindow = new EventTarget() as Window & EventTarget & {
-    localStorage: Storage;
-  };
-
-  fakeWindow.localStorage = {
-    getItem(key: string) {
-      return storage.get(key) ?? null;
-    },
-    setItem(key: string, value: string) {
-      storage.set(key, value);
-    },
-    removeItem(key: string) {
-      storage.delete(key);
-    },
-    clear() {
-      storage.clear();
-    },
-    key(index: number) {
-      return [...storage.keys()][index] ?? null;
-    },
-    get length() {
-      return storage.size;
-    },
-  };
+  const fakeWindow = Object.assign(new EventTarget(), {
+    localStorage: {
+      getItem(key: string) {
+        return storage.get(key) ?? null;
+      },
+      setItem(key: string, value: string) {
+        storage.set(key, value);
+      },
+      removeItem(key: string) {
+        storage.delete(key);
+      },
+      clear() {
+        storage.clear();
+      },
+      key(index: number) {
+        return [...storage.keys()][index] ?? null;
+      },
+      get length() {
+        return storage.size;
+      },
+    } satisfies Storage,
+  });
 
   fakeWindow.addEventListener(LOCAL_AUTH_EVENT, () => {
     dispatched.push(LOCAL_AUTH_EVENT);
   });
 
-  globalThis.window = fakeWindow;
+  globalThis.window = fakeWindow as typeof globalThis.window;
 
   const session = toLocalDevSession({
     id: "user-1",
@@ -75,10 +71,11 @@ void test("broadcasts local auth changes after persisting the session", () => {
     email: "demo@example.com",
   });
 
-  writeLocalDevSession(session, "token-1");
+  writeLocalDevSession(session);
 
   assert.deepEqual(dispatched, [LOCAL_AUTH_EVENT]);
-  assert.equal(storage.get("deer-flow-local-bff-token"), "token-1");
+  assert.equal(storage.get("deer-flow-local-bff-token"), undefined);
+  assert.ok(storage.has("deer-flow-local-bff-session"));
 
   globalThis.window = originalWindow;
 });

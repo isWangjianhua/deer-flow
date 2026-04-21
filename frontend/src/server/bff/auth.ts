@@ -3,7 +3,6 @@ import { NextResponse } from "next/server";
 
 import {
   getBffLocalAuthCookieName,
-  getLocalBffHeaderName,
   isLocalDevAuthMode,
 } from "@/core/auth/local";
 
@@ -21,9 +20,7 @@ export function buildBearerHeaders(token: string, contentType?: string) {
 
 export async function requireBffAuth(request: NextRequest) {
   if (isLocalDevAuthMode()) {
-    const localToken =
-      request.headers.get(getLocalBffHeaderName()) ??
-      request.cookies.get(getBffLocalAuthCookieName())?.value;
+    const localToken = request.cookies.get(getBffLocalAuthCookieName())?.value;
 
     if (!localToken) {
       return {

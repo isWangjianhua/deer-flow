@@ -248,11 +248,10 @@ export async function signInWithLocalPassword(
   }
 
   const payload = (await response.json()) as {
-    accessToken?: string;
     session?: unknown;
   };
   const session = normalizeStoredSession(payload.session);
-  writeLocalDevSession(session, payload.accessToken ?? null);
+  writeLocalDevSession(session);
   return session;
 }
 
@@ -276,11 +275,10 @@ export async function signUpWithLocalPassword(
   }
 
   const payload = (await response.json()) as {
-    accessToken?: string;
     session?: unknown;
   };
   const session = normalizeStoredSession(payload.session);
-  writeLocalDevSession(session, payload.accessToken ?? null);
+  writeLocalDevSession(session);
   return session;
 }
 
@@ -289,5 +287,5 @@ export async function signOutLocal() {
     method: "POST",
     credentials: "same-origin",
   });
-  writeLocalDevSession(null, null);
+  writeLocalDevSession(null);
 }

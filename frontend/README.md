@@ -121,6 +121,9 @@ For local development without OIDC, use the BFF local auth provider instead:
 - or create a new local account from `/workspace/account`
 - local registration supports username/password only in this slice
 - email verification and password reset remain future work
+- local auth now relies on the HttpOnly BFF auth cookie for same-origin `/api/bff/*`
+  requests; the frontend no longer stores the raw BFF bearer token in
+  `localStorage`
 
 ### Current Runtime Boundary
 
@@ -229,6 +232,7 @@ src/
 
 - `src/server/better-auth/` contains Better Auth implementation details and OIDC provider wiring.
 - `src/core/auth/` is the stable frontend auth boundary for session state, provider config, and BFF request helpers.
+- In `NEXT_PUBLIC_AUTH_MODE=local`, login and registration set an HttpOnly cookie and only persist the synthetic browser session; raw BFF access tokens must not be exposed to browser JS or custom auth headers.
 - `src/core/auth/browser.ts` switches between live Better Auth behavior and a test-only browser mock adapter used by the auth E2E flow.
 - `src/app/api/bff/me/route.ts` is the first authenticated bridge route from the frontend to the FastAPI BFF.
 - `/api/bff/me` prefers `DEER_FLOW_INTERNAL_BFF_BASE_URL`, falls back to an absolute `NEXT_PUBLIC_BFF_BASE_URL`, and otherwise uses `http://127.0.0.1:9000`.

@@ -4,8 +4,9 @@ import test from "node:test";
 const { loadBffUser } = await import(new URL("./bff-user.ts", import.meta.url).href);
 
 void test("loads the current BFF user from the same-origin bridge route", async () => {
-  const user = await loadBffUser(async (input) => {
+  const user = await loadBffUser(async (input, init) => {
     assert.equal(input, "/api/bff/me");
+    assert.equal(init?.headers, undefined);
 
     return new Response(JSON.stringify({ id: "user-1", email: "demo@example.com" }), {
       status: 200,

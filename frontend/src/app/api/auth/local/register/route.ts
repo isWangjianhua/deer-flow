@@ -63,10 +63,7 @@ export async function POST(request: Request) {
   }
 
   const session = toLocalDevSession(mePayload);
-  const response = NextResponse.json({
-    session,
-    accessToken: registerData.access_token,
-  });
+  const response = NextResponse.json({ session });
   response.cookies.set({
     name: getBffLocalAuthCookieName(),
     value: registerData.access_token,

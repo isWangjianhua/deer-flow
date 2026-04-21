@@ -1,8 +1,3 @@
-import {
-  getLocalBffHeaderName,
-  isLocalDevAuthMode,
-  readLocalBffAccessToken,
-} from "@/core/auth/local";
 import type { AgentThreadContext } from "@/core/threads";
 
 import type {
@@ -46,13 +41,6 @@ function buildRequestHeaders(contentType?: string) {
   const headers = new Headers();
   if (contentType) {
     headers.set("content-type", contentType);
-  }
-
-  if (isLocalDevAuthMode()) {
-    const token = readLocalBffAccessToken();
-    if (token) {
-      headers.set(getLocalBffHeaderName(), token);
-    }
   }
 
   return headers;

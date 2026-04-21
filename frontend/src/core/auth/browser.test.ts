@@ -17,6 +17,23 @@ void test("browser auth exposes a local registration helper that persists the lo
     source.includes("writeLocalDevSession"),
     "expected the local registration helper to persist the returned local session",
   );
+  assert.ok(
+    !source.includes("payload.accessToken"),
+    "expected local registration to stop handling browser-visible access tokens",
+  );
+});
+
+void test("browser auth local sign-in no longer depends on access tokens from the bridge route", async () => {
+  const source = await readFile(new URL("./browser.ts", import.meta.url), "utf8");
+
+  assert.ok(
+    !source.includes("accessToken?: string"),
+    "expected local sign-in payload typing to stop declaring accessToken",
+  );
+  assert.ok(
+    !source.includes("payload.accessToken"),
+    "expected local sign-in to stop persisting access tokens from the bridge response",
+  );
 });
 
 void test("browser auth listens for local auth session change events", async () => {

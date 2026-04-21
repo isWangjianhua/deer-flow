@@ -66,6 +66,9 @@ browser
 - Treat `conversation_id` as the public identifier for the BFF-backed chat
   path.
 - Do not reintroduce raw runtime `thread_id` semantics into the BFF-backed UI.
+- In `NEXT_PUBLIC_AUTH_MODE=local`, keep the BFF bearer token in the HttpOnly
+  cookie only. Do not return it to browser JS, store it in `localStorage`, or
+  forward it through custom browser-set auth headers.
 - Prefer `:2026` when validating end-to-end behavior through nginx.
 
 ## Source Layout

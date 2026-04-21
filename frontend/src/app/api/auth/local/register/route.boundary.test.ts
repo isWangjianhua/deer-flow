@@ -17,4 +17,8 @@ void test("local register route proxies to the internal BFF registration endpoin
     source.includes("toLocalDevSession"),
     "expected the local register route to reuse the local dev session mapper",
   );
+  assert.ok(
+    !source.includes("accessToken:"),
+    "expected the local register route to stop echoing accessToken to browser JSON",
+  );
 });

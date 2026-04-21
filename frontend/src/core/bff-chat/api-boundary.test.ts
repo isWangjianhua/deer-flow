@@ -21,4 +21,12 @@ void test("bff chat api includes model context in stream requests", async () => 
     source.includes("reasoning_effort"),
     "expected bff stream API to support reasoning_effort forwarding",
   );
+  assert.ok(
+    !source.includes("readLocalBffAccessToken"),
+    "expected bff chat API to stop reading browser-visible local auth tokens",
+  );
+  assert.ok(
+    !source.includes("getLocalBffHeaderName"),
+    "expected bff chat API to stop attaching custom local auth headers",
+  );
 });
