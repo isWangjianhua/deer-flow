@@ -48,26 +48,26 @@ void test("README documents install as backend, bff, and frontend setup", async 
   );
 });
 
-void test("README removes the browser memory surface and documents the current channel commands", async () => {
+void test("README documents the browser memory surface and channel commands", async () => {
   const readme = await readFile(
     new URL("../../README.md", import.meta.url),
     "utf8",
   );
 
-  assert.doesNotMatch(
+  assert.match(
     readme,
     /Settings > Memory/,
-    "expected the root README to stop documenting the removed browser memory settings page",
+    "expected the root README to document the restored browser memory settings page",
   );
-  assert.doesNotMatch(
+  assert.match(
     readme,
     /\| `\/memory` \|/,
-    "expected the root README command table to stop listing the removed /memory command",
+    "expected the root README command table to list the restored \/memory command",
   );
   assert.match(
     readme,
     /\| `\/bootstrap` \|/,
-    "expected the root README command table to include the current /bootstrap channel command",
+    "expected the root README command table to keep the current \/bootstrap channel command",
   );
 });
 

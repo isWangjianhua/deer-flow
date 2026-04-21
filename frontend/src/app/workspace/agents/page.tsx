@@ -1,5 +1,5 @@
-import { AgentsDisabledState } from "@/components/workspace/agents/agents-disabled-state";
+import { AgentGallery } from "@/components/workspace/agents/agent-gallery";
 
 export default function AgentsPage() {
-  return <AgentsDisabledState />;
+  return <AgentGallery />;
 }

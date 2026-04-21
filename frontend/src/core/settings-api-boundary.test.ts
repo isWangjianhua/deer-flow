@@ -6,10 +6,16 @@ async function readSource(relativePath: string) {
   return readFile(new URL(relativePath, import.meta.url), "utf8");
 }
 
-void test("memory API surface has been removed", async () => {
-  await assert.rejects(
-    readSource("./memory/api.ts"),
-    (error: NodeJS.ErrnoException) => error.code === "ENOENT",
+void test("memory API uses same-origin memory routes", async () => {
+  const source = await readSource("./memory/api.ts");
+
+  assert.ok(
+    source.includes('fetch("/api/memory"'),
+    "expected memory API to use the same-origin /api/memory route",
+  );
+  assert.ok(
+    !source.includes("getBackendBaseURL"),
+    "expected memory API to stop reading the raw backend base URL",
   );
 });
 

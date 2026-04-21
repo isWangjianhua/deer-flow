@@ -6,15 +6,19 @@ async function readSource(relativePath: string) {
   return readFile(new URL(relativePath, import.meta.url), "utf8");
 }
 
-void test("settings dialog no longer exposes memory settings", async () => {
+void test("settings dialog exposes memory settings again", async () => {
   const source = await readSource("./settings-dialog.tsx");
 
   assert.ok(
-    !source.includes("MemorySettingsPage"),
-    "expected settings dialog to stop importing MemorySettingsPage",
+    source.includes("MemorySettingsPage"),
+    "expected settings dialog to import MemorySettingsPage",
   );
   assert.ok(
-    !source.includes('"memory"'),
-    "expected settings dialog to stop declaring a memory section",
+    source.includes('"memory"'),
+    "expected settings dialog to declare a memory section",
+  );
+  assert.ok(
+    source.includes("t.settings.sections.memory"),
+    "expected settings dialog to surface the localized Memory section label",
   );
 });

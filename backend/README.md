@@ -1,5 +1,8 @@
 # DeerFlow Backend
 
+# Install backend, BFF, and frontend dependencies from the repo root
+make install
+
 The backend is the runtime foundation behind DeerFlow. It provides the
 agent/harness package, the FastAPI gateway, LangGraph-compatible HTTP routes,
 IM-channel integrations, and the filesystem/sandbox/memory subsystems that let

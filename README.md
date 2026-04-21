@@ -317,12 +317,19 @@ When `memory.provider=mem0` and `memory.mem0_config.vector_store.provider=qdrant
    make setup-sandbox
    ```
 
-4. **Start services**:
+4. **(Optional) Load sample memory data for local review**:
+   ```bash
+   python scripts/load_memory_sample.py
+   ```
+   This copies the sample fixture into the default local runtime memory file so reviewers can immediately test `Settings > Memory`.
+   See [backend/docs/MEMORY_SETTINGS_REVIEW.md](backend/docs/MEMORY_SETTINGS_REVIEW.md) for the shortest review flow.
+
+5. **Start services**:
    ```bash
    make dev
    ```
 
-5. **Access**: http://localhost:2026
+6. **Access**: http://localhost:2026
 
 #### Startup Modes
 
@@ -525,10 +532,11 @@ Once a channel is connected, you can interact with DeerFlow directly from the ch
 
 | Command | Description |
 |---------|-------------|
-| `/bootstrap` | Start a bootstrap session |
+| `/bootstrap` | Start a bootstrap session (enables agent setup) |
 | `/new` | Start a new conversation |
 | `/status` | Show current thread info |
 | `/models` | List available models |
+| `/memory` | View memory |
 | `/help` | Show help |
 
 > Messages without a command prefix are treated as regular chat — DeerFlow creates a thread and responds conversationally.
