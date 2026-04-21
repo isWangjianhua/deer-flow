@@ -15,6 +15,7 @@ gateway route structure.
 - ownership checks for conversation resources
 - model discovery for the product path
 - SSE proxying for the BFF-backed chat flow
+- authenticated DeerFlow Gateway calls through a single client boundary
 
 ## What It Does Not Own
 
@@ -87,6 +88,14 @@ Sensitive values stay in `bff/.env`, especially:
 
 - `DATABASE_URL`
 - `BFF_SECRET_KEY`
+
+## DeerFlow Client Boundary
+
+`app/clients/deerflow.py` is the only place that should talk to DeerFlow
+Gateway directly from the BFF. When BFF code needs user-scoped Mem0 memory, it
+must call the client with `user_id=...`; the client is responsible for sending
+`X-User-Id` to Gateway. Keep that header logic centralized there instead of
+rebuilding it in routes or services.
 
 ## Read Next
 

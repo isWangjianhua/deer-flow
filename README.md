@@ -680,6 +680,7 @@ Across sessions, DeerFlow builds a persistent memory of your profile, preference
 Memory updates now skip duplicate fact entries at apply time, so repeated preferences and context do not accumulate endlessly across sessions.
 
 For authenticated BFF chat flows, DeerFlow can now use `memory.provider=mem0` for user-scoped runtime memory. In that mode, memory is retrieved per request under the current `user_id` and injected dynamically at model-call time instead of being baked into the cached system prompt. The current retrieval policy combines a small profile slice with query-relevant semantic retrieval, supports graceful cold start for first-time users, and writes conversation memory back to Mem0 after the run.
+The compatibility memory APIs follow the same user-scoped model: when `memory.provider=mem0`, HTTP callers must send `X-User-Id`, and embedded `DeerFlowClient` memory-management helpers should be called with `user_id=...`.
 
 ## Recommended Models
 
@@ -710,6 +711,7 @@ for event in client.stream("hello"):
 # Configuration & management — returns Gateway-aligned dicts
 models = client.list_models()        # {"models": [...]}
 skills = client.list_skills()        # {"skills": [...]}
+memory = client.get_memory(user_id="user-123")  # mem0 mode is user-scoped
 client.update_skill("web-search", enabled=True)
 client.upload_files("thread-1", ["./report.pdf"])  # {"success": True, "files": [...]}
 ```

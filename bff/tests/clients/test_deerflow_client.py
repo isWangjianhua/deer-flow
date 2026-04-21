@@ -91,16 +91,11 @@ def test_get_artifact_preserves_download_query(monkeypatch) -> None:
     assert result.content == b"# report"
 
 
-def test_upload_files_sends_multipart_payload(monkeypatch) -> None:
+def test_upload_files_sends_raw_body_and_content_type(monkeypatch) -> None:
     async def mock_post(self, url: str, *args, **kwargs):
         request = httpx.Request("POST", url)
-        files = kwargs["files"]
-        assert files == [
-            (
-                "files",
-                ("notes.txt", b"hello from bff", "text/plain"),
-            )
-        ]
+        assert kwargs["content"] == b"--boundary\r\npayload\r\n--boundary--\r\n"
+        assert kwargs["headers"] == {"content-type": "multipart/form-data; boundary=boundary"}
         return httpx.Response(
             200,
             json={"success": True, "files": [], "message": "ok"},
@@ -112,7 +107,8 @@ def test_upload_files_sends_multipart_payload(monkeypatch) -> None:
     result = asyncio.run(
         DeerFlowClient().upload_files(
             "thread-123",
-            [("notes.txt", b"hello from bff", "text/plain")],
+            b"--boundary\r\npayload\r\n--boundary--\r\n",
+            "multipart/form-data; boundary=boundary",
         ),
     )
 
@@ -149,3 +145,130 @@ def test_stream_message_sends_context_payload(monkeypatch) -> None:
 
     asyncio.run(response.aclose())
     asyncio.run(client.aclose())
+
+
+def test_get_memory_forwards_user_id_header(monkeypatch) -> None:
+    async def mock_get(self, url: str, *args, **kwargs):
+        request = httpx.Request("GET", url)
+        assert kwargs["headers"] == {"X-User-Id": "u-1"}
+        return httpx.Response(
+            200,
+            json={"version": "1.0", "facts": []},
+            request=request,
+        )
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", mock_get)
+
+    result = asyncio.run(DeerFlowClient().get_memory(user_id="u-1"))
+
+    assert result["version"] == "1.0"
+
+
+def test_get_memory_status_forwards_user_id_header(monkeypatch) -> None:
+    async def mock_get(self, url: str, *args, **kwargs):
+        request = httpx.Request("GET", url)
+        assert url.endswith("/api/memory/status")
+        assert kwargs["headers"] == {"X-User-Id": "u-1"}
+        return httpx.Response(
+            200,
+            json={"config": {"enabled": True}, "data": {"version": "1.0", "facts": []}},
+            request=request,
+        )
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", mock_get)
+
+    result = asyncio.run(DeerFlowClient().get_memory_status(user_id="u-1"))
+
+    assert result["config"]["enabled"] is True
+
+
+def test_import_memory_forwards_user_id_header(monkeypatch) -> None:
+    imported = {"version": "1.0", "facts": []}
+
+    async def mock_post(self, url: str, *args, **kwargs):
+        request = httpx.Request("POST", url)
+        assert url.endswith("/api/memory/import")
+        assert kwargs["headers"] == {"X-User-Id": "u-1"}
+        assert kwargs["json"] == imported
+        return httpx.Response(200, json=imported, request=request)
+
+    monkeypatch.setattr(httpx.AsyncClient, "post", mock_post)
+
+    result = asyncio.run(DeerFlowClient().import_memory(user_id="u-1", memory_data=imported))
+
+    assert result == imported
+
+
+def test_create_memory_fact_forwards_user_id_header(monkeypatch) -> None:
+    async def mock_post(self, url: str, *args, **kwargs):
+        request = httpx.Request("POST", url)
+        assert url.endswith("/api/memory/facts")
+        assert kwargs["headers"] == {"X-User-Id": "u-1"}
+        assert kwargs["json"] == {
+            "content": "User prefers concise responses.",
+            "category": "preference",
+            "confidence": 0.9,
+        }
+        return httpx.Response(200, json={"version": "1.0", "facts": []}, request=request)
+
+    monkeypatch.setattr(httpx.AsyncClient, "post", mock_post)
+
+    result = asyncio.run(
+        DeerFlowClient().create_memory_fact(
+            user_id="u-1",
+            content="User prefers concise responses.",
+            category="preference",
+            confidence=0.9,
+        )
+    )
+
+    assert result["version"] == "1.0"
+
+
+def test_update_memory_fact_forwards_user_id_header(monkeypatch) -> None:
+    async def mock_patch(self, url: str, *args, **kwargs):
+        request = httpx.Request("PATCH", url)
+        assert url.endswith("/api/memory/facts/fact-1")
+        assert kwargs["headers"] == {"X-User-Id": "u-1"}
+        assert kwargs["json"] == {"content": "Updated"}
+        return httpx.Response(200, json={"version": "1.0", "facts": []}, request=request)
+
+    monkeypatch.setattr(httpx.AsyncClient, "patch", mock_patch)
+
+    result = asyncio.run(
+        DeerFlowClient().update_memory_fact(
+            user_id="u-1",
+            fact_id="fact-1",
+            content="Updated",
+        )
+    )
+
+    assert result["version"] == "1.0"
+
+
+def test_delete_memory_fact_forwards_user_id_header(monkeypatch) -> None:
+    async def mock_delete(self, url: str, *args, **kwargs):
+        request = httpx.Request("DELETE", url)
+        assert url.endswith("/api/memory/facts/fact-1")
+        assert kwargs["headers"] == {"X-User-Id": "u-1"}
+        return httpx.Response(200, json={"version": "1.0", "facts": []}, request=request)
+
+    monkeypatch.setattr(httpx.AsyncClient, "delete", mock_delete)
+
+    result = asyncio.run(DeerFlowClient().delete_memory_fact(user_id="u-1", fact_id="fact-1"))
+
+    assert result["version"] == "1.0"
+
+
+def test_clear_memory_forwards_user_id_header(monkeypatch) -> None:
+    async def mock_delete(self, url: str, *args, **kwargs):
+        request = httpx.Request("DELETE", url)
+        assert url.endswith("/api/memory")
+        assert kwargs["headers"] == {"X-User-Id": "u-1"}
+        return httpx.Response(200, json={"version": "1.0", "facts": []}, request=request)
+
+    monkeypatch.setattr(httpx.AsyncClient, "delete", mock_delete)
+
+    result = asyncio.run(DeerFlowClient().clear_memory(user_id="u-1"))
+
+    assert result["version"] == "1.0"

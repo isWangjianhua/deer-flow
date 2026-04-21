@@ -867,6 +867,48 @@ class TestChannelManager:
 
         _run(go())
 
+    def test_handle_command_memory_forwards_user_id_header(self, monkeypatch):
+        import httpx
+
+        from app.channels.manager import ChannelManager
+
+        async def mock_get(self, url: str, *args, **kwargs):
+            assert url.endswith("/api/memory")
+            assert kwargs["headers"] == {"X-User-Id": "user1"}
+            request = httpx.Request("GET", url, headers=kwargs["headers"])
+            return httpx.Response(200, json={"facts": [{"id": "fact-1"}]}, request=request)
+
+        monkeypatch.setattr(httpx.AsyncClient, "get", mock_get)
+
+        async def go():
+            bus = MessageBus()
+            store = ChannelStore(path=Path(tempfile.mkdtemp()) / "store.json")
+            manager = ChannelManager(bus=bus, store=store)
+
+            outbound_received = []
+
+            async def capture_outbound(msg):
+                outbound_received.append(msg)
+
+            bus.subscribe_outbound(capture_outbound)
+            await manager.start()
+
+            inbound = InboundMessage(
+                channel_name="test",
+                chat_id="chat1",
+                user_id="user1",
+                text="/memory",
+                msg_type=InboundMessageType.COMMAND,
+            )
+            await bus.publish_inbound(inbound)
+            await _wait_for(lambda: len(outbound_received) >= 1)
+            await manager.stop()
+
+            assert len(outbound_received) == 1
+            assert outbound_received[0].text == "Memory contains 1 fact(s)."
+
+        _run(go())
+
     def test_handle_command_new(self):
         from app.channels.manager import ChannelManager
 

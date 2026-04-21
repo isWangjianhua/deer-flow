@@ -113,6 +113,9 @@ Supported providers:
 
 Mem0 mode is user-scoped and request-time injected, which is how the current
 BFF-backed chat flow passes authenticated runtime memory into the agent.
+The compatibility memory routes under `/api/memory` now follow the same rule:
+when `memory.provider=mem0`, callers must provide `X-User-Id`, and embedded
+`DeerFlowClient` memory-management helpers must be given `user_id=...`.
 
 ## Gateway Responsibilities
 

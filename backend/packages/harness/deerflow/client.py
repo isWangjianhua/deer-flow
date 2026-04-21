@@ -761,7 +761,7 @@ class DeerFlowClient:
             ]
         }
 
-    def get_memory(self) -> dict:
+    def get_memory(self, user_id: str | None = None) -> dict:
         """Get current memory data.
 
         Returns:
@@ -769,19 +769,19 @@ class DeerFlowClient:
         """
         from deerflow.agents.memory.updater import get_memory_data
 
-        return get_memory_data()
+        return get_memory_data() if user_id is None else get_memory_data(user_id=user_id)
 
-    def export_memory(self) -> dict:
+    def export_memory(self, user_id: str | None = None) -> dict:
         """Export current memory data for backup or transfer."""
         from deerflow.agents.memory.updater import get_memory_data
 
-        return get_memory_data()
+        return get_memory_data() if user_id is None else get_memory_data(user_id=user_id)
 
-    def import_memory(self, memory_data: dict) -> dict:
+    def import_memory(self, memory_data: dict, user_id: str | None = None) -> dict:
         """Import and persist full memory data."""
         from deerflow.agents.memory.updater import import_memory_data
 
-        return import_memory_data(memory_data)
+        return import_memory_data(memory_data) if user_id is None else import_memory_data(memory_data, user_id=user_id)
 
     def get_model(self, name: str) -> dict | None:
         """Get a specific model's configuration by name.
@@ -948,7 +948,7 @@ class DeerFlowClient:
     # Public API — memory management
     # ------------------------------------------------------------------
 
-    def reload_memory(self) -> dict:
+    def reload_memory(self, user_id: str | None = None) -> dict:
         """Reload memory data from file, forcing cache invalidation.
 
         Returns:
@@ -956,25 +956,34 @@ class DeerFlowClient:
         """
         from deerflow.agents.memory.updater import reload_memory_data
 
-        return reload_memory_data()
+        return reload_memory_data() if user_id is None else reload_memory_data(user_id=user_id)
 
-    def clear_memory(self) -> dict:
+    def clear_memory(self, user_id: str | None = None) -> dict:
         """Clear all persisted memory data."""
         from deerflow.agents.memory.updater import clear_memory_data
 
-        return clear_memory_data()
+        return clear_memory_data() if user_id is None else clear_memory_data(user_id=user_id)
 
-    def create_memory_fact(self, content: str, category: str = "context", confidence: float = 0.5) -> dict:
+    def create_memory_fact(
+        self,
+        content: str,
+        category: str = "context",
+        confidence: float = 0.5,
+        user_id: str | None = None,
+    ) -> dict:
         """Create a single fact manually."""
         from deerflow.agents.memory.updater import create_memory_fact
 
-        return create_memory_fact(content=content, category=category, confidence=confidence)
+        kwargs = {"content": content, "category": category, "confidence": confidence}
+        if user_id is not None:
+            kwargs["user_id"] = user_id
+        return create_memory_fact(**kwargs)
 
-    def delete_memory_fact(self, fact_id: str) -> dict:
+    def delete_memory_fact(self, fact_id: str, user_id: str | None = None) -> dict:
         """Delete a single fact from memory by fact id."""
         from deerflow.agents.memory.updater import delete_memory_fact
 
-        return delete_memory_fact(fact_id)
+        return delete_memory_fact(fact_id) if user_id is None else delete_memory_fact(fact_id, user_id=user_id)
 
     def update_memory_fact(
         self,
@@ -982,16 +991,20 @@ class DeerFlowClient:
         content: str | None = None,
         category: str | None = None,
         confidence: float | None = None,
+        user_id: str | None = None,
     ) -> dict:
         """Update a single fact manually, preserving omitted fields."""
         from deerflow.agents.memory.updater import update_memory_fact
 
-        return update_memory_fact(
-            fact_id=fact_id,
-            content=content,
-            category=category,
-            confidence=confidence,
-        )
+        kwargs = {
+            "fact_id": fact_id,
+            "content": content,
+            "category": category,
+            "confidence": confidence,
+        }
+        if user_id is not None:
+            kwargs["user_id"] = user_id
+        return update_memory_fact(**kwargs)
 
     def get_memory_config(self) -> dict:
         """Get memory system configuration.

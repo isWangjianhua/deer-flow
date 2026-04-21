@@ -217,7 +217,7 @@ FastAPI application on port 8001 with health check at `GET /health`.
 | **Models** (`/api/models`) | `GET /` - list models; `GET /{name}` - model details |
 | **MCP** (`/api/mcp`) | `GET /config` - get config; `PUT /config` - update config (saves to extensions_config.json) |
 | **Skills** (`/api/skills`) | `GET /` - list skills; `GET /{name}` - details; `PUT /{name}` - update enabled; `POST /install` - install from .skill archive (accepts standard optional frontmatter like `version`, `author`, `compatibility`) |
-| **Memory** (`/api/memory`) | Legacy/compatibility memory surface: `GET /` - memory data; `POST /reload` - force reload; `GET /config` - config; `GET /status` - config + data |
+| **Memory** (`/api/memory`) | Legacy/compatibility memory surface: `GET /` - memory data; `POST /reload` - force reload; `GET /config` - config; `GET /status` - config + data. When `memory.provider=mem0`, these routes are user-scoped and require `X-User-Id`. |
 | **Uploads** (`/api/threads/{id}/uploads`) | `POST /` - upload files (auto-converts PDF/PPT/Excel/Word); `GET /list` - list; `DELETE /{filename}` - delete |
 | **Threads** (`/api/threads/{id}`) | `DELETE /` - remove DeerFlow-managed local thread data after LangGraph thread deletion; unexpected failures are logged server-side and return a generic 500 detail |
 | **Artifacts** (`/api/threads/{id}/artifacts`) | `GET /{path}` - serve artifacts; active content types (`text/html`, `application/xhtml+xml`, `image/svg+xml`) are always forced as download attachments to reduce XSS risk; `?download=true` still forces download for other file types |
@@ -365,6 +365,8 @@ Bridges external messaging platforms (Feishu, Slack, Telegram) to the DeerFlow a
 - When `memory.provider=mem0`, authenticated runs use `user_id` as the memory scope
 - `MemoryMiddleware` writes conversations to Mem0 after the run
 - `Mem0InjectionMiddleware` retrieves relevant memories per request and injects them at model-call time
+- Gateway compatibility routes under `/api/memory` also require `X-User-Id` in Mem0 mode so reads, import/export, and manual fact edits stay user-scoped
+- The IM `/memory` command forwards the channel user's id to Gateway automatically
 - `memory_retrieval.py` combines two channels for injection:
   - profile retrieval from `get_all(user_id=...)`
   - query retrieval from `search(query, filters={"user_id": ...})`

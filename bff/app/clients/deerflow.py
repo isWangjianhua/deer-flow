@@ -9,6 +9,10 @@ class DeerFlowClient:
         self.base_url = settings.deerflow_gateway_base_url.rstrip("/")
         self.timeout = settings.deerflow_timeout_seconds
 
+    @staticmethod
+    def _memory_headers(user_id: str) -> dict[str, str]:
+        return {"X-User-Id": user_id}
+
     async def create_thread(self) -> str:
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             response = await client.post(f"{self.base_url}/api/threads", json={"metadata": {}})
@@ -106,9 +110,95 @@ class DeerFlowClient:
 
     async def get_thread_history(self, thread_id: str, limit: int = 1) -> list[dict]:
         async with httpx.AsyncClient(timeout=self.timeout) as client:
-          response = await client.post(
-              f"{self.base_url}/api/threads/{thread_id}/history",
-              json={"limit": limit},
-          )
-          response.raise_for_status()
-          return response.json()
+            response = await client.post(
+                f"{self.base_url}/api/threads/{thread_id}/history",
+                json={"limit": limit},
+            )
+            response.raise_for_status()
+            return response.json()
+
+    async def get_memory(self, *, user_id: str) -> dict:
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.get(
+                f"{self.base_url}/api/memory",
+                headers=self._memory_headers(user_id),
+            )
+            response.raise_for_status()
+            return response.json()
+
+    async def get_memory_status(self, *, user_id: str) -> dict:
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.get(
+                f"{self.base_url}/api/memory/status",
+                headers=self._memory_headers(user_id),
+            )
+            response.raise_for_status()
+            return response.json()
+
+    async def import_memory(self, *, user_id: str, memory_data: dict) -> dict:
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.post(
+                f"{self.base_url}/api/memory/import",
+                json=memory_data,
+                headers=self._memory_headers(user_id),
+            )
+            response.raise_for_status()
+            return response.json()
+
+    async def create_memory_fact(
+        self,
+        *,
+        user_id: str,
+        content: str,
+        category: str = "context",
+        confidence: float = 0.5,
+    ) -> dict:
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.post(
+                f"{self.base_url}/api/memory/facts",
+                json={
+                    "content": content,
+                    "category": category,
+                    "confidence": confidence,
+                },
+                headers=self._memory_headers(user_id),
+            )
+            response.raise_for_status()
+            return response.json()
+
+    async def update_memory_fact(
+        self,
+        *,
+        user_id: str,
+        fact_id: str,
+        content: str | None = None,
+        category: str | None = None,
+        confidence: float | None = None,
+    ) -> dict:
+        payload = {key: value for key, value in {"content": content, "category": category, "confidence": confidence}.items() if value is not None}
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.patch(
+                f"{self.base_url}/api/memory/facts/{fact_id}",
+                json=payload,
+                headers=self._memory_headers(user_id),
+            )
+            response.raise_for_status()
+            return response.json()
+
+    async def delete_memory_fact(self, *, user_id: str, fact_id: str) -> dict:
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.delete(
+                f"{self.base_url}/api/memory/facts/{fact_id}",
+                headers=self._memory_headers(user_id),
+            )
+            response.raise_for_status()
+            return response.json()
+
+    async def clear_memory(self, *, user_id: str) -> dict:
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.delete(
+                f"{self.base_url}/api/memory",
+                headers=self._memory_headers(user_id),
+            )
+            response.raise_for_status()
+            return response.json()

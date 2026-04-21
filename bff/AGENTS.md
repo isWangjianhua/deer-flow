@@ -52,6 +52,7 @@ When adding or changing endpoints:
   - business rules, ownership checks, orchestration
 - `app/clients/deerflow.py`
   - all DeerFlow Gateway HTTP and SSE calls
+  - centralized downstream auth/context headers such as user-scoped Mem0 `X-User-Id`
 - `app/repositories/`
   - database access only
 - `app/models/`

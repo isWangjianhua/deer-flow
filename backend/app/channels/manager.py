@@ -902,7 +902,8 @@ class ChannelManager:
         elif command == "models":
             reply = await self._fetch_gateway("/api/models", "models")
         elif command == "memory":
-            reply = await self._fetch_gateway("/api/memory", "memory")
+            headers = {"X-User-Id": msg.user_id} if msg.user_id else None
+            reply = await self._fetch_gateway("/api/memory", "memory", headers=headers)
         elif command == "help":
             reply = (
                 "Available commands:\n"
@@ -926,13 +927,13 @@ class ChannelManager:
         )
         await self.bus.publish_outbound(outbound)
 
-    async def _fetch_gateway(self, path: str, kind: str) -> str:
+    async def _fetch_gateway(self, path: str, kind: str, headers: dict[str, str] | None = None) -> str:
         """Fetch data from the Gateway API for command responses."""
         import httpx
 
         try:
             async with httpx.AsyncClient() as http:
-                resp = await http.get(f"{self._gateway_url}{path}", timeout=10)
+                resp = await http.get(f"{self._gateway_url}{path}", headers=headers, timeout=10)
                 resp.raise_for_status()
                 data = resp.json()
         except Exception:
