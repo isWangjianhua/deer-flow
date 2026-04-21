@@ -96,7 +96,7 @@ src/
 │   └── threads/            # Legacy runtime-thread semantics
 ├── server/
 │   ├── better-auth/        # Better Auth setup
-│   └── bff/                # Internal BFF base URL + auth helpers
+│   └── bff/                # Internal BFF base URL + shared auth/proxy helpers
 └── styles/
 ```
 
@@ -106,6 +106,7 @@ Tests do exist in this package.
 
 - Boundary tests verify route ownership, fetch targets, and module boundaries.
 - `src/core/bff-chat/` has stream/state regression coverage.
+- `src/server/bff/` owns reusable same-origin BFF bridge helpers so route files stay thin.
 - Playwright covers the main auth and BFF-backed chat flows.
 
 When behavior changes materially, prefer tests in this order:

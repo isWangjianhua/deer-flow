@@ -63,6 +63,41 @@ export function toLocalDevSession(user: BffUserResponse): BrowserSession {
   };
 }
 
+function toDate(value: unknown) {
+  return value instanceof Date ? value : new Date(String(value));
+}
+
+export function normalizeStoredBrowserSession(
+  value: unknown,
+): BrowserSession | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const candidate = value as {
+    session?: Record<string, unknown>;
+    user?: Record<string, unknown>;
+  };
+
+  if (!candidate.session || !candidate.user) {
+    return null;
+  }
+
+  return {
+    session: {
+      ...candidate.session,
+      createdAt: toDate(candidate.session.createdAt),
+      updatedAt: toDate(candidate.session.updatedAt),
+      expiresAt: toDate(candidate.session.expiresAt),
+    },
+    user: {
+      ...candidate.user,
+      createdAt: toDate(candidate.user.createdAt),
+      updatedAt: toDate(candidate.user.updatedAt),
+    },
+  } as BrowserSession;
+}
+
 export function readLocalDevSession() {
   if (typeof window === "undefined") {
     return null;
@@ -74,21 +109,7 @@ export function readLocalDevSession() {
   }
 
   try {
-    const parsed = JSON.parse(stored) as BrowserSession;
-    return {
-      ...parsed,
-      session: {
-        ...parsed.session,
-        createdAt: new Date(parsed.session.createdAt),
-        updatedAt: new Date(parsed.session.updatedAt),
-        expiresAt: new Date(parsed.session.expiresAt),
-      },
-      user: {
-        ...parsed.user,
-        createdAt: new Date(parsed.user.createdAt),
-        updatedAt: new Date(parsed.user.updatedAt),
-      },
-    };
+    return normalizeStoredBrowserSession(JSON.parse(stored));
   } catch {
     return null;
   }

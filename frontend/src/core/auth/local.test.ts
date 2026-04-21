@@ -79,3 +79,14 @@ void test("broadcasts local auth changes after persisting the session", () => {
 
   globalThis.window = originalWindow;
 });
+
+void test("local auth reuses the shared stored-session normalizer", async () => {
+  const source = await import("node:fs/promises").then(({ readFile }) =>
+    readFile(new URL("./local.ts", import.meta.url), "utf8"),
+  );
+
+  assert.ok(
+    source.includes("normalizeStoredBrowserSession"),
+    "expected local auth to reuse the shared stored-session normalizer",
+  );
+});

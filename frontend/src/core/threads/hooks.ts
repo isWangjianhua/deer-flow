@@ -16,6 +16,7 @@ import { useUpdateSubtask } from "../tasks/context";
 import type { UploadedFileInfo } from "../uploads";
 import { promptInputFilePartToFile, uploadFiles } from "../uploads";
 
+import { buildAgentRunContext } from "./context";
 import type { AgentThread, AgentThreadState } from "./types";
 
 export type ToolEndEvent = {
@@ -483,18 +484,7 @@ export function useThreadStream({
             context: {
               ...extraContext,
               ...context,
-              thinking_enabled: context.mode !== "flash",
-              is_plan_mode: context.mode === "pro" || context.mode === "ultra",
-              subagent_enabled: context.mode === "ultra",
-              reasoning_effort:
-                context.reasoning_effort ??
-                (context.mode === "ultra"
-                  ? "high"
-                  : context.mode === "pro"
-                    ? "medium"
-                    : context.mode === "thinking"
-                      ? "low"
-                      : undefined),
+              ...buildAgentRunContext(context),
               thread_id: threadId,
             },
           },

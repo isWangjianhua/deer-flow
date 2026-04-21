@@ -141,6 +141,15 @@ Current same-origin browser behavior:
 - MCP, skills, and agents go through same-origin Next.js bridge routes
 - `/workspace/account` is now a product-facing account/status page with a shared auth panel, session diagnostics, and unauthenticated chat recovery
 
+Implementation note:
+
+- `src/server/bff/` now holds shared auth and JSON proxy helpers for the
+  same-origin BFF bridge so route handlers do not each reimplement bearer auth
+  checks and response normalization.
+- `src/core/threads/context.ts` centralizes UI-context-to-agent-run-context
+  mapping so the BFF chat path and the legacy thread path stay behaviorally
+  aligned.
+
 What still remains mixed:
 
 - some older non-chat runtime surfaces still use Gateway-facing thread semantics behind server bridges

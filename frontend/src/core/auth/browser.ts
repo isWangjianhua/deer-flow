@@ -8,6 +8,7 @@ import {
   type BrowserSession,
   isLocalDevAuthMode,
   LOCAL_AUTH_EVENT,
+  normalizeStoredBrowserSession,
   readLocalDevSession,
   writeLocalDevSession,
 } from "@/core/auth/local";
@@ -30,39 +31,6 @@ type LocalAuthErrorPayload = {
   detail?: { message?: string };
 };
 
-function toDate(value: unknown) {
-  return value instanceof Date ? value : new Date(String(value));
-}
-
-function normalizeStoredSession(value: unknown): BrowserSession | null {
-  if (!value || typeof value !== "object") {
-    return null;
-  }
-
-  const candidate = value as {
-    session?: Record<string, unknown>;
-    user?: Record<string, unknown>;
-  };
-
-  if (!candidate.session || !candidate.user) {
-    return null;
-  }
-
-  return {
-    session: {
-      ...candidate.session,
-      createdAt: toDate(candidate.session.createdAt),
-      updatedAt: toDate(candidate.session.updatedAt),
-      expiresAt: toDate(candidate.session.expiresAt),
-    },
-    user: {
-      ...candidate.user,
-      createdAt: toDate(candidate.user.createdAt),
-      updatedAt: toDate(candidate.user.updatedAt),
-    },
-  } as BrowserSession;
-}
-
 function isMockAuthEnabled() {
   return process.env.NEXT_PUBLIC_AUTH_E2E_MOCK === "1";
 }
@@ -78,7 +46,7 @@ function readMockSession() {
   }
 
   try {
-    return normalizeStoredSession(JSON.parse(stored));
+    return normalizeStoredBrowserSession(JSON.parse(stored));
   } catch {
     return null;
   }
@@ -250,7 +218,7 @@ export async function signInWithLocalPassword(
   const payload = (await response.json()) as {
     session?: unknown;
   };
-  const session = normalizeStoredSession(payload.session);
+  const session = normalizeStoredBrowserSession(payload.session);
   writeLocalDevSession(session);
   return session;
 }
@@ -277,7 +245,7 @@ export async function signUpWithLocalPassword(
   const payload = (await response.json()) as {
     session?: unknown;
   };
-  const session = normalizeStoredSession(payload.session);
+  const session = normalizeStoredBrowserSession(payload.session);
   writeLocalDevSession(session);
   return session;
 }

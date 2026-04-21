@@ -9,6 +9,7 @@ import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
 import type { FileInMessage } from "@/core/messages/utils";
 import type { LocalSettings } from "@/core/settings";
 import type { AgentThreadState, WorkspaceThreadStream } from "@/core/threads";
+import { buildAgentRunContext } from "@/core/threads/context";
 import { promptInputFilePartToFile, uploadFiles } from "@/core/uploads";
 
 import { createConversation, getConversation, streamMessage } from "./api";
@@ -52,24 +53,6 @@ function createEmptyThreadState(messages: Message[]): AgentThreadState {
     messages,
     artifacts: [],
     todos: [],
-  };
-}
-
-function toBffRequestContext(context: LocalSettings["context"]) {
-  return {
-    model_name: context.model_name ?? undefined,
-    thinking_enabled: context.mode !== "flash",
-    is_plan_mode: context.mode === "pro" || context.mode === "ultra",
-    subagent_enabled: context.mode === "ultra",
-    reasoning_effort:
-      context.reasoning_effort ??
-      (context.mode === "ultra"
-        ? "high"
-        : context.mode === "pro"
-          ? "medium"
-          : context.mode === "thinking"
-            ? "low"
-            : "minimal"),
   };
 }
 
@@ -299,7 +282,7 @@ export function useBffThreadStream({
         const stream = await streamMessage({
           conversationId: resolvedConversationId,
           message: text,
-          context: toBffRequestContext(context),
+          context: buildAgentRunContext(context),
           signal: abortController.signal,
         });
         const decoder = createBffStreamDecoder();

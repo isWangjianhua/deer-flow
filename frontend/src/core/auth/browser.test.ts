@@ -61,3 +61,16 @@ void test("browser auth surfaces nested BFF validation messages for local regist
     "expected browser auth to surface the backend validation message instead of a generic registration failure",
   );
 });
+
+void test("browser auth reuses the shared stored-session normalizer", async () => {
+  const source = await readFile(new URL("./browser.ts", import.meta.url), "utf8");
+
+  assert.ok(
+    source.includes("normalizeStoredBrowserSession"),
+    "expected browser auth to reuse the shared stored-session normalizer",
+  );
+  assert.ok(
+    source.includes('from "@/core/auth/local"'),
+    "expected browser auth to source the stored-session normalizer from the shared local auth module",
+  );
+});
