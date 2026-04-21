@@ -168,7 +168,7 @@ export function MemorySettingsPage() {
         <div className="space-y-6">
           <div className="space-y-3 rounded-lg border p-4">
             <div className="text-muted-foreground text-sm">
-              {t.common.lastUpdated}: {formatTimeAgo(memory.lastUpdated)}
+              {t.common.lastUpdated}: {memory.lastUpdated ? formatTimeAgo(memory.lastUpdated) : null}
             </div>
             <div className="text-muted-foreground text-sm">
               {t.settings.memory.summaryReadOnly}
@@ -252,7 +252,7 @@ export function MemorySettingsPage() {
                       <div className="flex flex-wrap items-center gap-2 text-xs">
                         <span className="rounded-full border px-2 py-0.5">{fact.category}</span>
                         <span className="text-muted-foreground">
-                          {formatTimeAgo(fact.createdAt)}
+                          {fact.createdAt ? formatTimeAgo(fact.createdAt) : null}
                         </span>
                         <span className="text-muted-foreground">
                           {Math.round(fact.confidence * 100)}%
