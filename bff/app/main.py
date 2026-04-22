@@ -25,6 +25,8 @@ def ensure_conversation_schema() -> None:
             )
         if "pinned_at" not in columns:
             conn.execute(text("ALTER TABLE conversations ADD COLUMN pinned_at DATETIME"))
+        if "agent_name" not in columns:
+            conn.execute(text("ALTER TABLE conversations ADD COLUMN agent_name VARCHAR(255)"))
 
 
 def init_db() -> None:

@@ -13,6 +13,7 @@ class Conversation(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
     user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), index=True)
     deerflow_thread_id: Mapped[str] = mapped_column(String(128), unique=True, index=True)
+    agent_name: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
     title: Mapped[str] = mapped_column(String(255), default="New conversation")
     status: Mapped[str] = mapped_column(String(32), default="active")
     is_pinned: Mapped[bool] = mapped_column(default=False)

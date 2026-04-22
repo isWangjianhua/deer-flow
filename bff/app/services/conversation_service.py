@@ -27,11 +27,13 @@ class ConversationService:
         user_id: str,
         deerflow_thread_id: str,
         title: str = "New conversation",
+        agent_name: str | None = None,
     ) -> ConversationCreateResponse:
         conversation = Conversation(
             user_id=user_id,
             deerflow_thread_id=deerflow_thread_id,
             title=title,
+            agent_name=agent_name,
         )
         created = self.repo.create(conversation)
         return ConversationCreateResponse.model_validate(created)
@@ -138,6 +140,9 @@ class ConversationService:
             id=conversation.id,
             title=conversation.title,
             status=conversation.status,
+            agent_name=conversation.agent_name,
+            is_pinned=conversation.is_pinned,
+            pinned_at=conversation.pinned_at,
             created_at=conversation.created_at,
             updated_at=conversation.updated_at,
             values=latest_values,

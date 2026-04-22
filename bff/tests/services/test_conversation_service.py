@@ -25,6 +25,24 @@ def test_create_conversation_persists_mapping(db_session) -> None:
     assert persisted.deerflow_thread_id == "thread-123"
 
 
+def test_create_conversation_persists_optional_agent_name(db_session) -> None:
+    user = User(username="alice", password_hash="hashed")
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+
+    result = ConversationService(db_session).create_conversation(
+        user_id=user.id,
+        deerflow_thread_id="thread-agent-123",
+        agent_name="demo-agent",
+    )
+    persisted = ConversationRepository(db_session).get_by_id(result.id)
+
+    assert result.agent_name == "demo-agent"
+    assert persisted is not None
+    assert persisted.agent_name == "demo-agent"
+
+
 def test_rename_conversation_updates_owned_title(db_session) -> None:
     user = User(username="alice", password_hash="hashed")
     db_session.add(user)

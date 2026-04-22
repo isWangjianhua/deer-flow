@@ -8,7 +8,7 @@ from app.db.base import Base
 from app.models.user import User
 
 
-def test_init_db_backfills_conversation_pin_columns(tmp_path, monkeypatch) -> None:
+def test_init_db_backfills_conversation_metadata_columns(tmp_path, monkeypatch) -> None:
     database_url = f"sqlite:///{tmp_path / 'test.db'}"
     engine = create_engine(database_url, connect_args={"check_same_thread": False})
     session_local = sessionmaker(bind=engine, autoflush=False, autocommit=False)
@@ -53,6 +53,7 @@ def test_init_db_backfills_conversation_pin_columns(tmp_path, monkeypatch) -> No
         columns = {column["name"] for column in inspect(engine).get_columns("conversations")}
         assert "is_pinned" in columns
         assert "pinned_at" in columns
+        assert "agent_name" in columns
     finally:
         app_main.engine = original_engine
         app_main.SessionLocal = original_session_local

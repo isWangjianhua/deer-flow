@@ -10,6 +10,7 @@ class ConversationCreateResponse(BaseModel):
     id: str
     title: str
     status: str
+    agent_name: str | None = None
     is_pinned: bool = False
     pinned_at: datetime | None = None
     created_at: datetime
@@ -21,6 +22,7 @@ class ConversationListItem(BaseModel):
     id: str
     title: str
     status: str
+    agent_name: str | None = None
     is_pinned: bool = False
     pinned_at: datetime | None = None
     created_at: datetime
@@ -40,6 +42,7 @@ class ConversationDetailResponse(BaseModel):
     id: str
     title: str
     status: str
+    agent_name: str | None = None
     is_pinned: bool = False
     pinned_at: datetime | None = None
     created_at: datetime
