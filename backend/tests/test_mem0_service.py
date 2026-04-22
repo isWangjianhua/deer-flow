@@ -47,7 +47,11 @@ def test_build_compat_memory_from_search_maps_memories_to_facts():
     service = Mem0Service()
     service._client = _FakeMem0Client()
 
-    memory = service.build_compat_memory_from_search(user_id="user_a", query="python")
+    memory = service.build_compat_memory_from_search(
+        user_id="user_a",
+        agent_id="__lead__",
+        query="python",
+    )
 
     assert memory["facts"][0]["id"] == "mem_a"
     assert memory["facts"][0]["content"] == "User likes Python"
@@ -165,16 +169,52 @@ def test_add_conversation_traces_mem0_results_as_memory_messages(monkeypatch):
     assert outputs[0]["messages"] == [{"type": "memory", "content": "User likes Python"}]
 
 
+def test_add_conversation_sends_agent_id() -> None:
+    service = Mem0Service()
+    fake = _FakeMem0Client()
+    service._client = fake
+
+    class _Message:
+        type = "human"
+        content = "remember this"
+
+    service.add_conversation(
+        messages=[_Message()],
+        user_id="user_a",
+        agent_id="code-test",
+        run_id="thread_a",
+        metadata={"source": "thread_a"},
+    )
+
+    assert fake.add_calls[0]["agent_id"] == "code-test"
+
+
 def test_search_uses_user_filter_and_top_k():
     service = Mem0Service()
     fake = _FakeMem0Client()
     service._client = fake
 
-    service.search(query="python", user_id="user_a", limit=3)
+    service.search(query="python", user_id="user_a", agent_id="__lead__", limit=3)
 
     assert fake.search_calls[0]["query"] == "python"
     assert fake.search_calls[0]["top_k"] == 3
-    assert fake.search_calls[0]["filters"] == {"user_id": "user_a"}
+    assert fake.search_calls[0]["filters"] == {
+        "user_id": "user_a",
+        "agent_id": "__lead__",
+    }
+
+
+def test_search_uses_user_and_agent_filters():
+    service = Mem0Service()
+    fake = _FakeMem0Client()
+    service._client = fake
+
+    service.search(query="python", user_id="user_a", agent_id="code-test", limit=3)
+
+    assert fake.search_calls[0]["filters"] == {
+        "user_id": "user_a",
+        "agent_id": "code-test",
+    }
 
 
 def test_get_all_uses_user_filter_and_max_facts_limit():
@@ -182,11 +222,27 @@ def test_get_all_uses_user_filter_and_max_facts_limit():
     fake = _FakeMem0Client()
     service._client = fake
 
-    memories = service.get_all(user_id="user_a")
+    memories = service.get_all(user_id="user_a", agent_id="__lead__")
 
-    assert fake.get_all_calls[0]["filters"] == {"user_id": "user_a"}
+    assert fake.get_all_calls[0]["filters"] == {
+        "user_id": "user_a",
+        "agent_id": "__lead__",
+    }
     assert fake.get_all_calls[0]["top_k"] == get_memory_config().max_facts
     assert memories[0]["memory"] == "User prefers concise reviews"
+
+
+def test_get_all_uses_user_and_agent_filters():
+    service = Mem0Service()
+    fake = _FakeMem0Client()
+    service._client = fake
+
+    service.get_all(user_id="user_a", agent_id="__lead__")
+
+    assert fake.get_all_calls[0]["filters"] == {
+        "user_id": "user_a",
+        "agent_id": "__lead__",
+    }
 
 
 def test_ensure_client_injects_supported_custom_instructions(monkeypatch):

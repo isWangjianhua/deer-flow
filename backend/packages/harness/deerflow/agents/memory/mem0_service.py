@@ -146,6 +146,7 @@ class Mem0Service:
         *,
         messages: list[Any],
         user_id: str,
+        agent_id: str | None = None,
         run_id: str | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> Any:
@@ -157,6 +158,8 @@ class Mem0Service:
             "messages": payload,
             "user_id": user_id,
         }
+        if agent_id:
+            kwargs["agent_id"] = agent_id
         if run_id:
             kwargs["run_id"] = run_id
         if metadata:
@@ -200,14 +203,14 @@ class Mem0Service:
                 span.end(outputs={"messages": result_messages, "thread_data": thread_data})
             return result
 
-    def search(self, *, query: str, user_id: str, limit: int | None = None) -> list[dict[str, Any]]:
+    def search(self, *, query: str, user_id: str, agent_id: str, limit: int | None = None) -> list[dict[str, Any]]:
         if not query.strip():
             return []
         effective_limit = limit or get_memory_config().search_limit
         result = self._ensure_client().search(
             query=query,
             top_k=effective_limit,
-            filters={"user_id": user_id},
+            filters={"user_id": user_id, "agent_id": agent_id},
         )
         if isinstance(result, dict):
             memories = result.get("results") or result.get("memories") or []
@@ -215,9 +218,12 @@ class Mem0Service:
             memories = result or []
         return [item for item in memories if isinstance(item, dict)]
 
-    def get_all(self, *, user_id: str, limit: int | None = None) -> list[dict[str, Any]]:
+    def get_all(self, *, user_id: str, agent_id: str, limit: int | None = None) -> list[dict[str, Any]]:
         effective_limit = limit or get_memory_config().max_facts
-        result = self._ensure_client().get_all(filters={"user_id": user_id}, top_k=effective_limit)
+        result = self._ensure_client().get_all(
+            filters={"user_id": user_id, "agent_id": agent_id},
+            top_k=effective_limit,
+        )
         if isinstance(result, dict):
             memories = result.get("results") or result.get("memories") or []
         else:
@@ -227,8 +233,8 @@ class Mem0Service:
     def delete(self, *, memory_id: str) -> Any:
         return self._ensure_client().delete(memory_id=memory_id)
 
-    def delete_all(self, *, user_id: str) -> Any:
-        return self._ensure_client().delete_all(user_id=user_id)
+    def delete_all(self, *, user_id: str, agent_id: str) -> Any:
+        return self._ensure_client().delete_all(user_id=user_id, agent_id=agent_id)
 
     def create_fact(
         self,
@@ -270,13 +276,16 @@ class Mem0Service:
                 },
             )
 
-    def build_compat_memory(self, *, user_id: str) -> dict[str, Any]:
-        facts = [_result_to_fact(item) for item in self.get_all(user_id=user_id)]
+    def build_compat_memory(self, *, user_id: str, agent_id: str) -> dict[str, Any]:
+        facts = [_result_to_fact(item) for item in self.get_all(user_id=user_id, agent_id=agent_id)]
         facts.sort(key=lambda item: item.get("createdAt", ""), reverse=True)
         return _empty_compat_memory(facts=facts)
 
-    def build_compat_memory_from_search(self, *, user_id: str, query: str, limit: int | None = None) -> dict[str, Any]:
-        facts = [_result_to_fact(item) for item in self.search(query=query, user_id=user_id, limit=limit)]
+    def build_compat_memory_from_search(self, *, user_id: str, agent_id: str, query: str, limit: int | None = None) -> dict[str, Any]:
+        facts = [
+            _result_to_fact(item)
+            for item in self.search(query=query, user_id=user_id, agent_id=agent_id, limit=limit)
+        ]
         return _empty_compat_memory(facts=facts)
 
 
