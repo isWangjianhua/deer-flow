@@ -65,6 +65,15 @@ bff:
     timeout_seconds: 300
 
 # ============================================================================
+# Custom Agents HTTP API
+# ============================================================================
+# Enable the Gateway's custom-agent management routes (`/api/agents/*`).
+# The BFF-backed Agents UI depends on this being true in local/product setups
+# that expose agent CRUD over HTTP.
+agents_api:
+  enabled: false
+
+# ============================================================================
 # Token Usage Tracking
 # ============================================================================
 # Track LLM token usage per model call (input/output/total tokens)
