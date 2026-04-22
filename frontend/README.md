@@ -144,7 +144,8 @@ Current same-origin browser behavior:
 - main chat follow-up suggestions go through `/api/bff/conversations/*/suggestions`
 - main chat attachment uploads go through `/api/bff/conversations/*/uploads`
 - MCP and skills still go through same-origin Next.js bridge routes
-- `Settings > Memory` is readonly in this slice and reads from `/api/bff/memory`
+- `Settings > Memory` is readonly in this slice, reads from `/api/bff/memory`, and shows only the lead-agent memory scope
+- custom-agent memories are stored separately and are not shown in Settings in this phase
 - when `memory.provider=mem0`, BFF resolves the current user and preserves user-scoped Memory reads via `X-User-Id`
 - `/workspace/account` is now a product-facing account/status page with a shared auth panel, session diagnostics, and unauthenticated chat recovery
 

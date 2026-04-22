@@ -61,6 +61,16 @@ Notes:
 - the memory routes are runtime/backward-compatibility surfaces, not the main
   user-facing memory product boundary
 
+### Memory scope in mem0 mode
+
+When `memory.provider=mem0`, compatibility memory routes are scoped by both:
+
+- `X-User-Id` — required authenticated user scope
+- `X-Agent-Id` — optional agent scope header; defaults to `__lead__`
+
+This means main chat reads and writes lead-agent memory, while each custom
+agent uses its own isolated memory scope.
+
 ## Gateway Thread Endpoints
 
 These routes are implemented by `backend/app/gateway/routers/threads.py`.

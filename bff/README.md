@@ -135,6 +135,12 @@ must call the client with `user_id=...`; the client is responsible for sending
 is now the browser-facing Memory contract. Keep that header logic centralized
 there instead of rebuilding it in routes or services.
 
+## Lead Memory Scope
+
+The public BFF `GET /memory` route always reads the lead-agent memory scope.
+It forwards both `X-User-Id` and `X-Agent-Id: __lead__` to Gateway so
+`Settings > Memory` remains a stable main-chat memory view.
+
 ## Read Next
 
 - `docs/ARCHITECTURE.md`
