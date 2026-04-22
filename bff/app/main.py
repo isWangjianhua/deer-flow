@@ -15,6 +15,7 @@ def ensure_conversation_schema() -> None:
         return
 
     columns = {column["name"] for column in inspector.get_columns("conversations")}
+    index_names = {index["name"] for index in inspector.get_indexes("conversations")}
 
     with engine.begin() as conn:
         if "is_pinned" not in columns:
@@ -27,6 +28,8 @@ def ensure_conversation_schema() -> None:
             conn.execute(text("ALTER TABLE conversations ADD COLUMN pinned_at DATETIME"))
         if "agent_name" not in columns:
             conn.execute(text("ALTER TABLE conversations ADD COLUMN agent_name VARCHAR(255)"))
+        if "ix_conversations_agent_name" not in index_names:
+            conn.execute(text("CREATE INDEX ix_conversations_agent_name ON conversations (agent_name)"))
 
 
 def init_db() -> None:

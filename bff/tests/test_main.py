@@ -50,10 +50,13 @@ def test_init_db_backfills_conversation_metadata_columns(tmp_path, monkeypatch) 
 
     try:
         app_main.init_db()
-        columns = {column["name"] for column in inspect(engine).get_columns("conversations")}
+        inspector = inspect(engine)
+        columns = {column["name"] for column in inspector.get_columns("conversations")}
+        index_names = {index["name"] for index in inspector.get_indexes("conversations")}
         assert "is_pinned" in columns
         assert "pinned_at" in columns
         assert "agent_name" in columns
+        assert "ix_conversations_agent_name" in index_names
     finally:
         app_main.engine = original_engine
         app_main.SessionLocal = original_session_local
