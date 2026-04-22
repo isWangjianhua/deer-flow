@@ -1,4 +1,5 @@
-from unittest.mock import MagicMock
+from types import SimpleNamespace
+from unittest.mock import MagicMock, Mock
 
 from langchain_core.messages import HumanMessage
 
@@ -33,6 +34,7 @@ def test_build_mem0_injection_memory_returns_none_for_cold_start(monkeypatch):
 
     result = build_mem0_injection_memory(
         user_id="user-123",
+        agent_name=None,
         messages=[HumanMessage(content="hello")],
     )
 
@@ -73,6 +75,7 @@ def test_build_mem0_injection_memory_merges_profile_and_first_turn_results(monke
 
     result = build_mem0_injection_memory(
         user_id="user-123",
+        agent_name=None,
         messages=[HumanMessage(content="Need Tianjin machining suppliers")],
     )
 
@@ -102,6 +105,7 @@ def test_build_mem0_injection_memory_uses_recent_window_for_multiturn(monkeypatc
 
     build_mem0_injection_memory(
         user_id="user-123",
+        agent_name=None,
         messages=[
             HumanMessage(content="First turn"),
             HumanMessage(content="Second turn"),
@@ -112,8 +116,37 @@ def test_build_mem0_injection_memory_uses_recent_window_for_multiturn(monkeypatc
     service.search.assert_called_once_with(
         query="Second turn\n\nThird turn",
         user_id="user-123",
+        agent_id="__lead__",
         limit=8,
     )
+
+
+def test_build_mem0_injection_memory_queries_custom_agent_scope(monkeypatch):
+    from deerflow.agents.memory.memory_retrieval import build_mem0_injection_memory
+
+    service = SimpleNamespace(get_all=Mock(return_value=[]), search=Mock(return_value=[]))
+    monkeypatch.setattr("deerflow.agents.memory.memory_retrieval.get_mem0_service", lambda: service)
+    monkeypatch.setattr(
+        "deerflow.agents.memory.memory_retrieval.get_memory_config",
+        lambda: SimpleNamespace(
+            max_injection_tokens=2000,
+            profile_budget_ratio=0.3,
+            profile_limit=4,
+            profile_categories=["preference", "context", "knowledge"],
+            query_window_turns=3,
+            search_limit=8,
+        ),
+    )
+
+    build_mem0_injection_memory(
+        user_id="user-1",
+        agent_name="code-test",
+        messages=[HumanMessage(content="Need Tianjin suppliers")],
+        thread_id="thread-1",
+    )
+
+    assert service.get_all.call_args.kwargs == {"user_id": "user-1", "agent_id": "code-test"}
+    assert service.search.call_args.kwargs["agent_id"] == "code-test"
 
 
 def test_memory_package_exports_mem0_retrieval_policy():
@@ -169,6 +202,7 @@ def test_build_mem0_injection_memory_emits_full_selected_results(monkeypatch):
 
     build_mem0_injection_memory(
         user_id="user-123",
+        agent_name=None,
         messages=[HumanMessage(content="Need Tianjin machining suppliers")],
         thread_id="thread-1",
     )

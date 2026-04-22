@@ -17,6 +17,7 @@ from deerflow.agents.memory.prompt import (
     _count_tokens,
     format_conversation_for_update,
 )
+from deerflow.agents.memory.scope import resolve_memory_agent_id
 from deerflow.agents.memory.storage import (
     create_empty_memory,
     get_memory_storage,
@@ -624,11 +625,17 @@ class MemoryUpdater:
                     },
                     parent=trace_parent,
                 ) as span:
+                    agent_id = resolve_memory_agent_id(agent_name=agent_name)
                     result = get_mem0_service().add_conversation(
                         messages=mem0_messages,
                         user_id=user_id,
+                        agent_id=agent_id,
                         run_id=thread_id,
-                        metadata={"thread_id": thread_id or "", "source": thread_id or "unknown"},
+                        metadata={
+                            "thread_id": thread_id or "",
+                            "source": thread_id or "unknown",
+                            "agent_id": agent_id,
+                        },
                     )
                     if span is not None and hasattr(span, "end"):
                         span.end(

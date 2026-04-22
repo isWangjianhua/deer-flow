@@ -57,6 +57,7 @@ class Mem0InjectionMiddleware(AgentMiddleware[AgentState]):
         configurable = config_data.get("configurable", {})
         user_id = configurable.get("user_id")
         thread_id = configurable.get("thread_id")
+        agent_name = configurable.get("agent_name")
         trace_parent = self._take_before_model_parent(thread_id=thread_id, user_id=user_id)
 
         with memory_trace(
@@ -90,6 +91,7 @@ class Mem0InjectionMiddleware(AgentMiddleware[AgentState]):
 
             compat_memory = build_mem0_injection_memory(
                 user_id=user_id,
+                agent_name=agent_name,
                 messages=request.messages,
                 thread_id=thread_id,
                 trace_parent=span,

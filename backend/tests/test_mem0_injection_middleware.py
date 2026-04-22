@@ -41,6 +41,31 @@ def test_mem0_injection_middleware_delegates_to_retrieval_policy(monkeypatch):
     assert result == "response"
 
 
+def test_mem0_injection_middleware_forwards_agent_name_to_builder(monkeypatch):
+    middleware = Mem0InjectionMiddleware()
+    request = MagicMock()
+    request.messages = [HumanMessage(content="hello")]
+    handler = MagicMock(return_value="response")
+    captured = {}
+
+    monkeypatch.setattr(
+        "deerflow.agents.middlewares.mem0_injection_middleware.get_memory_config",
+        lambda: SimpleNamespace(enabled=True, injection_enabled=True, provider="mem0", max_injection_tokens=2000),
+    )
+    monkeypatch.setattr(
+        "deerflow.agents.middlewares.mem0_injection_middleware.get_config",
+        lambda: {"configurable": {"user_id": "user-123", "thread_id": "thread-1", "agent_name": "code-test"}},
+    )
+    monkeypatch.setattr(
+        "deerflow.agents.middlewares.mem0_injection_middleware.build_mem0_injection_memory",
+        lambda **kwargs: captured.update(kwargs) or None,
+    )
+
+    middleware.wrap_model_call(request, handler)
+
+    assert captured["agent_name"] == "code-test"
+
+
 def test_mem0_injection_middleware_skips_when_no_user_id(monkeypatch):
     middleware = Mem0InjectionMiddleware()
     request = MagicMock()

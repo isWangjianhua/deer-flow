@@ -6,6 +6,7 @@ from typing import Any
 
 from deerflow.agents.memory.mem0_service import get_mem0_service
 from deerflow.agents.memory.prompt import _count_tokens
+from deerflow.agents.memory.scope import resolve_memory_agent_id
 from deerflow.config.memory_config import get_memory_config
 from deerflow.tracing import memory_trace, trace_messages, trace_thread_data
 
@@ -158,9 +159,17 @@ def _compat_memory(results: list[dict[str, Any]]) -> dict[str, Any] | None:
     }
 
 
-def build_mem0_injection_memory(*, user_id: str, messages: list[Any], thread_id: str | None = None, trace_parent: Any | None = None) -> dict[str, Any] | None:
+def build_mem0_injection_memory(
+    *,
+    user_id: str,
+    agent_name: str | None,
+    messages: list[Any],
+    thread_id: str | None = None,
+    trace_parent: Any | None = None,
+) -> dict[str, Any] | None:
     config = get_memory_config()
     service = get_mem0_service()
+    agent_id = resolve_memory_agent_id(agent_name=agent_name)
 
     total_budget = config.max_injection_tokens
     profile_budget = int(total_budget * config.profile_budget_ratio)
@@ -175,7 +184,7 @@ def build_mem0_injection_memory(*, user_id: str, messages: list[Any], thread_id:
         inputs={"messages": [{"type": "system", "content": "Using user-scoped profile memory (no current request text)."}], "thread_data": trace_thread_data(thread_id=thread_id, user_id=user_id, profile_limit=config.profile_limit, profile_categories=list(config.profile_categories))},
         parent=trace_parent,
     ) as span:
-        profile_results = _profile_candidates(service.get_all(user_id=user_id))
+        profile_results = _profile_candidates(service.get_all(user_id=user_id, agent_id=agent_id))
         if span is not None and hasattr(span, "metadata"):
             span.metadata["profile_candidates"] = len(profile_results)
             span.metadata["profile_kept"] = len(profile_results)
@@ -196,7 +205,11 @@ def build_mem0_injection_memory(*, user_id: str, messages: list[Any], thread_id:
         inputs={"messages": [{"type": "human", "content": query}], "thread_data": trace_thread_data(thread_id=thread_id, user_id=user_id, query_window_turns=config.query_window_turns, query_length=len(query))},
         parent=trace_parent,
     ) as span:
-        query_results = service.search(query=query, user_id=user_id, limit=config.search_limit) if query else []
+        query_results = (
+            service.search(query=query, user_id=user_id, agent_id=agent_id, limit=config.search_limit)
+            if query
+            else []
+        )
         bounded_query_preview = _budgeted_results(query_results, query_budget)
         if span is not None and hasattr(span, "metadata"):
             span.metadata["query_results"] = len(query_results)

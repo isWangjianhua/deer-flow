@@ -1,5 +1,6 @@
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 
@@ -164,9 +165,47 @@ def test_memory_updater_uses_mem0_add_conversation_when_provider_enabled() -> No
     service.add_conversation.assert_called_once_with(
         messages=[{"role": "user", "content": "conversation"}],
         user_id="user-123",
+        agent_id="__lead__",
         run_id="thread-1",
-        metadata={"thread_id": "thread-1", "source": "thread-1"},
+        metadata={"thread_id": "thread-1", "source": "thread-1", "agent_id": "__lead__"},
     )
+
+
+def test_memory_updater_uses_lead_scope_when_agent_name_missing(monkeypatch) -> None:
+    service = SimpleNamespace(add_conversation=Mock(return_value={"ok": True}))
+    monkeypatch.setattr("deerflow.agents.memory.updater.get_memory_config", lambda: _memory_config(enabled=True, provider="mem0"))
+    monkeypatch.setattr("deerflow.agents.memory.updater.get_mem0_service", lambda: service)
+
+    result = MemoryUpdater().update_memory(
+        messages=[
+            {"role": "user", "content": "remember this"},
+            {"role": "assistant", "content": "ok"},
+        ],
+        thread_id="thread-1",
+        user_id="user-1",
+        agent_name=None,
+    )
+
+    assert result is True
+    assert service.add_conversation.call_args.kwargs["agent_id"] == "__lead__"
+
+
+def test_memory_updater_uses_custom_agent_scope(monkeypatch) -> None:
+    service = SimpleNamespace(add_conversation=Mock(return_value={"ok": True}))
+    monkeypatch.setattr("deerflow.agents.memory.updater.get_memory_config", lambda: _memory_config(enabled=True, provider="mem0"))
+    monkeypatch.setattr("deerflow.agents.memory.updater.get_mem0_service", lambda: service)
+
+    MemoryUpdater().update_memory(
+        messages=[
+            {"role": "user", "content": "remember this"},
+            {"role": "assistant", "content": "ok"},
+        ],
+        thread_id="thread-1",
+        user_id="user-1",
+        agent_name="code-test",
+    )
+
+    assert service.add_conversation.call_args.kwargs["agent_id"] == "code-test"
 
 
 def test_memory_updater_limits_mem0_payload_to_recent_budget(monkeypatch: pytest.MonkeyPatch) -> None:
