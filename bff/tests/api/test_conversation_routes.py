@@ -22,9 +22,13 @@ def test_create_and_list_conversations(client, monkeypatch) -> None:
 
     assert created.status_code == 200
     assert "id" in created.json()
+    assert "agent_name" in created.json()
+    assert created.json()["agent_name"] is None
     assert listed.status_code == 200
     assert len(listed.json()) == 1
     assert listed.json()[0]["id"] == created.json()["id"]
+    assert "agent_name" in listed.json()[0]
+    assert listed.json()[0]["agent_name"] is None
 
 
 def test_get_conversation_detail(client, monkeypatch) -> None:
@@ -77,6 +81,7 @@ def test_get_conversation_detail(client, monkeypatch) -> None:
     payload = detail.json()
     assert payload["id"] == created.json()["id"]
     assert payload["title"] == "Loaded conversation"
+    assert payload["agent_name"] is None
     assert payload["values"]["title"] == "Loaded conversation"
     assert payload["values"]["messages"][0]["id"] == "human-1"
 
