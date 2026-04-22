@@ -391,7 +391,7 @@ export const zhCN: Translations = {
     memory: {
       title: "记忆",
       description:
-        "DeerFlow 会在后台不断从你的对话中自动学习。这些记忆能帮助 DeerFlow 更好地理解你，并提供更个性化的体验。",
+        "DeerFlow 会为主 Agent 和每个自定义 Agent 分别维护独立记忆空间。此页面当前只展示主 Agent 的记忆。",
       empty: "暂无可展示的记忆数据。",
       rawJson: "原始 JSON",
       exportButton: "导出记忆",
@@ -428,7 +428,7 @@ export const zhCN: Translations = {
       factValidationConfidence: "置信度必须是 0 到 1 之间的数字。",
       noFacts: "还没有保存的事实。",
       summaryReadOnly:
-        "摘要分区当前仍为只读。现在你可以清空全部记忆或删除单条事实。",
+        "摘要分区当前为只读，且只反映主 Agent 的记忆。自定义 Agent 的记忆会单独存储。",
       memoryFullyEmpty: "还没有保存任何记忆。",
       factPreviewLabel: "即将删除的事实",
       searchPlaceholder: "搜索记忆",

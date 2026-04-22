@@ -413,7 +413,7 @@ export const enUS: Translations = {
     memory: {
       title: "Memory",
       description:
-        "DeerFlow automatically learns from your conversations in the background. These memories help DeerFlow understand you better and deliver a more personalized experience.",
+        "DeerFlow keeps a separate memory space for the main agent and each custom agent. This page shows the main agent memory only.",
       empty: "No memory data to display.",
       rawJson: "Raw JSON",
       exportButton: "Export memory",
@@ -452,7 +452,7 @@ export const enUS: Translations = {
       factValidationConfidence: "Confidence must be a number between 0 and 1.",
       noFacts: "No saved facts yet.",
       summaryReadOnly:
-        "Summary sections are read-only for now. You can currently add, edit, or delete individual facts, or clear all memory.",
+        "Summary sections are read-only and reflect the main agent memory only. Custom agent memories are stored separately.",
       memoryFullyEmpty: "No memory saved yet.",
       factPreviewLabel: "Fact to delete",
       searchPlaceholder: "Search memory",

@@ -10,8 +10,11 @@ class DeerFlowClient:
         self.timeout = settings.deerflow_timeout_seconds
 
     @staticmethod
-    def _memory_headers(user_id: str) -> dict[str, str]:
-        return {"X-User-Id": user_id}
+    def _memory_headers(user_id: str, agent_id: str | None = None) -> dict[str, str]:
+        headers = {"X-User-Id": user_id}
+        if agent_id is not None:
+            headers["X-Agent-Id"] = agent_id
+        return headers
 
     async def create_thread(self) -> str:
         async with httpx.AsyncClient(timeout=self.timeout) as client:
@@ -162,11 +165,11 @@ class DeerFlowClient:
             response.raise_for_status()
             return response.json()
 
-    async def get_memory(self, *, user_id: str) -> dict:
+    async def get_memory(self, *, user_id: str, agent_id: str | None = None) -> dict:
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             response = await client.get(
                 f"{self.base_url}/api/memory",
-                headers=self._memory_headers(user_id),
+                headers=self._memory_headers(user_id, agent_id),
             )
             response.raise_for_status()
             return response.json()

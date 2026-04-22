@@ -9,10 +9,10 @@ def test_memory_requires_auth(client) -> None:
 
 
 def test_memory_forwards_authenticated_user_id(client, monkeypatch) -> None:
-    calls: list[str] = []
+    calls: list[tuple[str, str]] = []
 
-    async def fake_get_memory(self, *, user_id: str) -> dict:
-        calls.append(user_id)
+    async def fake_get_memory(self, *, user_id: str, agent_id: str) -> dict:
+        calls.append((user_id, agent_id))
         return {
             "version": "1.0",
             "lastUpdated": "2026-04-21T12:00:00Z",
@@ -54,11 +54,41 @@ def test_memory_forwards_authenticated_user_id(client, monkeypatch) -> None:
 
     assert response.status_code == 200
     assert response.json()["version"] == "1.0"
-    assert calls == ["user-123"]
+    assert calls == [("user-123", "__lead__")]
+
+
+def test_memory_reads_lead_agent_scope(client, monkeypatch) -> None:
+    calls: list[tuple[str, str]] = []
+
+    async def fake_get_memory(self, *, user_id: str, agent_id: str) -> dict:
+        calls.append((user_id, agent_id))
+        return {
+            "version": "1.0",
+            "lastUpdated": "2026-04-21T12:00:00Z",
+            "user": {
+                "workContext": {"summary": "lead", "updatedAt": "2026-04-21T12:00:00Z"},
+                "personalContext": {"summary": "", "updatedAt": ""},
+                "topOfMind": {"summary": "", "updatedAt": ""},
+            },
+            "history": {
+                "recentMonths": {"summary": "", "updatedAt": ""},
+                "earlierContext": {"summary": "", "updatedAt": ""},
+                "longTermBackground": {"summary": "", "updatedAt": ""},
+            },
+            "facts": [],
+        }
+
+    monkeypatch.setattr(DeerFlowClient, "get_memory", fake_get_memory)
+
+    token = create_access_token("user-123")
+    response = client.get("/memory", headers={"Authorization": f"Bearer {token}"})
+
+    assert response.status_code == 200
+    assert calls == [("user-123", "__lead__")]
 
 
 def test_memory_normalizes_deerflow_errors(client, monkeypatch) -> None:
-    async def fake_get_memory(self, *, user_id: str) -> dict:
+    async def fake_get_memory(self, *, user_id: str, agent_id: str) -> dict:
         raise RuntimeError("gateway down")
 
     monkeypatch.setattr(DeerFlowClient, "get_memory", fake_get_memory)

@@ -293,6 +293,27 @@ def test_get_memory_forwards_user_id_header(monkeypatch) -> None:
     assert result["version"] == "1.0"
 
 
+def test_get_memory_forwards_user_and_agent_headers(monkeypatch) -> None:
+    async def mock_get(self, url: str, *args, **kwargs):
+        request = httpx.Request("GET", url)
+        assert url.endswith("/api/memory")
+        assert kwargs["headers"] == {
+            "X-User-Id": "u-1",
+            "X-Agent-Id": "__lead__",
+        }
+        return httpx.Response(
+            200,
+            json={"version": "1.0", "facts": []},
+            request=request,
+        )
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", mock_get)
+
+    result = asyncio.run(DeerFlowClient().get_memory(user_id="u-1", agent_id="__lead__"))
+
+    assert result["version"] == "1.0"
+
+
 def test_get_memory_status_forwards_user_id_header(monkeypatch) -> None:
     async def mock_get(self, url: str, *args, **kwargs):
         request = httpx.Request("GET", url)
