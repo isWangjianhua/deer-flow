@@ -100,6 +100,8 @@ async def stream_message(
         "reasoning_effort": payload.reasoning_effort,
     }
     normalized_context = {key: value for key, value in context.items() if value is not None}
+    if conversation.agent_name:
+        normalized_context["agent_name"] = conversation.agent_name
 
     client, response = await DeerFlowClient().stream_message(
         thread_id=conversation.deerflow_thread_id,
