@@ -1,6 +1,7 @@
 from app.clients.deerflow import DeerFlowClient
 from app.models.conversation import Conversation
 from app.models.user import User
+from app.services.conversation_service import ConversationService
 
 
 def test_create_conversation_requires_auth(client) -> None:
@@ -86,6 +87,28 @@ def test_get_conversation_detail(client, monkeypatch) -> None:
     assert payload["agent_name"] is None
     assert payload["values"]["title"] == "Loaded conversation"
     assert payload["values"]["messages"][0]["id"] == "human-1"
+
+
+def test_get_conversation_detail_returns_agent_name(client, db_session, monkeypatch) -> None:
+    async def mock_get_thread_history(self, thread_id: str, limit: int = 1) -> list[dict]:
+        return []
+
+    monkeypatch.setattr(DeerFlowClient, "get_thread_history", mock_get_thread_history)
+
+    login = client.post("/auth/login", json={"username": "demo", "password": "demo1234"})
+    token = login.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+    me = client.get("/me", headers=headers)
+    conversation = ConversationService(db_session).create_conversation(
+        user_id=me.json()["id"],
+        deerflow_thread_id="thread-agent-456",
+        agent_name="demo-agent",
+    )
+
+    detail = client.get(f"/conversations/{conversation.id}", headers=headers)
+
+    assert detail.status_code == 200
+    assert detail.json()["agent_name"] == "demo-agent"
 
 
 def test_rename_conversation_updates_owned_title(client, db_session, monkeypatch) -> None:

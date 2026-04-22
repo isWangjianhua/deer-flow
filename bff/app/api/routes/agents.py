@@ -2,10 +2,13 @@ import json
 
 import httpx
 from fastapi import APIRouter, Depends, Query, status
+from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user_id
+from app.api.deps import get_current_user_id, get_db_session
 from app.api.errors import error_response
 from app.clients.deerflow import DeerFlowClient
+from app.schemas.conversation import ConversationCreateResponse
+from app.services.conversation_service import ConversationService
 
 
 router = APIRouter(tags=["agents"])
@@ -137,3 +140,20 @@ async def delete_agent(
         return await DeerFlowClient().delete_agent(agent_name)
     except httpx.HTTPStatusError as exc:
         _normalize_agents_error(exc)
+
+
+@router.post(
+    "/agents/{agent_name}/conversations",
+    response_model=ConversationCreateResponse,
+)
+async def create_agent_conversation(
+    agent_name: str,
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db_session),
+) -> ConversationCreateResponse:
+    deerflow_thread_id = await DeerFlowClient().create_thread()
+    return ConversationService(db).create_conversation(
+        user_id=user_id,
+        deerflow_thread_id=deerflow_thread_id,
+        agent_name=agent_name,
+    )
