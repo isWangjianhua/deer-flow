@@ -135,11 +135,12 @@ Current same-origin browser behavior:
 - chat create/list/detail/stream goes through `/api/bff/*`
 - browser auth state and `/me` go through `/api/bff/*`
 - model discovery goes through `/api/bff/models`
+- browser Agent CRUD now goes through `/api/bff/agents*`
 - main chat artifact viewing/downloading goes through `/api/bff/conversations/*/artifacts/*`
 - main chat follow-up suggestions go through `/api/bff/conversations/*/suggestions`
 - main chat attachment uploads go through `/api/bff/conversations/*/uploads`
 - chat create/list/detail/stream and readonly Memory now go through `/api/bff/*`
-- MCP, skills, and agents still go through same-origin Next.js bridge routes
+- MCP and skills still go through same-origin Next.js bridge routes
 - `Settings > Memory` is readonly in this slice and reads from `/api/bff/memory`
 - when `memory.provider=mem0`, BFF resolves the current user and preserves user-scoped Memory reads via `X-User-Id`
 - `/workspace/account` is now a product-facing account/status page with a shared auth panel, session diagnostics, and unauthenticated chat recovery
@@ -157,7 +158,8 @@ What still remains mixed:
 
 - some older non-chat runtime surfaces still use Gateway-facing thread semantics behind server bridges
 - direct `:3000` development still behaves differently from the canonical `:2026` nginx entrypoint
-- MCP, skills, and agents are same-origin, but not yet BFF-owned APIs
+- MCP and skills are same-origin, but not yet BFF-owned APIs
+- the hidden Agents UI remains disabled until later phases complete Agent Chat migration and user isolation
 
 Current startup story:
 
@@ -272,13 +274,15 @@ The main workspace chat path now uses a BFF-owned protocol rather than frontend-
 
 Current chat limitations:
 
-- MCP, skills, and agents are same-origin server bridges today, not BFF-owned APIs
+- MCP and skills are same-origin server bridges today, not BFF-owned APIs
+- browser Agent CRUD is BFF-owned, but Agent Chat still retains legacy runtime semantics
 - recent conversations now expose sidebar pin/rename/delete actions through the BFF-backed chat path
 - agent-specific chat paths still retain more legacy runtime semantics than the main chat path
 
 Recommended next follow-up for the BFF chat path:
 
-- decide which MCP, skills, and agents paths should move from same-origin bridges into BFF ownership
+- decide which remaining MCP and skills paths should move from same-origin bridges into BFF ownership
+- complete the later Agents phases for BFF conversation ownership and user isolation
 - decide whether more protected workspace actions should reuse the login-required dialog pattern
 - reduce remaining frontend-visible gateway assumptions in direct `pnpm dev` flows
 

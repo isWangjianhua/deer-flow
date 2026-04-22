@@ -36,12 +36,16 @@ void test("skills API uses same-origin skills routes", async () => {
   );
 });
 
-void test("agents API uses same-origin agents routes", async () => {
+void test("agents API uses same-origin BFF agent routes", async () => {
   const source = await readSource("./agents/api.ts");
 
   assert.ok(
-    source.includes('fetch("/api/agents"'),
-    "expected agents API to use the same-origin /api/agents route",
+    source.includes('fetch("/api/bff/agents"'),
+    "expected agents API to use the same-origin /api/bff/agents route",
+  );
+  assert.ok(
+    !source.includes('fetch("/api/agents"'),
+    "expected agents API to stop using the old gateway-facing /api/agents route",
   );
   assert.ok(
     !source.includes("getBackendBaseURL"),

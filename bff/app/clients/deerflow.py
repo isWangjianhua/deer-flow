@@ -26,6 +26,51 @@ class DeerFlowClient:
             response.raise_for_status()
             return response.json()
 
+    async def list_agents(self) -> dict:
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.get(f"{self.base_url}/api/agents")
+            response.raise_for_status()
+            return response.json()
+
+    async def check_agent_name(self, name: str) -> dict:
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.get(
+                f"{self.base_url}/api/agents/check",
+                params={"name": name},
+            )
+            response.raise_for_status()
+            return response.json()
+
+    async def get_agent(self, name: str) -> dict:
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.get(f"{self.base_url}/api/agents/{name}")
+            response.raise_for_status()
+            return response.json()
+
+    async def create_agent(self, payload: dict) -> dict:
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.post(
+                f"{self.base_url}/api/agents",
+                json=payload,
+            )
+            response.raise_for_status()
+            return response.json()
+
+    async def update_agent(self, name: str, payload: dict) -> dict:
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.put(
+                f"{self.base_url}/api/agents/{name}",
+                json=payload,
+            )
+            response.raise_for_status()
+            return response.json()
+
+    async def delete_agent(self, name: str) -> dict:
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.delete(f"{self.base_url}/api/agents/{name}")
+            response.raise_for_status()
+            return response.json()
+
     async def generate_suggestions(self, thread_id: str, payload: dict) -> dict:
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             response = await client.post(

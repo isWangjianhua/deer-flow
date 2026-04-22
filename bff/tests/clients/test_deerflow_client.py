@@ -42,6 +42,135 @@ def test_get_models_returns_payload(monkeypatch) -> None:
     assert result["models"][0]["name"] == "deepseek-chat"
 
 
+def test_list_agents_calls_gateway_agents_root(monkeypatch) -> None:
+    async def mock_get(self, url: str, *args, **kwargs):
+        request = httpx.Request("GET", url)
+        assert url.endswith("/api/agents")
+        return httpx.Response(
+            200,
+            json={
+                "agents": [
+                    {
+                        "name": "demo-agent",
+                        "description": "",
+                        "model": None,
+                        "tool_groups": None,
+                        "soul": "",
+                    }
+                ]
+            },
+            request=request,
+        )
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", mock_get)
+
+    result = asyncio.run(DeerFlowClient().list_agents())
+
+    assert result["agents"][0]["name"] == "demo-agent"
+
+
+def test_check_agent_name_calls_gateway_check_endpoint(monkeypatch) -> None:
+    async def mock_get(self, url: str, *args, **kwargs):
+        request = httpx.Request("GET", url)
+        assert url.endswith("/api/agents/check")
+        assert kwargs["params"] == {"name": "demo-agent"}
+        return httpx.Response(
+            200,
+            json={"available": True, "name": "demo-agent"},
+            request=request,
+        )
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", mock_get)
+
+    result = asyncio.run(DeerFlowClient().check_agent_name("demo-agent"))
+
+    assert result["available"] is True
+
+
+def test_get_agent_calls_gateway_detail_endpoint(monkeypatch) -> None:
+    async def mock_get(self, url: str, *args, **kwargs):
+        request = httpx.Request("GET", url)
+        assert url.endswith("/api/agents/demo-agent")
+        return httpx.Response(
+            200,
+            json={
+                "name": "demo-agent",
+                "description": "Demo",
+                "model": None,
+                "tool_groups": None,
+                "soul": "Hello",
+            },
+            request=request,
+        )
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", mock_get)
+
+    result = asyncio.run(DeerFlowClient().get_agent("demo-agent"))
+
+    assert result["name"] == "demo-agent"
+
+
+def test_create_agent_calls_gateway_agents_root(monkeypatch) -> None:
+    payload = {
+        "name": "demo-agent",
+        "description": "Demo",
+        "model": None,
+        "tool_groups": None,
+        "soul": "Hello",
+    }
+
+    async def mock_post(self, url: str, *args, **kwargs):
+        request = httpx.Request("POST", url)
+        assert url.endswith("/api/agents")
+        assert kwargs["json"] == payload
+        return httpx.Response(201, json=payload, request=request)
+
+    monkeypatch.setattr(httpx.AsyncClient, "post", mock_post)
+
+    result = asyncio.run(DeerFlowClient().create_agent(payload))
+
+    assert result["name"] == "demo-agent"
+
+
+def test_update_agent_calls_gateway_detail_endpoint(monkeypatch) -> None:
+    payload = {"description": "Updated"}
+
+    async def mock_put(self, url: str, *args, **kwargs):
+        request = httpx.Request("PUT", url)
+        assert url.endswith("/api/agents/demo-agent")
+        assert kwargs["json"] == payload
+        return httpx.Response(
+            200,
+            json={
+                "name": "demo-agent",
+                "description": "Updated",
+                "model": None,
+                "tool_groups": None,
+                "soul": "Hello",
+            },
+            request=request,
+        )
+
+    monkeypatch.setattr(httpx.AsyncClient, "put", mock_put)
+
+    result = asyncio.run(DeerFlowClient().update_agent("demo-agent", payload))
+
+    assert result["description"] == "Updated"
+
+
+def test_delete_agent_calls_gateway_detail_endpoint(monkeypatch) -> None:
+    async def mock_delete(self, url: str, *args, **kwargs):
+        request = httpx.Request("DELETE", url)
+        assert url.endswith("/api/agents/demo-agent")
+        return httpx.Response(200, json={"success": True}, request=request)
+
+    monkeypatch.setattr(httpx.AsyncClient, "delete", mock_delete)
+
+    result = asyncio.run(DeerFlowClient().delete_agent("demo-agent"))
+
+    assert result["success"] is True
+
+
 def test_generate_suggestions_posts_payload(monkeypatch) -> None:
     async def mock_post(self, url: str, *args, **kwargs):
         request = httpx.Request("POST", url)

@@ -11,6 +11,7 @@ gateway route structure.
 - current-user lookup
 - local self-registration
 - OIDC bearer-token validation for protected requests
+- browser-facing Agent CRUD management
 - `conversation_id -> deerflow_thread_id` mapping
 - ownership checks for conversation resources
 - model discovery for the product path
@@ -21,7 +22,8 @@ gateway route structure.
 
 - DeerFlow runtime internals
 - raw thread ids as a public contract
-- MCP, skills, or agents as first-class BFF APIs
+- MCP or skills as first-class BFF APIs
+- Agent Chat, bootstrap conversation flow, or final agent ownership semantics
 - browser redirect/callback OIDC UX
   - the frontend owns that experience
 
@@ -34,6 +36,12 @@ gateway route structure.
 | `GET /me` | current user |
 | `GET /models` | model list for the frontend |
 | `GET /memory` | readonly user-scoped Memory for the frontend |
+| `GET /agents` | list browser-facing agents through the BFF |
+| `GET /agents/check?name=...` | validate agent name availability |
+| `GET /agents/{agent_name}` | load agent detail |
+| `POST /agents` | create an agent through the BFF |
+| `PUT /agents/{agent_name}` | update an agent through the BFF |
+| `DELETE /agents/{agent_name}` | delete an agent through the BFF |
 | `POST /conversations` | create a conversation |
 | `GET /conversations` | list conversations |
 | `GET /conversations/{conversation_id}` | conversation detail |
@@ -45,6 +53,20 @@ gateway route structure.
 | `POST /conversations/{conversation_id}/uploads` | upload files |
 | `GET /conversations/{conversation_id}/uploads` | list uploaded files |
 | `DELETE /conversations/{conversation_id}/uploads/{filename}` | delete uploaded file |
+
+## Agent Management (Phase A)
+
+The BFF now owns the browser-facing Agent CRUD contract through `/agents*`.
+These routes authenticate the current user, proxy to DeerFlow Gateway
+`/api/agents*`, and normalize downstream transport errors into stable BFF
+errors.
+
+In this phase:
+
+- browser code should stop calling `/api/agents*` directly
+- agent data semantics may still remain global
+- Agent Chat, bootstrap conversation flow, and user ownership remain later
+  roadmap phases
 
 ## Local Development
 

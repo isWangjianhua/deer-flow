@@ -2,7 +2,7 @@ from sqlalchemy import inspect, text
 
 from fastapi import FastAPI
 
-from app.api.routes import auth, conversation_resources, conversations, memory, models, users
+from app.api.routes import agents, auth, conversation_resources, conversations, memory, models, users
 from app.core.security import get_password_hash
 from app.db.base import Base
 from app.db.session import SessionLocal, engine
@@ -58,6 +58,7 @@ def create_app() -> FastAPI:
 
     app.include_router(auth.router)
     app.include_router(users.router)
+    app.include_router(agents.router)
     app.include_router(conversations.router)
     app.include_router(conversation_resources.router)
     app.include_router(models.router)
