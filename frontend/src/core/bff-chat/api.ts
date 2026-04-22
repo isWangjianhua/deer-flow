@@ -59,6 +59,25 @@ export async function createConversation(fetchImpl: FetchLike = fetch) {
   return (await response.json()) as CreateConversationResult;
 }
 
+export async function createAgentConversation(
+  agentName: string,
+  fetchImpl: FetchLike = fetch,
+) {
+  const response = await fetchImpl(
+    `/api/bff/agents/${encodeURIComponent(agentName)}/conversations`,
+    {
+      method: "POST",
+      headers: buildRequestHeaders(),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error("Failed to create agent conversation");
+  }
+
+  return (await response.json()) as CreateConversationResult;
+}
+
 export async function listConversations(fetchImpl: FetchLike = fetch) {
   const response = await fetchImpl("/api/bff/conversations", {
     headers: buildRequestHeaders(),

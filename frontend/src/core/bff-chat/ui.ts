@@ -9,3 +9,12 @@ export function isBffChatRoute(pathname: string) {
     /^\/workspace\/chats\/[^/]+$/.test(pathname)
   );
 }
+
+export function pathOfConversation(conversation: {
+  id: string;
+  agent_name?: string | null;
+}) {
+  return conversation.agent_name
+    ? `/workspace/agents/${conversation.agent_name}/chats/${conversation.id}`
+    : `/workspace/chats/${conversation.id}`;
+}

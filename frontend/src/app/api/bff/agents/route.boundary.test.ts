@@ -10,8 +10,16 @@ void test("bff agents routes proxy authenticated requests to bff agent endpoints
   const rootSource = await readSource("./route.ts");
   const checkSource = await readSource("./check/route.ts");
   const detailSource = await readSource("./[agent_name]/route.ts");
+  const conversationsSource = await readSource(
+    "./[agent_name]/conversations/route.ts",
+  );
 
-  for (const source of [rootSource, checkSource, detailSource]) {
+  for (const source of [
+    rootSource,
+    checkSource,
+    detailSource,
+    conversationsSource,
+  ]) {
     assert.ok(
       source.includes("proxyAuthenticatedBffJson"),
       "expected BFF agent routes to use the shared authenticated BFF proxy helper",
@@ -49,5 +57,19 @@ void test("bff agents routes proxy authenticated requests to bff agent endpoints
   assert.ok(
     detailSource.includes('method: "DELETE"'),
     "expected the detail route to proxy DELETE requests to the BFF agent endpoint",
+  );
+  assert.ok(
+    conversationsSource.includes(
+      "const { agent_name: agentName } = await context.params;",
+    ),
+    "expected the conversations route to read the dynamic agent name from params",
+  );
+  assert.ok(
+    conversationsSource.includes("path: `/agents/${agentName}/conversations`"),
+    "expected the conversations route to proxy the dynamic BFF /agents/{agent_name}/conversations endpoint",
+  );
+  assert.ok(
+    conversationsSource.includes('method: "POST"'),
+    "expected the conversations route to proxy POST requests to the BFF agent conversations endpoint",
   );
 });

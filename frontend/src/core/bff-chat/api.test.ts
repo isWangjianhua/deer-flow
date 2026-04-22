@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 const {
+  createAgentConversation,
   createConversation,
   deleteConversation,
   generateSuggestions,
@@ -23,6 +24,7 @@ void test("creates a conversation through the BFF", async () => {
       JSON.stringify({
         id: "conversation-1",
         title: "New chat",
+        agent_name: null,
         created_at: "2026-04-10T00:00:00Z",
         updated_at: "2026-04-10T00:00:00Z",
       }),
@@ -31,6 +33,27 @@ void test("creates a conversation through the BFF", async () => {
   });
 
   assert.equal(result.id, "conversation-1");
+});
+
+void test("creates an agent conversation through the BFF", async () => {
+  const result = await createAgentConversation("demo-agent", async (input, init) => {
+    assert.equal(input, "/api/bff/agents/demo-agent/conversations");
+    assert.equal(init?.method, "POST");
+
+    return new Response(
+      JSON.stringify({
+        id: "conversation-2",
+        title: "Agent chat",
+        agent_name: "demo-agent",
+        created_at: "2026-04-10T00:00:00Z",
+        updated_at: "2026-04-10T00:00:00Z",
+      }),
+      { status: 201, headers: { "content-type": "application/json" } },
+    );
+  });
+
+  assert.equal(result.id, "conversation-2");
+  assert.equal(result.agent_name, "demo-agent");
 });
 
 void test("lists conversations through the BFF", async () => {
@@ -42,6 +65,7 @@ void test("lists conversations through the BFF", async () => {
         {
           id: "conversation-1",
           title: "Existing chat",
+          agent_name: null,
           is_pinned: false,
           pinned_at: null,
           created_at: "2026-04-10T00:00:00Z",
@@ -64,6 +88,7 @@ void test("loads a conversation detail through the BFF", async () => {
       JSON.stringify({
         id: "conversation-1",
         title: "Existing chat",
+        agent_name: null,
         status: "active",
         is_pinned: false,
         pinned_at: null,
@@ -97,6 +122,7 @@ void test("renames a conversation through the BFF", async () => {
         JSON.stringify({
           id: "conversation-1",
           title: "Renamed chat",
+          agent_name: null,
           is_pinned: false,
           pinned_at: null,
           created_at: "2026-04-10T00:00:00Z",
@@ -141,6 +167,7 @@ void test("patches conversation pin state through the BFF", async () => {
         JSON.stringify({
           id: "conversation-1",
           title: "Pinned chat",
+          agent_name: null,
           created_at: "2026-04-10T00:00:00Z",
           updated_at: "2026-04-11T00:00:00Z",
           status: "active",
@@ -166,6 +193,7 @@ void test("pins a conversation through the convenience helper", async () => {
         JSON.stringify({
           id: "conversation-1",
           title: "Pinned chat",
+          agent_name: null,
           is_pinned: true,
           pinned_at: "2026-04-11T00:00:00Z",
           created_at: "2026-04-10T00:00:00Z",

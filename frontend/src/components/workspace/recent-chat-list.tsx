@@ -49,7 +49,7 @@ import {
   setConversationPinned,
 } from "@/core/bff-chat";
 import type { BffConversation } from "@/core/bff-chat";
-import { isBffChatRoute } from "@/core/bff-chat/ui";
+import { isBffChatRoute, pathOfConversation } from "@/core/bff-chat/ui";
 import { useI18n } from "@/core/i18n/hooks";
 import { isIMEComposing } from "@/lib/ime";
 
@@ -191,7 +191,14 @@ function BffRecentChatList({ pathname }: { pathname: string }) {
         },
       );
 
-      if (pathname === `/workspace/chats/${conversationId}`) {
+      const deletedConversation = conversations.find(
+        (conversation) => conversation.id === conversationId,
+      );
+
+      if (
+        deletedConversation &&
+        pathname === pathOfConversation(deletedConversation)
+      ) {
         const conversationIndex = conversations.findIndex(
           (conversation) => conversation.id === conversationId,
         );
@@ -201,7 +208,7 @@ function BffRecentChatList({ pathname }: { pathname: string }) {
                 conversations[conversationIndex - 1])
             : null;
         const nextHref = nextConversation
-          ? `/workspace/chats/${nextConversation.id}`
+          ? pathOfConversation(nextConversation)
           : "/workspace/chats/new";
         void router.push(nextHref);
       }
@@ -284,7 +291,7 @@ function BffRecentChatList({ pathname }: { pathname: string }) {
           <SidebarMenu>
             <div className="flex w-full flex-col gap-1">
               {conversations.map((conversation) => {
-                const href = `/workspace/chats/${conversation.id}`;
+                const href = pathOfConversation(conversation);
                 const isActive = href === pathname;
                 const displayTitle =
                   conversation.title?.trim() ?? t.pages.untitled;
