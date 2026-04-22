@@ -92,7 +92,9 @@ export function useBffThreadStream({
   );
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [isThreadLoading, setIsThreadLoading] = useState(false);
+  const [isThreadLoading, setIsThreadLoading] = useState(
+    () => conversationId != null,
+  );
   const [error, setError] = useState<unknown>(undefined);
   const queryClient = useQueryClient();
   const activeConversationIdRef = useRef<string | null>(conversationId ?? null);
@@ -147,7 +149,7 @@ export function useBffThreadStream({
     setBaseValues(createEmptyThreadState([]));
     setIsLoading(false);
     setIsUploading(false);
-    setIsThreadLoading(false);
+    setIsThreadLoading(!!nextConversationId);
     setError(undefined);
     abortControllerRef.current = null;
     sendInFlightRef.current = false;

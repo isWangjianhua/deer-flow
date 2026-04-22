@@ -14,3 +14,14 @@ void test("agent chat page restores the login-aware shared chat shell", async ()
   assert.ok(source.includes("bootstrapRequested"));
   assert.ok(!source.includes("useThreadStream"));
 });
+
+void test("agent chats subtree keeps shared chat providers at the parent layout", async () => {
+  const source = await readFile(
+    new URL("./[agent_name]/chats/layout.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.ok(source.includes("SubtasksProvider"));
+  assert.ok(source.includes("ArtifactsProvider"));
+  assert.ok(source.includes("PromptInputProvider"));
+});

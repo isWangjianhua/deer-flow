@@ -23,4 +23,13 @@ void test("bff thread stream only invokes onFinish once in the completion path",
     source.includes("shouldClearPendingHumanMessages"),
     "expected useBffThreadStream to clear optimistic human messages once base messages arrive",
   );
+  assert.ok(
+    source.includes("const [isThreadLoading, setIsThreadLoading] = useState(") &&
+      source.includes("conversationId != null"),
+    "expected useBffThreadStream to start in loading mode when a conversation id is provided",
+  );
+  assert.ok(
+    source.includes("setIsThreadLoading(!!nextConversationId)"),
+    "expected useBffThreadStream to reset loading state while hydrating an existing conversation",
+  );
 });

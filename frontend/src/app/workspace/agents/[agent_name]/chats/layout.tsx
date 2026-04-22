@@ -4,7 +4,7 @@ import { PromptInputProvider } from "@/components/ai-elements/prompt-input";
 import { ArtifactsProvider } from "@/components/workspace/artifacts";
 import { SubtasksProvider } from "@/core/tasks/context";
 
-export default function AgentChatLayout({
+export default function AgentChatsLayout({
   children,
 }: {
   children: React.ReactNode;
