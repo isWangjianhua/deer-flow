@@ -115,3 +115,67 @@ def test_init_db_backfills_agent_name_index_when_column_already_exists(tmp_path,
         app_main.SessionLocal = original_session_local
         Base.metadata.drop_all(engine)
         engine.dispose()
+
+
+def test_init_db_keeps_existing_agent_name_index_by_columns(tmp_path, monkeypatch) -> None:
+    database_url = f"sqlite:///{tmp_path / 'test.db'}"
+    engine = create_engine(database_url, connect_args={"check_same_thread": False})
+    session_local = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                """
+                CREATE TABLE users (
+                    id VARCHAR(36) PRIMARY KEY,
+                    username VARCHAR(255),
+                    password_hash VARCHAR(255),
+                    status VARCHAR(32),
+                    created_at DATETIME
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                """
+                CREATE TABLE conversations (
+                    id VARCHAR(36) PRIMARY KEY,
+                    user_id VARCHAR(36),
+                    deerflow_thread_id VARCHAR(128) UNIQUE,
+                    agent_name VARCHAR(255),
+                    title VARCHAR(255),
+                    status VARCHAR(32),
+                    created_at DATETIME,
+                    updated_at DATETIME
+                )
+                """
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX legacy_agent_name_idx ON conversations (agent_name)"
+            )
+        )
+
+    original_engine = app_main.engine
+    original_session_local = app_main.SessionLocal
+    app_main.engine = engine
+    app_main.SessionLocal = session_local
+
+    try:
+        app_main.init_db()
+        inspector = inspect(engine)
+        agent_name_indexes = [
+            index
+            for index in inspector.get_indexes("conversations")
+            if tuple(index.get("column_names", [])) == ("agent_name",)
+        ]
+        index_names = {index["name"] for index in agent_name_indexes}
+        assert "legacy_agent_name_idx" in index_names
+        assert len(agent_name_indexes) == 1
+    finally:
+        app_main.engine = original_engine
+        app_main.SessionLocal = original_session_local
+        Base.metadata.drop_all(engine)
+        engine.dispose()

@@ -1,4 +1,6 @@
 from app.clients.deerflow import DeerFlowClient
+from app.models.conversation import Conversation
+from app.models.user import User
 
 
 def test_create_conversation_requires_auth(client) -> None:
@@ -189,3 +191,39 @@ def test_pin_and_unpin_conversation_update_sidebar_order(client, monkeypatch) ->
     assert listed.json()[0]["is_pinned"] is True
     assert unpinned.status_code == 200
     assert unpinned.json()["is_pinned"] is False
+
+
+def test_list_and_detail_include_non_null_agent_name(client, db_session, monkeypatch) -> None:
+    async def mock_get_thread_history(self, thread_id: str, limit: int = 1) -> list[dict]:
+        assert thread_id == "thread-agent-123"
+        assert limit == 1
+        return []
+
+    monkeypatch.setattr(DeerFlowClient, "get_thread_history", mock_get_thread_history)
+
+    user = db_session.query(User).filter(User.username == "demo").first()
+    assert user is not None
+
+    conversation = Conversation(
+        user_id=user.id,
+        deerflow_thread_id="thread-agent-123",
+        title="Agent conversation",
+        agent_name="demo-agent",
+    )
+    db_session.add(conversation)
+    db_session.commit()
+    db_session.refresh(conversation)
+
+    login = client.post("/auth/login", json={"username": "demo", "password": "demo1234"})
+    token = login.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    listed = client.get("/conversations", headers=headers)
+    detail = client.get(f"/conversations/{conversation.id}", headers=headers)
+
+    assert listed.status_code == 200
+    assert listed.json()[0]["id"] == conversation.id
+    assert listed.json()[0]["agent_name"] == "demo-agent"
+    assert detail.status_code == 200
+    assert detail.json()["id"] == conversation.id
+    assert detail.json()["agent_name"] == "demo-agent"
