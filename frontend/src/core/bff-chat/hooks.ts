@@ -22,6 +22,7 @@ import { mergeConversationState, toConversationThreadState } from "./values";
 type BffThreadStreamOptions = {
   conversationId?: string | null | undefined;
   context: LocalSettings["context"];
+  createConversationForThread?: () => Promise<{ id: string }>;
   onStart?: (conversationId: string) => void;
   onFinish?: (state: AgentThreadState) => void;
 };
@@ -74,6 +75,7 @@ function mergeStableMessages(
 export function useBffThreadStream({
   conversationId,
   context,
+  createConversationForThread = createConversation,
   onStart,
   onFinish,
 }: BffThreadStreamOptions): [
@@ -244,7 +246,7 @@ export function useBffThreadStream({
       try {
         let resolvedConversationId = activeConversationIdRef.current;
         if (!resolvedConversationId) {
-          const created = await createConversation();
+          const created = await createConversationForThread();
           resolvedConversationId = created.id;
           activeConversationIdRef.current = resolvedConversationId;
           void queryClient.invalidateQueries({ queryKey: ["bff", "conversations"] });
@@ -351,7 +353,13 @@ export function useBffThreadStream({
         setIsLoading(false);
       }
     },
-    [baseValues.messages.length, context, onStart, queryClient],
+    [
+      baseValues.messages.length,
+      context,
+      createConversationForThread,
+      onStart,
+      queryClient,
+    ],
   );
 
   useEffect(() => {

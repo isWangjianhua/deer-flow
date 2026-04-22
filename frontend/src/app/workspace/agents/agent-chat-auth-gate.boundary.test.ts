@@ -10,6 +10,10 @@ void test("agent chat page restores the login-aware shared chat shell", async ()
 
   assert.ok(source.includes("useLoginRequiredSubmit"));
   assert.ok(source.includes("useBffThreadStream"));
+  assert.ok(source.includes("createAgentConversation"));
+  assert.ok(
+    source.includes("createConversationForThread: () => createAgentConversation(agentName)"),
+  );
   assert.ok(source.includes("saveCommandMessage"));
   assert.ok(source.includes("bootstrapRequested"));
   assert.ok(!source.includes("useThreadStream"));

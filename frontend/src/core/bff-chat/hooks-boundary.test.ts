@@ -32,4 +32,12 @@ void test("bff thread stream only invokes onFinish once in the completion path",
     source.includes("setIsThreadLoading(!!nextConversationId)"),
     "expected useBffThreadStream to reset loading state while hydrating an existing conversation",
   );
+  assert.ok(
+    source.includes("createConversationForThread = createConversation"),
+    "expected useBffThreadStream to default to generic createConversation for main chat",
+  );
+  assert.ok(
+    source.includes("const created = await createConversationForThread()"),
+    "expected useBffThreadStream to use an injectable conversation creator when auto-creating",
+  );
 });

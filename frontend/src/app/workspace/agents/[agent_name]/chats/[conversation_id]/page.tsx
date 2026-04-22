@@ -27,7 +27,7 @@ import { TokenUsageIndicator } from "@/components/workspace/token-usage-indicato
 import { Tooltip } from "@/components/workspace/tooltip";
 import { useAgent } from "@/core/agents";
 import { isAgentsUiEnabled } from "@/core/agents/feature";
-import { useBffThreadStream } from "@/core/bff-chat";
+import { createAgentConversation, useBffThreadStream } from "@/core/bff-chat";
 import { useI18n } from "@/core/i18n/hooks";
 import { useNotification } from "@/core/notification/hooks";
 import { useThreadSettings } from "@/core/settings";
@@ -75,6 +75,7 @@ function AgentChatPageEnabled() {
   const [thread, sendMessage, isUploading] = useBffThreadStream({
     conversationId: conversationId === "new" ? undefined : conversationId,
     context: settings.context,
+    createConversationForThread: () => createAgentConversation(agentName),
     onStart: (createdConversationId) => {
       setConversationId(createdConversationId);
       history.replaceState(
