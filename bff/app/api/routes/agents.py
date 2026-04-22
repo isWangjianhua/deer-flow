@@ -151,7 +151,11 @@ async def create_agent_conversation(
     user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db_session),
 ) -> ConversationCreateResponse:
-    deerflow_thread_id = await DeerFlowClient().create_thread()
+    try:
+        deerflow_thread_id = await DeerFlowClient().create_thread()
+    except httpx.HTTPStatusError as exc:
+        _normalize_agents_error(exc)
+
     return ConversationService(db).create_conversation(
         user_id=user_id,
         deerflow_thread_id=deerflow_thread_id,
