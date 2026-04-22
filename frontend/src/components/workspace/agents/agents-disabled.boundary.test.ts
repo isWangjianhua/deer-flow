@@ -26,7 +26,7 @@ void test("agent routes render the shared disabled state instead of the preserve
   );
   const agentChatPage = await readFile(
     new URL(
-      "../../../app/workspace/agents/[agent_name]/chats/[thread_id]/page.tsx",
+      "../../../app/workspace/agents/[agent_name]/chats/[conversation_id]/page.tsx",
       import.meta.url,
     ),
     "utf8",

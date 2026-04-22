@@ -1,8 +1,9 @@
 "use client";
 
-import { BotIcon, PlusSquare } from "lucide-react";
-import { useParams, useRouter } from "next/navigation";
-import { useCallback, useState } from "react";
+import { BotIcon, PlusSquare, SaveIcon } from "lucide-react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 
 import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
 import { LoginRequiredDialog } from "@/components/auth/login-required-dialog";
@@ -11,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { AgentWelcome } from "@/components/workspace/agent-welcome";
 import { AgentsDisabledState } from "@/components/workspace/agents/agents-disabled-state";
 import { ArtifactTrigger } from "@/components/workspace/artifacts";
-import { ChatBox, useThreadChat } from "@/components/workspace/chats";
+import { ChatBox } from "@/components/workspace/chats";
 import { ExportTrigger } from "@/components/workspace/export-trigger";
 import { InputBox } from "@/components/workspace/input-box";
 import {
@@ -22,21 +23,34 @@ import {
 import { ThreadContext } from "@/components/workspace/messages/context";
 import { ThreadTitle } from "@/components/workspace/thread-title";
 import { TodoList } from "@/components/workspace/todo-list";
-import { TokenUsageIndicator } from "@/components/workspace/token-usage-indicator";
 import { Tooltip } from "@/components/workspace/tooltip";
+import { TokenUsageIndicator } from "@/components/workspace/token-usage-indicator";
 import { useAgent } from "@/core/agents";
 import { isAgentsUiEnabled } from "@/core/agents/feature";
+import { useBffThreadStream } from "@/core/bff-chat";
 import { useI18n } from "@/core/i18n/hooks";
 import { useNotification } from "@/core/notification/hooks";
 import { useThreadSettings } from "@/core/settings";
-import { useThreadStream } from "@/core/threads/hooks";
 import { textOfMessage } from "@/core/threads/utils";
 import { env } from "@/env";
 import { cn } from "@/lib/utils";
 
 function AgentChatPageEnabled() {
   const { t } = useI18n();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { showNotification } = useNotification();
   const [showFollowups, setShowFollowups] = useState(false);
+  const bootstrapSentRef = useRef(false);
+  const params = useParams<{
+    agent_name: string;
+    conversation_id: string;
+  }>();
+  const agentName = params.agent_name;
+  const { conversation_id: conversationIdFromPath } = params;
+  const [conversationId, setConversationId] = useState(conversationIdFromPath);
+  const bootstrapRequested = searchParams.get("bootstrap") === "1";
+
   const {
     dialogOpen,
     setDialogOpen,
@@ -47,30 +61,26 @@ function AgentChatPageEnabled() {
     handleBeforeOidcRedirect,
     guardSubmit,
   } = useLoginRequiredSubmit();
-  const router = useRouter();
 
-  const { agent_name } = useParams<{
-    agent_name: string;
-  }>();
+  const { agent } = useAgent(agentName);
+  const [settings, setSettings] = useThreadSettings(conversationId);
 
-  const { agent } = useAgent(agent_name);
+  useEffect(() => {
+    if (conversationIdFromPath === "new") {
+      return;
+    }
+    setConversationId(conversationIdFromPath);
+  }, [conversationIdFromPath]);
 
-  const { threadId, setThreadId, isNewThread, setIsNewThread } =
-    useThreadChat();
-  const [settings, setSettings] = useThreadSettings(threadId);
-
-  const { showNotification } = useNotification();
-  const [thread, sendMessage] = useThreadStream({
-    threadId: isNewThread ? undefined : threadId,
-    context: { ...settings.context, agent_name: agent_name },
-    onStart: (createdThreadId) => {
-      setThreadId(createdThreadId);
-      setIsNewThread(false);
-      // ! Important: Never use next.js router for navigation in this case, otherwise it will cause the thread to re-mount and lose all states. Use native history API instead.
+  const [thread, sendMessage, isUploading] = useBffThreadStream({
+    conversationId: conversationId === "new" ? undefined : conversationId,
+    context: settings.context,
+    onStart: (createdConversationId) => {
+      setConversationId(createdConversationId);
       history.replaceState(
         null,
         "",
-        `/workspace/agents/${agent_name}/chats/${createdThreadId}`,
+        `/workspace/agents/${agentName}/chats/${createdConversationId}`,
       );
     },
     onFinish: (state) => {
@@ -91,61 +101,147 @@ function AgentChatPageEnabled() {
     },
   });
 
+  useEffect(() => {
+    bootstrapSentRef.current = false;
+  }, [bootstrapRequested, conversationIdFromPath]);
+
+  useEffect(() => {
+    if (!bootstrapRequested || bootstrapSentRef.current) {
+      return;
+    }
+    if (conversationIdFromPath === "new" || thread.isThreadLoading) {
+      return;
+    }
+    if (thread.messages.length > 0) {
+      history.replaceState(
+        null,
+        "",
+        `/workspace/agents/${agentName}/chats/${conversationIdFromPath}`,
+      );
+      bootstrapSentRef.current = true;
+      return;
+    }
+
+    bootstrapSentRef.current = true;
+    void sendMessage(
+      conversationIdFromPath,
+      {
+        text: t.agents.nameStepBootstrapMessage.replace("{name}", agentName),
+        files: [],
+      },
+      { optimistic: false },
+    ).finally(() => {
+      history.replaceState(
+        null,
+        "",
+        `/workspace/agents/${agentName}/chats/${conversationIdFromPath}`,
+      );
+    });
+  }, [
+    agentName,
+    bootstrapRequested,
+    conversationIdFromPath,
+    sendMessage,
+    t.agents.nameStepBootstrapMessage,
+    thread.isThreadLoading,
+    thread.messages.length,
+  ]);
+
   const handleSubmit = useCallback(
     (message: PromptInputMessage) => {
       return guardSubmit(message, (nextMessage) => {
-        void sendMessage(threadId, nextMessage, { agent_name });
+        void sendMessage(conversationId, nextMessage).catch(() => undefined);
       });
     },
-    [agent_name, guardSubmit, sendMessage, threadId],
+    [conversationId, guardSubmit, sendMessage],
   );
+
+  const handleSaveAgent = useCallback(async () => {
+    if (thread.isLoading) {
+      return;
+    }
+
+    try {
+      await sendMessage(
+        conversationIdFromPath,
+        {
+          text: t.agents.saveCommandMessage,
+          files: [],
+        },
+        { optimistic: false },
+      );
+      toast.success(t.agents.saveRequested);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : String(error));
+    }
+  }, [
+    conversationIdFromPath,
+    sendMessage,
+    t.agents.saveCommandMessage,
+    t.agents.saveRequested,
+    thread.isLoading,
+  ]);
 
   const handleStop = useCallback(async () => {
     await thread.stop();
   }, [thread]);
 
+  const isNewConversation = conversationId === "new";
   const messageListPaddingBottom = showFollowups
     ? MESSAGE_LIST_DEFAULT_PADDING_BOTTOM +
       MESSAGE_LIST_FOLLOWUPS_EXTRA_PADDING_BOTTOM
     : undefined;
 
   return (
-    <ThreadContext.Provider value={{ thread }}>
-      <ChatBox threadId={threadId}>
+    <ThreadContext.Provider value={{ thread, isMock: false, apiMode: "bff" }}>
+      <ChatBox threadId={conversationId}>
         <div className="relative flex size-full min-h-0 justify-between">
           <header
             className={cn(
               "absolute top-0 right-0 left-0 z-30 flex h-12 shrink-0 items-center gap-2 px-4",
-              isNewThread
+              isNewConversation
                 ? "bg-background/0 backdrop-blur-none"
                 : "bg-background/80 shadow-xs backdrop-blur",
             )}
           >
-            {/* Agent badge */}
             <div className="flex shrink-0 items-center gap-1.5 rounded-md border px-2 py-1">
               <BotIcon className="text-primary h-3.5 w-3.5" />
               <span className="text-xs font-medium">
-                {agent?.name ?? agent_name}
+                {agent?.name ?? agentName}
               </span>
             </div>
 
             <div className="flex w-full items-center text-sm font-medium">
-              <ThreadTitle threadId={threadId} thread={thread} />
+              <ThreadTitle threadId={conversationId} thread={thread} />
             </div>
-            <div className="mr-4 flex items-center">
+            <div className="mr-4 flex items-center gap-2">
+              <Tooltip content={t.agents.save}>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => void handleSaveAgent()}
+                  disabled={
+                    thread.isLoading ||
+                    thread.isThreadLoading ||
+                    conversationId === "new"
+                  }
+                >
+                  <SaveIcon /> {t.agents.save}
+                </Button>
+              </Tooltip>
               <Tooltip content={t.agents.newChat}>
                 <Button
                   size="sm"
                   variant="secondary"
                   onClick={() => {
-                    router.push(`/workspace/agents/${agent_name}/chats/new`);
+                    router.push(`/workspace/agents/${agentName}/chats/new`);
                   }}
                 >
                   <PlusSquare /> {t.agents.newChat}
                 </Button>
               </Tooltip>
               <TokenUsageIndicator messages={thread.messages} />
-              <ExportTrigger threadId={threadId} />
+              <ExportTrigger threadId={conversationId} />
               <ArtifactTrigger />
             </div>
           </header>
@@ -153,8 +249,8 @@ function AgentChatPageEnabled() {
           <main className="flex min-h-0 max-w-full grow flex-col">
             <div className="flex size-full justify-center">
               <MessageList
-                className={cn("size-full", !isNewThread && "pt-10")}
-                threadId={threadId}
+                className={cn("size-full", !isNewConversation && "pt-10")}
+                threadId={conversationId}
                 thread={thread}
                 paddingBottom={messageListPaddingBottom}
               />
@@ -164,8 +260,8 @@ function AgentChatPageEnabled() {
               <div
                 className={cn(
                   "relative w-full",
-                  isNewThread && "-translate-y-[calc(50vh-96px)]",
-                  isNewThread
+                  isNewConversation && "-translate-y-[calc(50vh-96px)]",
+                  isNewConversation
                     ? "max-w-(--container-width-sm)"
                     : "max-w-(--container-width-md)",
                 )}
@@ -184,9 +280,9 @@ function AgentChatPageEnabled() {
 
                 <InputBox
                   className={cn("bg-background/5 w-full -translate-y-4")}
-                  isNewThread={isNewThread}
-                  threadId={threadId}
-                  autoFocus={isNewThread}
+                  isNewThread={isNewConversation}
+                  threadId={conversationId}
+                  autoFocus={isNewConversation}
                   status={
                     thread.error
                       ? "error"
@@ -198,11 +294,14 @@ function AgentChatPageEnabled() {
                   restoredText={restoredText}
                   onRestoredTextApplied={handleRestoredTextApplied}
                   extraHeader={
-                    isNewThread && (
-                      <AgentWelcome agent={agent} agentName={agent_name} />
+                    isNewConversation && (
+                      <AgentWelcome agent={agent} agentName={agentName} />
                     )
                   }
-                  disabled={env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true"}
+                  disabled={
+                    env.NEXT_PUBLIC_STATIC_WEBSITE_ONLY === "true" ||
+                    isUploading
+                  }
                   onContextChange={(context) => setSettings("context", context)}
                   onFollowupsVisibilityChange={setShowFollowups}
                   onSubmit={handleSubmit}

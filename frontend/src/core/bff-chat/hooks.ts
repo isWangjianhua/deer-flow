@@ -26,6 +26,10 @@ type BffThreadStreamOptions = {
   onFinish?: (state: AgentThreadState) => void;
 };
 
+type SendBffThreadMessageOptions = {
+  optimistic?: boolean;
+};
+
 async function consumeBffStream(
   stream: ReadableStream<Uint8Array>,
   onEvent: (eventText: string) => void,
@@ -74,7 +78,11 @@ export function useBffThreadStream({
   onFinish,
 }: BffThreadStreamOptions): [
   WorkspaceThreadStream,
-  (conversationId: string, message: PromptInputMessage) => Promise<void>,
+  (
+    conversationId: string,
+    message: PromptInputMessage,
+    options?: SendBffThreadMessageOptions,
+  ) => Promise<void>,
   boolean,
 ] {
   const [humanMessages, setHumanMessages] = useState<Message[]>([]);
@@ -198,11 +206,16 @@ export function useBffThreadStream({
   }, [baseValues.messages.length, humanMessages.length]);
 
   const sendMessage = useCallback(
-    async (_conversationId: string, message: PromptInputMessage) => {
+    async (
+      _conversationId: string,
+      message: PromptInputMessage,
+      options: SendBffThreadMessageOptions = {},
+    ) => {
       if (sendInFlightRef.current) {
         return;
       }
 
+      const optimistic = options.optimistic ?? true;
       const text = message.text.trim();
       const hasFiles = (message.files?.length ?? 0) > 0;
       if (!text && !hasFiles) {
@@ -220,9 +233,11 @@ export function useBffThreadStream({
           size: file.file?.size ?? 0,
           status: "uploading",
         })) ?? [];
-      setHumanMessages((current) =>
-        current.concat(createHumanMessage(text, optimisticFiles, humanMessageId)),
-      );
+      if (optimistic) {
+        setHumanMessages((current) =>
+          current.concat(createHumanMessage(text, optimisticFiles, humanMessageId)),
+        );
+      }
 
       try {
         let resolvedConversationId = activeConversationIdRef.current;
@@ -265,13 +280,15 @@ export function useBffThreadStream({
               }),
             );
 
-            setHumanMessages((current) =>
-              current.map((entry) =>
-                entry.id === humanMessageId
-                  ? createHumanMessage(text, uploadedFiles, humanMessageId)
-                  : entry,
-              ),
-            );
+            if (optimistic) {
+              setHumanMessages((current) =>
+                current.map((entry) =>
+                  entry.id === humanMessageId
+                    ? createHumanMessage(text, uploadedFiles, humanMessageId)
+                    : entry,
+                ),
+              );
+            }
           } finally {
             setIsUploading(false);
           }
@@ -315,9 +332,11 @@ export function useBffThreadStream({
         ) {
           return;
         }
-        setHumanMessages((current) =>
-          current.filter((entry) => entry.id !== humanMessageId),
-        );
+        if (optimistic) {
+          setHumanMessages((current) =>
+            current.filter((entry) => entry.id !== humanMessageId),
+          );
+        }
         setError(streamError);
         toast.error(
           streamError instanceof Error
