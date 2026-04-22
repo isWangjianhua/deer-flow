@@ -6,6 +6,7 @@ from app.api.routes import agents, auth, conversation_resources, conversations, 
 from app.core.security import get_password_hash
 from app.db.base import Base
 from app.db.session import SessionLocal, engine
+from app.models.agent_ownership import AgentOwnership
 from app.models.user import User
 
 
@@ -35,8 +36,17 @@ def ensure_conversation_schema() -> None:
             conn.execute(text("CREATE INDEX ix_conversations_agent_name ON conversations (agent_name)"))
 
 
+def ensure_agent_ownership_schema() -> None:
+    inspector = inspect(engine)
+    if "agent_ownerships" in inspector.get_table_names():
+        return
+
+    Base.metadata.create_all(bind=engine, tables=[AgentOwnership.__table__])
+
+
 def init_db() -> None:
     Base.metadata.create_all(bind=engine)
+    ensure_agent_ownership_schema()
     ensure_conversation_schema()
 
     with SessionLocal() as db:
