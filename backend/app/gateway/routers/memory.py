@@ -12,10 +12,12 @@ from deerflow.agents.memory.updater import (
     reload_memory_data,
     update_memory_fact,
 )
+from deerflow.agents.memory.scope import resolve_memory_agent_id
 from deerflow.config.memory_config import get_memory_config
 
 router = APIRouter(prefix="/api", tags=["memory"])
 _MEM0_USER_ID_HEADER = "X-User-Id"
+_MEM0_AGENT_ID_HEADER = "X-Agent-Id"
 
 
 class ContextSection(BaseModel):
@@ -128,6 +130,20 @@ def _with_optional_user_id(user_id: str | None, **kwargs: object) -> dict[str, o
     return kwargs
 
 
+def _resolve_memory_agent_id_header(request: Request) -> str | None:
+    if get_memory_config().provider != "mem0":
+        return None
+    return resolve_memory_agent_id(agent_id=request.headers.get(_MEM0_AGENT_ID_HEADER))
+
+
+def _with_optional_memory_scope(user_id: str | None, agent_id: str | None, **kwargs: object) -> dict[str, object]:
+    if user_id is not None:
+        kwargs["user_id"] = user_id
+    if agent_id is not None:
+        kwargs["agent_id"] = agent_id
+    return kwargs
+
+
 @router.get(
     "/memory",
     response_model=MemoryResponse,
@@ -170,7 +186,8 @@ async def get_memory(request: Request) -> MemoryResponse:
         ```
     """
     user_id = _resolve_memory_user_id(request)
-    memory_data = get_memory_data(**_with_optional_user_id(user_id))
+    agent_id = _resolve_memory_agent_id_header(request)
+    memory_data = get_memory_data(**_with_optional_memory_scope(user_id, agent_id))
     return MemoryResponse(**memory_data)
 
 
@@ -191,7 +208,8 @@ async def reload_memory(request: Request) -> MemoryResponse:
         The reloaded memory data.
     """
     user_id = _resolve_memory_user_id(request)
-    memory_data = reload_memory_data(**_with_optional_user_id(user_id))
+    agent_id = _resolve_memory_agent_id_header(request)
+    memory_data = reload_memory_data(**_with_optional_memory_scope(user_id, agent_id))
     return MemoryResponse(**memory_data)
 
 
@@ -205,8 +223,9 @@ async def reload_memory(request: Request) -> MemoryResponse:
 async def clear_memory(request: Request) -> MemoryResponse:
     """Clear all persisted memory data."""
     user_id = _resolve_memory_user_id(request)
+    agent_id = _resolve_memory_agent_id_header(request)
     try:
-        memory_data = clear_memory_data(**_with_optional_user_id(user_id))
+        memory_data = clear_memory_data(**_with_optional_memory_scope(user_id, agent_id))
     except OSError as exc:
         raise HTTPException(status_code=500, detail="Failed to clear memory data.") from exc
 
@@ -223,12 +242,13 @@ async def clear_memory(request: Request) -> MemoryResponse:
 async def create_memory_fact_endpoint(request: FactCreateRequest, http_request: Request) -> MemoryResponse:
     """Create a single fact manually."""
     user_id = _resolve_memory_user_id(http_request)
+    agent_id = _resolve_memory_agent_id_header(http_request)
     try:
         memory_data = create_memory_fact(
             content=request.content,
             category=request.category,
             confidence=request.confidence,
-            **_with_optional_user_id(user_id),
+            **_with_optional_memory_scope(user_id, agent_id),
         )
     except ValueError as exc:
         raise _map_memory_fact_value_error(exc) from exc
@@ -248,8 +268,9 @@ async def create_memory_fact_endpoint(request: FactCreateRequest, http_request: 
 async def delete_memory_fact_endpoint(fact_id: str, request: Request) -> MemoryResponse:
     """Delete a single fact from memory by fact id."""
     user_id = _resolve_memory_user_id(request)
+    agent_id = _resolve_memory_agent_id_header(request)
     try:
-        memory_data = delete_memory_fact(fact_id, **_with_optional_user_id(user_id))
+        memory_data = delete_memory_fact(fact_id, **_with_optional_memory_scope(user_id, agent_id))
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=f"Memory fact '{fact_id}' not found.") from exc
     except OSError as exc:
@@ -268,13 +289,14 @@ async def delete_memory_fact_endpoint(fact_id: str, request: Request) -> MemoryR
 async def update_memory_fact_endpoint(fact_id: str, request: FactPatchRequest, http_request: Request) -> MemoryResponse:
     """Partially update a single fact manually."""
     user_id = _resolve_memory_user_id(http_request)
+    agent_id = _resolve_memory_agent_id_header(http_request)
     try:
         memory_data = update_memory_fact(
             fact_id=fact_id,
             content=request.content,
             category=request.category,
             confidence=request.confidence,
-            **_with_optional_user_id(user_id),
+            **_with_optional_memory_scope(user_id, agent_id),
         )
     except ValueError as exc:
         raise _map_memory_fact_value_error(exc) from exc
@@ -296,7 +318,8 @@ async def update_memory_fact_endpoint(fact_id: str, request: FactPatchRequest, h
 async def export_memory(request: Request) -> MemoryResponse:
     """Export the current memory data."""
     user_id = _resolve_memory_user_id(request)
-    memory_data = get_memory_data(**_with_optional_user_id(user_id))
+    agent_id = _resolve_memory_agent_id_header(request)
+    memory_data = get_memory_data(**_with_optional_memory_scope(user_id, agent_id))
     return MemoryResponse(**memory_data)
 
 
@@ -310,8 +333,12 @@ async def export_memory(request: Request) -> MemoryResponse:
 async def import_memory(request: MemoryResponse, http_request: Request) -> MemoryResponse:
     """Import and persist memory data."""
     user_id = _resolve_memory_user_id(http_request)
+    agent_id = _resolve_memory_agent_id_header(http_request)
     try:
-        memory_data = import_memory_data(request.model_dump(), **_with_optional_user_id(user_id))
+        memory_data = import_memory_data(
+            request.model_dump(),
+            **_with_optional_memory_scope(user_id, agent_id),
+        )
     except OSError as exc:
         raise HTTPException(status_code=500, detail="Failed to import memory data.") from exc
 
@@ -370,7 +397,8 @@ async def get_memory_status(request: Request) -> MemoryStatusResponse:
     """
     config = get_memory_config()
     user_id = _resolve_memory_user_id(request)
-    memory_data = get_memory_data(**_with_optional_user_id(user_id))
+    agent_id = _resolve_memory_agent_id_header(request)
+    memory_data = get_memory_data(**_with_optional_memory_scope(user_id, agent_id))
 
     return MemoryStatusResponse(
         config=MemoryConfigResponse(

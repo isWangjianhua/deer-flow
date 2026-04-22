@@ -48,25 +48,40 @@ def _save_memory_to_file(memory_data: dict[str, Any], agent_name: str | None = N
     return get_memory_storage().save(memory_data, agent_name)
 
 
-def get_memory_data(agent_name: str | None = None, user_id: str | None = None) -> dict[str, Any]:
+def get_memory_data(
+    agent_name: str | None = None,
+    user_id: str | None = None,
+    agent_id: str | None = None,
+) -> dict[str, Any]:
     """Get the current memory data via storage provider."""
     if get_memory_config().provider == "mem0":
         if not user_id:
             return create_empty_memory()
-        return get_mem0_service().build_compat_memory(user_id=user_id)
+        resolved_agent_id = resolve_memory_agent_id(agent_name=agent_name, agent_id=agent_id)
+        return get_mem0_service().build_compat_memory(user_id=user_id, agent_id=resolved_agent_id)
     return get_memory_storage().load(agent_name)
 
 
-def reload_memory_data(agent_name: str | None = None, user_id: str | None = None) -> dict[str, Any]:
+def reload_memory_data(
+    agent_name: str | None = None,
+    user_id: str | None = None,
+    agent_id: str | None = None,
+) -> dict[str, Any]:
     """Reload memory data via storage provider."""
     if get_memory_config().provider == "mem0":
         if not user_id:
             return create_empty_memory()
-        return get_mem0_service().build_compat_memory(user_id=user_id)
+        resolved_agent_id = resolve_memory_agent_id(agent_name=agent_name, agent_id=agent_id)
+        return get_mem0_service().build_compat_memory(user_id=user_id, agent_id=resolved_agent_id)
     return get_memory_storage().reload(agent_name)
 
 
-def import_memory_data(memory_data: dict[str, Any], agent_name: str | None = None, user_id: str | None = None) -> dict[str, Any]:
+def import_memory_data(
+    memory_data: dict[str, Any],
+    agent_name: str | None = None,
+    user_id: str | None = None,
+    agent_id: str | None = None,
+) -> dict[str, Any]:
     """Persist imported memory data via storage provider.
 
     Args:
@@ -83,9 +98,10 @@ def import_memory_data(memory_data: dict[str, Any], agent_name: str | None = Non
         if not user_id:
             raise OSError("Missing user_id for mem0 import")
         service = get_mem0_service()
-        service.delete_all(user_id=user_id)
+        resolved_agent_id = resolve_memory_agent_id(agent_name=agent_name, agent_id=agent_id)
+        service.delete_all(user_id=user_id, agent_id=resolved_agent_id)
         service.import_facts(user_id=user_id, facts=memory_data.get("facts", []))
-        return service.build_compat_memory(user_id=user_id)
+        return service.build_compat_memory(user_id=user_id, agent_id=resolved_agent_id)
 
     storage = get_memory_storage()
     if not storage.save(memory_data, agent_name):
@@ -93,12 +109,17 @@ def import_memory_data(memory_data: dict[str, Any], agent_name: str | None = Non
     return storage.load(agent_name)
 
 
-def clear_memory_data(agent_name: str | None = None, user_id: str | None = None) -> dict[str, Any]:
+def clear_memory_data(
+    agent_name: str | None = None,
+    user_id: str | None = None,
+    agent_id: str | None = None,
+) -> dict[str, Any]:
     """Clear all stored memory data and persist an empty structure."""
     if get_memory_config().provider == "mem0":
         if not user_id:
             raise OSError("Missing user_id for mem0 clear")
-        get_mem0_service().delete_all(user_id=user_id)
+        resolved_agent_id = resolve_memory_agent_id(agent_name=agent_name, agent_id=agent_id)
+        get_mem0_service().delete_all(user_id=user_id, agent_id=resolved_agent_id)
         return create_empty_memory()
     cleared_memory = create_empty_memory()
     if not _save_memory_to_file(cleared_memory, agent_name):
@@ -241,6 +262,7 @@ def create_memory_fact(
     confidence: float = 0.5,
     agent_name: str | None = None,
     user_id: str | None = None,
+    agent_id: str | None = None,
 ) -> dict[str, Any]:
     """Create a new fact and persist the updated memory data."""
     normalized_content = content.strip()
@@ -252,13 +274,14 @@ def create_memory_fact(
     if get_memory_config().provider == "mem0":
         if not user_id:
             raise OSError("Missing user_id for mem0 fact creation")
+        resolved_agent_id = resolve_memory_agent_id(agent_name=agent_name, agent_id=agent_id)
         get_mem0_service().create_fact(
             user_id=user_id,
             content=normalized_content,
             category=normalized_category,
             confidence=validated_confidence,
         )
-        return get_mem0_service().build_compat_memory(user_id=user_id)
+        return get_mem0_service().build_compat_memory(user_id=user_id, agent_id=resolved_agent_id)
     now = utc_now_iso_z()
     memory_data = get_memory_data(agent_name)
     updated_memory = dict(memory_data)
@@ -281,17 +304,25 @@ def create_memory_fact(
     return updated_memory
 
 
-def delete_memory_fact(fact_id: str, agent_name: str | None = None, user_id: str | None = None) -> dict[str, Any]:
+def delete_memory_fact(
+    fact_id: str,
+    agent_name: str | None = None,
+    user_id: str | None = None,
+    agent_id: str | None = None,
+) -> dict[str, Any]:
     """Delete a fact by its id and persist the updated memory data."""
     if get_memory_config().provider == "mem0":
         if not user_id:
             raise OSError("Missing user_id for mem0 fact deletion")
         service = get_mem0_service()
-        existing_ids = {fact["id"] for fact in service.build_compat_memory(user_id=user_id)["facts"]}
+        resolved_agent_id = resolve_memory_agent_id(agent_name=agent_name, agent_id=agent_id)
+        existing_ids = {
+            fact["id"] for fact in service.build_compat_memory(user_id=user_id, agent_id=resolved_agent_id)["facts"]
+        }
         if fact_id not in existing_ids:
             raise KeyError(fact_id)
         service.delete(memory_id=fact_id)
-        return service.build_compat_memory(user_id=user_id)
+        return service.build_compat_memory(user_id=user_id, agent_id=resolved_agent_id)
     memory_data = get_memory_data(agent_name)
     facts = memory_data.get("facts", [])
     updated_facts = [fact for fact in facts if fact.get("id") != fact_id]
@@ -314,13 +345,15 @@ def update_memory_fact(
     confidence: float | None = None,
     agent_name: str | None = None,
     user_id: str | None = None,
+    agent_id: str | None = None,
 ) -> dict[str, Any]:
     """Update an existing fact and persist the updated memory data."""
     if get_memory_config().provider == "mem0":
         if not user_id:
             raise OSError("Missing user_id for mem0 fact update")
         service = get_mem0_service()
-        current = service.build_compat_memory(user_id=user_id)
+        resolved_agent_id = resolve_memory_agent_id(agent_name=agent_name, agent_id=agent_id)
+        current = service.build_compat_memory(user_id=user_id, agent_id=resolved_agent_id)
         existing = next((fact for fact in current.get("facts", []) if fact.get("id") == fact_id), None)
         if existing is None:
             raise KeyError(fact_id)
@@ -337,7 +370,7 @@ def update_memory_fact(
             category=str(merged_category),
             confidence=float(merged_confidence),
         )
-        return service.build_compat_memory(user_id=user_id)
+        return service.build_compat_memory(user_id=user_id, agent_id=resolved_agent_id)
     memory_data = get_memory_data(agent_name)
     updated_memory = dict(memory_data)
     updated_facts: list[dict[str, Any]] = []

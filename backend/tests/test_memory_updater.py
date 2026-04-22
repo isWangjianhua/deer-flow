@@ -105,7 +105,20 @@ def test_get_memory_data_uses_mem0_service_when_provider_enabled() -> None:
         result = get_memory_data(user_id="user-123")
 
     assert result["facts"][0]["content"] == "User likes Python"
-    service.build_compat_memory.assert_called_once_with(user_id="user-123")
+    service.build_compat_memory.assert_called_once_with(user_id="user-123", agent_id="__lead__")
+
+
+def test_get_memory_data_uses_mem0_service_with_agent_id() -> None:
+    service = SimpleNamespace(build_compat_memory=Mock(return_value=_make_memory()))
+
+    with (
+        patch("deerflow.agents.memory.updater.get_memory_config", return_value=_memory_config(provider="mem0")),
+        patch("deerflow.agents.memory.updater.get_mem0_service", return_value=service),
+    ):
+        result = get_memory_data(user_id="user-1", agent_id="__lead__")
+
+    assert result["version"] == "1.0"
+    assert service.build_compat_memory.call_args.kwargs == {"user_id": "user-1", "agent_id": "__lead__"}
 
 
 def test_reload_memory_data_uses_mem0_service_when_provider_enabled() -> None:
@@ -118,7 +131,7 @@ def test_reload_memory_data_uses_mem0_service_when_provider_enabled() -> None:
     ):
         reload_memory_data(user_id="user-123")
 
-    service.build_compat_memory.assert_called_once_with(user_id="user-123")
+    service.build_compat_memory.assert_called_once_with(user_id="user-123", agent_id="__lead__")
 
 
 def test_create_memory_fact_uses_mem0_service_when_provider_enabled() -> None:

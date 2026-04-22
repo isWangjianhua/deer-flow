@@ -358,7 +358,7 @@ def test_mem0_read_routes_forward_user_id_header(method: str, path: str, target:
 
     assert response.status_code == 200
     assert response.json()["facts"] == exported_memory["facts"]
-    get_memory.assert_called_once_with(user_id="user-123")
+    get_memory.assert_called_once_with(user_id="user-123", agent_id="__lead__")
 
 
 def test_mem0_status_route_forwards_user_id_header() -> None:
@@ -386,7 +386,7 @@ def test_mem0_status_route_forwards_user_id_header() -> None:
 
     assert response.status_code == 200
     assert response.json()["data"]["facts"] == exported_memory["facts"]
-    get_memory.assert_called_once_with(user_id="user-123")
+    get_memory.assert_called_once_with(user_id="user-123", agent_id="__lead__")
 
 
 def test_mem0_get_memory_requires_user_id_header() -> None:
@@ -401,6 +401,39 @@ def test_mem0_get_memory_requires_user_id_header() -> None:
     assert response.json()["detail"] == "X-User-Id header is required when memory.provider=mem0."
 
 
+def test_mem0_read_routes_default_to_lead_agent_id_when_header_missing() -> None:
+    app = FastAPI()
+    app.include_router(memory.router)
+
+    with (
+        patch("app.gateway.routers.memory.get_memory_config", return_value=_memory_config(provider="mem0")),
+        patch("app.gateway.routers.memory.get_memory_data", return_value=_sample_memory()) as get_memory,
+    ):
+        with TestClient(app) as client:
+            response = client.get("/api/memory", headers={"X-User-Id": "user-123"})
+
+    assert response.status_code == 200
+    get_memory.assert_called_once_with(user_id="user-123", agent_id="__lead__")
+
+
+def test_mem0_read_routes_forward_agent_id_header() -> None:
+    app = FastAPI()
+    app.include_router(memory.router)
+
+    with (
+        patch("app.gateway.routers.memory.get_memory_config", return_value=_memory_config(provider="mem0")),
+        patch("app.gateway.routers.memory.get_memory_data", return_value=_sample_memory()) as get_memory,
+    ):
+        with TestClient(app) as client:
+            response = client.get(
+                "/api/memory",
+                headers={"X-User-Id": "user-123", "X-Agent-Id": "code-test"},
+            )
+
+    assert response.status_code == 200
+    get_memory.assert_called_once_with(user_id="user-123", agent_id="code-test")
+
+
 def test_mem0_clear_memory_route_forwards_user_id_header() -> None:
     app = FastAPI()
     app.include_router(memory.router)
@@ -413,7 +446,7 @@ def test_mem0_clear_memory_route_forwards_user_id_header() -> None:
             response = client.delete("/api/memory", headers={"X-User-Id": "user-123"})
 
     assert response.status_code == 200
-    clear_memory.assert_called_once_with(user_id="user-123")
+    clear_memory.assert_called_once_with(user_id="user-123", agent_id="__lead__")
 
 
 def test_mem0_create_memory_fact_route_forwards_user_id_header() -> None:
@@ -441,6 +474,7 @@ def test_mem0_create_memory_fact_route_forwards_user_id_header() -> None:
         category="preference",
         confidence=0.88,
         user_id="user-123",
+        agent_id="__lead__",
     )
 
 
@@ -456,7 +490,7 @@ def test_mem0_delete_memory_fact_route_forwards_user_id_header() -> None:
             response = client.delete("/api/memory/facts/fact_delete", headers={"X-User-Id": "user-123"})
 
     assert response.status_code == 200
-    delete_fact.assert_called_once_with("fact_delete", user_id="user-123")
+    delete_fact.assert_called_once_with("fact_delete", user_id="user-123", agent_id="__lead__")
 
 
 def test_mem0_update_memory_fact_route_forwards_user_id_header() -> None:
@@ -485,6 +519,7 @@ def test_mem0_update_memory_fact_route_forwards_user_id_header() -> None:
         category="workflow",
         confidence=0.91,
         user_id="user-123",
+        agent_id="__lead__",
     )
 
 
@@ -513,4 +548,4 @@ def test_mem0_import_memory_route_forwards_user_id_header() -> None:
             response = client.post("/api/memory/import", headers={"X-User-Id": "user-123"}, json=imported_memory)
 
     assert response.status_code == 200
-    import_memory.assert_called_once_with(expected_payload, user_id="user-123")
+    import_memory.assert_called_once_with(expected_payload, user_id="user-123", agent_id="__lead__")
