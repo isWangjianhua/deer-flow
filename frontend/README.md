@@ -132,14 +132,15 @@ smaller set of remaining Gateway-backed workspace surfaces.
 
 Current same-origin browser behavior:
 
-- chat create/list/detail/stream goes through `/api/bff/*`
+- main chat create/list/detail/stream goes through `/api/bff/*`
 - browser auth state and `/me` go through `/api/bff/*`
 - model discovery goes through `/api/bff/models`
-- browser Agent CRUD now goes through `/api/bff/agents*`
+- browser Agent CRUD and agent conversation creation now go through `/api/bff/agents*`
+- agent chat routes now use `/workspace/agents/{agent_name}/chats/{conversation_id}`
+- the new-agent bootstrap flow creates a BFF conversation and then hands off to the agent chat route
 - main chat artifact viewing/downloading goes through `/api/bff/conversations/*/artifacts/*`
 - main chat follow-up suggestions go through `/api/bff/conversations/*/suggestions`
 - main chat attachment uploads go through `/api/bff/conversations/*/uploads`
-- chat create/list/detail/stream and readonly Memory now go through `/api/bff/*`
 - MCP and skills still go through same-origin Next.js bridge routes
 - `Settings > Memory` is readonly in this slice and reads from `/api/bff/memory`
 - when `memory.provider=mem0`, BFF resolves the current user and preserves user-scoped Memory reads via `X-User-Id`
@@ -159,7 +160,7 @@ What still remains mixed:
 - some older non-chat runtime surfaces still use Gateway-facing thread semantics behind server bridges
 - direct `:3000` development still behaves differently from the canonical `:2026` nginx entrypoint
 - MCP and skills are same-origin, but not yet BFF-owned APIs
-- the hidden Agents UI remains disabled until later phases complete Agent Chat migration and user isolation
+- Agents UI can stay hidden behind the feature flag while Phase C ownership work remains incomplete
 
 Current startup story:
 
@@ -275,9 +276,8 @@ The main workspace chat path now uses a BFF-owned protocol rather than frontend-
 Current chat limitations:
 
 - MCP and skills are same-origin server bridges today, not BFF-owned APIs
-- browser Agent CRUD is BFF-owned, but Agent Chat still retains legacy runtime semantics
+- Agent Chat Phase C ownership work remains incomplete, so feature-flagged Agents UI rollout can stay gated
 - recent conversations now expose sidebar pin/rename/delete actions through the BFF-backed chat path
-- agent-specific chat paths still retain more legacy runtime semantics than the main chat path
 
 Recommended next follow-up for the BFF chat path:
 

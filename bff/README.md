@@ -68,6 +68,14 @@ In this phase:
 - Agent Chat, bootstrap conversation flow, and user ownership remain later
   roadmap phases
 
+## Agent Conversations (Phase B)
+
+The BFF now supports `POST /agents/{agent_name}/conversations` and stores
+nullable `agent_name` on each conversation record. Shared conversation list,
+detail, and stream routes remain BFF-owned; when a stored conversation carries
+`agent_name`, the BFF injects it into DeerFlow runtime context during
+`/conversations/{conversation_id}/messages/stream`.
+
 ## Local Development
 
 Install dependencies:
