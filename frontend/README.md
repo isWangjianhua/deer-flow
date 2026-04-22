@@ -136,8 +136,10 @@ Current same-origin browser behavior:
 - browser auth state and `/me` go through `/api/bff/*`
 - model discovery goes through `/api/bff/models`
 - browser Agent CRUD and agent conversation creation now go through `/api/bff/agents*`
+- the visible `Agents` UI is now backed by BFF-owned, user-scoped agent routes
 - agent chat routes now use `/workspace/agents/{agent_name}/chats/{conversation_id}`
 - the new-agent bootstrap flow creates a BFF conversation and then hands off to the agent chat route
+- agent conversations remain in the unified recent list, with lightweight agent labeling
 - main chat artifact viewing/downloading goes through `/api/bff/conversations/*/artifacts/*`
 - main chat follow-up suggestions go through `/api/bff/conversations/*/suggestions`
 - main chat attachment uploads go through `/api/bff/conversations/*/uploads`
@@ -160,7 +162,7 @@ What still remains mixed:
 - some older non-chat runtime surfaces still use Gateway-facing thread semantics behind server bridges
 - direct `:3000` development still behaves differently from the canonical `:2026` nginx entrypoint
 - MCP and skills are same-origin, but not yet BFF-owned APIs
-- Agents UI can stay hidden behind the feature flag while Phase C ownership work remains incomplete
+- reopening the `Agents` button now depends on BFF ownership, not direct Gateway visibility
 
 Current startup story:
 
@@ -276,7 +278,7 @@ The main workspace chat path now uses a BFF-owned protocol rather than frontend-
 Current chat limitations:
 
 - MCP and skills are same-origin server bridges today, not BFF-owned APIs
-- Agent Chat Phase C ownership work remains incomplete, so feature-flagged Agents UI rollout can stay gated
+- `/workspace/agents/{agent_name}/chats/{conversation_id}` is the canonical agent chat route
 - recent conversations now expose sidebar pin/rename/delete actions through the BFF-backed chat path
 
 Recommended next follow-up for the BFF chat path:

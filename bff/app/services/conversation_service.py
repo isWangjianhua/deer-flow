@@ -8,6 +8,7 @@ from app.api.errors import error_response
 from app.clients.deerflow import DeerFlowClient
 from app.db.session import SessionLocal
 from app.models.conversation import Conversation
+from app.repositories.agent_ownership_repo import AgentOwnershipRepository
 from app.repositories.conversation_repo import ConversationRepository
 from app.schemas.conversation import (
     ConversationCreateResponse,
@@ -21,6 +22,7 @@ logger = logging.getLogger(__name__)
 class ConversationService:
     def __init__(self, db: Session) -> None:
         self.repo = ConversationRepository(db)
+        self.agent_repo = AgentOwnershipRepository(db)
 
     def create_conversation(
         self,
@@ -110,12 +112,23 @@ class ConversationService:
             return self.repo.save(conversation)
         return conversation
 
+    def _require_visible_agent_name(self, user_id: str, agent_name: str) -> None:
+        ownership = self.agent_repo.get_by_agent_name(agent_name)
+        if ownership is None or ownership.owner_user_id != user_id:
+            raise error_response(
+                status.HTTP_404_NOT_FOUND,
+                "agent_not_found",
+                "Agent not found",
+            )
+
     def require_owned_conversation(self, user_id: str, conversation_id: str) -> Conversation:
         conversation = self.repo.get_by_id(conversation_id)
         if conversation is None:
             raise error_response(status.HTTP_404_NOT_FOUND, "conversation_not_found", "Conversation not found")
         if conversation.user_id != user_id:
             raise error_response(status.HTTP_403_FORBIDDEN, "forbidden", "Forbidden")
+        if conversation.agent_name:
+            self._require_visible_agent_name(user_id, conversation.agent_name)
         return conversation
 
     async def delete_conversation(self, user_id: str, conversation_id: str) -> dict[str, str | bool]:

@@ -8,6 +8,7 @@ from app.api.deps import get_current_user_id, get_db_session
 from app.api.errors import error_response
 from app.clients.deerflow import DeerFlowClient
 from app.schemas.conversation import ConversationCreateResponse
+from app.services.agent_ownership_service import AgentOwnershipService
 from app.services.conversation_service import ConversationService
 
 
@@ -73,10 +74,10 @@ def _normalize_agents_error(exc: httpx.HTTPStatusError):
 @router.get("/agents")
 async def list_agents(
     user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db_session),
 ) -> dict:
-    del user_id
     try:
-        return await DeerFlowClient().list_agents()
+        return await AgentOwnershipService(db).list_agents(user_id)
     except httpx.HTTPStatusError as exc:
         _normalize_agents_error(exc)
 
@@ -85,10 +86,11 @@ async def list_agents(
 async def check_agent_name(
     name: str = Query(...),
     user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db_session),
 ) -> dict:
     del user_id
     try:
-        return await DeerFlowClient().check_agent_name(name)
+        return await AgentOwnershipService(db).check_agent_name(name)
     except httpx.HTTPStatusError as exc:
         _normalize_agents_error(exc)
 
@@ -97,10 +99,10 @@ async def check_agent_name(
 async def get_agent(
     agent_name: str,
     user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db_session),
 ) -> dict:
-    del user_id
     try:
-        return await DeerFlowClient().get_agent(agent_name)
+        return await AgentOwnershipService(db).get_agent(user_id, agent_name)
     except httpx.HTTPStatusError as exc:
         _normalize_agents_error(exc)
 
@@ -109,10 +111,10 @@ async def get_agent(
 async def create_agent(
     payload: dict,
     user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db_session),
 ) -> dict:
-    del user_id
     try:
-        return await DeerFlowClient().create_agent(payload)
+        return await AgentOwnershipService(db).create_agent(user_id, payload)
     except httpx.HTTPStatusError as exc:
         _normalize_agents_error(exc)
 
@@ -122,10 +124,10 @@ async def update_agent(
     agent_name: str,
     payload: dict,
     user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db_session),
 ) -> dict:
-    del user_id
     try:
-        return await DeerFlowClient().update_agent(agent_name, payload)
+        return await AgentOwnershipService(db).update_agent(user_id, agent_name, payload)
     except httpx.HTTPStatusError as exc:
         _normalize_agents_error(exc)
 
@@ -134,10 +136,10 @@ async def update_agent(
 async def delete_agent(
     agent_name: str,
     user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db_session),
 ) -> dict:
-    del user_id
     try:
-        return await DeerFlowClient().delete_agent(agent_name)
+        return await AgentOwnershipService(db).delete_agent(user_id, agent_name)
     except httpx.HTTPStatusError as exc:
         _normalize_agents_error(exc)
 
@@ -152,7 +154,10 @@ async def create_agent_conversation(
     db: Session = Depends(get_db_session),
 ) -> ConversationCreateResponse:
     try:
-        deerflow_thread_id = await DeerFlowClient().create_thread()
+        deerflow_thread_id = await AgentOwnershipService(db).create_agent_conversation(
+            user_id,
+            agent_name,
+        )
     except httpx.HTTPStatusError as exc:
         _normalize_agents_error(exc)
 

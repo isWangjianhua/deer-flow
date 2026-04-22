@@ -6,6 +6,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import {
+  BotIcon,
   MoreHorizontal,
   Pencil,
   Pin,
@@ -308,7 +309,9 @@ function BffRecentChatList({ pathname }: { pathname: string }) {
                           className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden whitespace-nowrap text-inherit"
                           href={href}
                         >
-                          {conversation.is_pinned ? (
+                          {conversation.agent_name ? (
+                            <BotIcon className="size-3 shrink-0 opacity-55" />
+                          ) : conversation.is_pinned ? (
                             <Pin className="size-3 shrink-0 opacity-55" />
                           ) : null}
                           <span className="truncate">{displayTitle}</span>

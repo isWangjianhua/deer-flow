@@ -2,20 +2,24 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-void test("workspace navigation hides the agents entry while agent chat is disabled", async () => {
+void test("workspace navigation exposes the reopened agents area", async () => {
+  const featureSource = await readFile(
+    new URL("../../../core/agents/feature.ts", import.meta.url),
+    "utf8",
+  );
   const source = await readFile(
     new URL("../workspace-nav-chat-list.tsx", import.meta.url),
     "utf8",
   );
 
-  assert.ok(source.includes("isAgentsUiEnabled"));
+  assert.ok(featureSource.includes("return true;"));
   assert.ok(
-    !source.includes('href="/workspace/agents"\n            <'),
-    "expected workspace navigation to stop exposing the disabled agents area by default",
+    source.includes('href="/workspace/agents"'),
+    "expected workspace navigation to expose the reopened agents area",
   );
 });
 
-void test("agent routes render the shared disabled state instead of the preserved implementations", async () => {
+void test("agent routes keep the shared feature flag guard but point at live implementations", async () => {
   const galleryPage = await readFile(
     new URL("../../../app/workspace/agents/page.tsx", import.meta.url),
     "utf8",
@@ -32,18 +36,7 @@ void test("agent routes render the shared disabled state instead of the preserve
     "utf8",
   );
 
-  for (const [name, source] of [
-    ["gallery", galleryPage],
-    ["new-agent", newAgentPage],
-    ["agent-chat", agentChatPage],
-  ] as const) {
-    assert.ok(
-      source.includes("AgentsDisabledState"),
-      `expected ${name} route to use the shared disabled-state component`,
-    );
-    assert.ok(
-      source.includes("isAgentsUiEnabled"),
-      `expected ${name} route to use the shared Agents feature flag`,
-    );
-  }
+  assert.ok(galleryPage.includes("AgentGallery"));
+  assert.ok(newAgentPage.includes("createAgentConversation"));
+  assert.ok(agentChatPage.includes("useBffThreadStream"));
 });

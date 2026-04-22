@@ -23,7 +23,7 @@ gateway route structure.
 - DeerFlow runtime internals
 - raw thread ids as a public contract
 - MCP or skills as first-class BFF APIs
-- Agent Chat, bootstrap conversation flow, or final agent ownership semantics
+- DeerFlow-side agent file internals or runtime execution semantics
 - browser redirect/callback OIDC UX
   - the frontend owns that experience
 
@@ -64,9 +64,8 @@ errors.
 In this phase:
 
 - browser code should stop calling `/api/agents*` directly
-- agent data semantics may still remain global
-- Agent Chat, bootstrap conversation flow, and user ownership remain later
-  roadmap phases
+- Phase A established the BFF route boundary; later phases below add
+  conversation bootstrap and user-scoped ownership semantics
 
 ## Agent Conversations (Phase B)
 
@@ -75,6 +74,13 @@ nullable `agent_name` on each conversation record. Shared conversation list,
 detail, and stream routes remain BFF-owned; when a stored conversation carries
 `agent_name`, the BFF injects it into DeerFlow runtime context during
 `/conversations/{conversation_id}/messages/stream`.
+
+## Agent Ownership (Phase C)
+
+The BFF now owns user-scoped agent visibility through its own ownership table.
+Browser-facing `/agents*` routes return only the current user's agents, and any
+conversation carrying `agent_name` must also pass agent-visibility checks before
+detail, delete, or stream access is allowed.
 
 ## Local Development
 

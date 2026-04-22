@@ -1,4 +1,5 @@
 from app.clients.deerflow import DeerFlowClient
+from app.models.agent_ownership import AgentOwnership
 from app.models.conversation import Conversation
 from app.models.user import User
 from app.services.conversation_service import ConversationService
@@ -99,6 +100,8 @@ def test_get_conversation_detail_returns_agent_name(client, db_session, monkeypa
     token = login.json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
     me = client.get("/me", headers=headers)
+    db_session.add(AgentOwnership(agent_name="demo-agent", owner_user_id=me.json()["id"]))
+    db_session.commit()
     conversation = ConversationService(db_session).create_conversation(
         user_id=me.json()["id"],
         deerflow_thread_id="thread-agent-456",
@@ -109,6 +112,28 @@ def test_get_conversation_detail_returns_agent_name(client, db_session, monkeypa
 
     assert detail.status_code == 200
     assert detail.json()["agent_name"] == "demo-agent"
+
+
+def test_get_conversation_detail_rejects_invisible_agent_conversation(client, db_session, monkeypatch) -> None:
+    async def mock_get_thread_history(self, thread_id: str, limit: int = 1) -> list[dict]:
+        return []
+
+    monkeypatch.setattr(DeerFlowClient, "get_thread_history", mock_get_thread_history)
+
+    login = client.post("/auth/login", json={"username": "demo", "password": "demo1234"})
+    token = login.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+    me = client.get("/me", headers=headers)
+    conversation = ConversationService(db_session).create_conversation(
+        user_id=me.json()["id"],
+        deerflow_thread_id="thread-agent-hidden",
+        agent_name="hidden-agent",
+    )
+
+    response = client.get(f"/conversations/{conversation.id}", headers=headers)
+
+    assert response.status_code == 404
+    assert response.json()["detail"]["code"] == "agent_not_found"
 
 
 def test_rename_conversation_updates_owned_title(client, db_session, monkeypatch) -> None:
@@ -226,6 +251,8 @@ def test_list_and_detail_include_non_null_agent_name(client, db_session, monkeyp
 
     user = db_session.query(User).filter(User.username == "demo").first()
     assert user is not None
+    db_session.add(AgentOwnership(agent_name="demo-agent", owner_user_id=user.id))
+    db_session.commit()
 
     conversation = Conversation(
         user_id=user.id,

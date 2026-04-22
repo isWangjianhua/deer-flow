@@ -4,6 +4,7 @@ import time
 import app.api.routes.conversations as conversations_routes
 from app.clients.deerflow import DeerFlowClient
 from app.core.config import Settings
+from app.models.agent_ownership import AgentOwnership
 
 
 def _patch_default_stream_settings(monkeypatch) -> None:
@@ -43,6 +44,27 @@ def test_stream_route_rejects_unowned_conversation(client) -> None:
     )
 
     assert response.status_code == 404
+
+
+def test_stream_route_rejects_invisible_agent_conversation(client, db_session) -> None:
+    login = client.post("/auth/login", json={"username": "demo", "password": "demo1234"})
+    token = login.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+    me = client.get("/me", headers=headers)
+    conversation = ConversationService(db_session).create_conversation(
+        user_id=me.json()["id"],
+        deerflow_thread_id="thread-agent-hidden",
+        agent_name="hidden-agent",
+    )
+
+    response = client.post(
+        f"/conversations/{conversation.id}/messages/stream",
+        json={"message": "hello"},
+        headers=headers,
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"]["code"] == "agent_not_found"
 
 
 def test_stream_route_returns_sse_for_owned_conversation(client, db_session, monkeypatch) -> None:
@@ -344,6 +366,8 @@ def test_stream_route_injects_stored_agent_name(client, db_session, monkeypatch)
     token = login.json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
     me = client.get("/me", headers=headers)
+    db_session.add(AgentOwnership(agent_name="demo-agent", owner_user_id=me.json()["id"]))
+    db_session.commit()
     conversation = ConversationService(db_session).create_conversation(
         user_id=me.json()["id"],
         deerflow_thread_id="thread-agent-owned",

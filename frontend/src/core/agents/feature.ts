@@ -1,3 +1,3 @@
 export function isAgentsUiEnabled() {
-  return false;
+  return true;
 }
