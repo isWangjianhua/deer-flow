@@ -38,6 +38,7 @@ function NewAgentPageEnabled() {
   const [nameError, setNameError] = useState("");
   const [isCheckingName, setIsCheckingName] = useState(false);
   const [isCreatingAgent, setIsCreatingAgent] = useState(false);
+  const [createdAgentName, setCreatedAgentName] = useState<string | null>(null);
 
   const handleConfirmName = useCallback(async () => {
     const trimmed = nameInput.trim();
@@ -49,9 +50,10 @@ function NewAgentPageEnabled() {
 
     setNameError("");
     setIsCheckingName(true);
+    const isRetryingSessionAgent = createdAgentName === trimmed;
     try {
       const result = await checkAgentName(trimmed);
-      if (!result.available) {
+      if (!result.available && !isRetryingSessionAgent) {
         setNameError(t.agents.nameStepAlreadyExistsError);
         return;
       }
@@ -71,11 +73,14 @@ function NewAgentPageEnabled() {
 
     setIsCreatingAgent(true);
     try {
-      await createAgent({
-        name: trimmed,
-        description: "",
-        soul: "",
-      });
+      if (!isRetryingSessionAgent) {
+        await createAgent({
+          name: trimmed,
+          description: "",
+          soul: "",
+        });
+        setCreatedAgentName(trimmed);
+      }
 
       const conversation = await createAgentConversation(trimmed);
       router.push(`/workspace/agents/${trimmed}/chats/${conversation.id}?bootstrap=1`);
@@ -92,6 +97,7 @@ function NewAgentPageEnabled() {
     }
   }, [
     nameInput,
+    createdAgentName,
     router,
     t.agents.nameStepAlreadyExistsError,
     t.agents.nameStepCheckError,
