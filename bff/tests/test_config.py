@@ -29,7 +29,6 @@ def test_auth_provider_settings_defaults() -> None:
     )
 
     assert settings.bff_auth_provider == "local"
-    assert settings.bff_auth_fallback_enabled is True
     assert settings.bff_oidc_issuer is None
     assert settings.bff_oidc_audience is None
     assert settings.bff_oidc_jwks_url is None
@@ -119,7 +118,6 @@ def test_settings_load_non_sensitive_values_from_root_config(tmp_path, monkeypat
           auth:
             access_token_expire_minutes: 1440
             provider: local
-            fallback_enabled: false
           deerflow:
             gateway_base_url: http://127.0.0.1:8100
             timeout_seconds: 120
@@ -138,7 +136,6 @@ def test_settings_load_non_sensitive_values_from_root_config(tmp_path, monkeypat
     assert settings.bff_port == 9100
     assert settings.bff_access_token_expire_minutes == 1440
     assert settings.bff_auth_provider == "local"
-    assert settings.bff_auth_fallback_enabled is False
     assert settings.deerflow_gateway_base_url == "http://127.0.0.1:8100"
     assert settings.deerflow_timeout_seconds == 120
 
@@ -151,8 +148,7 @@ def test_environment_variables_override_root_config_values(tmp_path, monkeypatch
         config_version: 6
         bff:
           auth:
-            provider: local
-            fallback_enabled: true        """,
+            provider: local        """,
     )
     monkeypatch.setenv("DEER_FLOW_CONFIG_PATH", str(config_path))
     monkeypatch.setenv("BFF_AUTH_PROVIDER", "oidc")

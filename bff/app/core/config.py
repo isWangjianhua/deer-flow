@@ -67,7 +67,6 @@ class RootBffConfigSettingsSource(PydanticBaseSettingsSource):
             "bff_port": bff_data.get("port"),
             "bff_access_token_expire_minutes": auth_data.get("access_token_expire_minutes"),
             "bff_auth_provider": auth_data.get("provider"),
-            "bff_auth_fallback_enabled": auth_data.get("fallback_enabled"),
             "bff_oidc_issuer": auth_data.get("oidc_issuer"),
             "bff_oidc_audience": auth_data.get("oidc_audience"),
             "bff_oidc_jwks_url": auth_data.get("oidc_jwks_url"),
@@ -99,7 +98,6 @@ class Settings(BaseSettings):
     bff_secret_key: str = Field(default="change-me")
     bff_access_token_expire_minutes: int = Field(default=10080)
     bff_auth_provider: str = Field(default="local")
-    bff_auth_fallback_enabled: bool = Field(default=True)
     bff_oidc_issuer: AnyHttpUrl | None = Field(default=None)
     bff_oidc_audience: str | None = Field(default=None)
     bff_oidc_jwks_url: AnyHttpUrl | None = Field(default=None)

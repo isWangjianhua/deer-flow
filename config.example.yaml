@@ -49,9 +49,6 @@ bff:
     # Active auth mode for the BFF (local or oidc).
     provider: local
 
-    # Whether local auth may be used as a fallback path.
-    fallback_enabled: true
-
     # OIDC configuration for bearer token validation. Leave blank for local mode.
     oidc_issuer:
     oidc_audience:
