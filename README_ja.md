@@ -59,6 +59,8 @@ DeerFlowは、BytePlusが独自に開発したインテリジェント検索・�
       - [MCPサーバー](#mcpサーバー)
       - [IMチャネル](#imチャネル)
       - [LangSmithトレーシング](#langsmithトレーシング)
+  - [現在のアーキテクチャ](#現在のアーキテクチャ)
+  - [ドキュメント案内](#ドキュメント案内)
   - [Deep Researchからスーパーエージェントハーネスへ](#deep-researchからスーパーエージェントハーネスへ)
   - [コア機能](#コア機能)
     - [スキルとツール](#スキルとツール)
@@ -361,6 +363,32 @@ LANGSMITH_PROJECT=xxx
 ```
 
 Dockerデプロイでは、トレーシングはデフォルトで無効です。`.env`で`LANGSMITH_TRACING=true`と`LANGSMITH_API_KEY`を設定して有効にします。
+
+## 現在のアーキテクチャ
+
+DeerFlow 2.0 は現在 3 つのサービスで動作しています。
+
+- `frontend/` - Next.js 製のプロダクト UI とドキュメントサイト
+- `bff/` - `conversation_id`、認証、プロダクト向け API 契約を担う FastAPI BFF
+- `backend/` - Gateway と再利用可能な Harness runtime。内部の実行時主キーは引き続き `thread_id`
+
+ローカルの canonical パス：
+
+```text
+Browser -> nginx :2026 -> frontend :3000 -> /api/bff/* -> BFF :9000 -> Gateway/Harness
+```
+
+主な起動モード：
+
+- `make dev` - standard mode。専用の LangGraph server を使用
+- `make dev-pro` - gateway mode。Gateway が互換ランタイム面を直接公開
+
+## ドキュメント案内
+
+- リポジトリ入口：`README.md`、`Install.md`
+- サービス入口：`backend/README.md`、`bff/README.md`、`frontend/README.md`
+- フロントエンドの docs-site 入口：`frontend/src/content/en/index.mdx`
+- 主要な architecture/API：`backend/docs/ARCHITECTURE.md`、`backend/docs/API.md`、`bff/docs/ARCHITECTURE.md`、`bff/docs/API.md`
 
 ## Deep Researchからスーパーエージェントハーネスへ
 

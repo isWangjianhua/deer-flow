@@ -95,38 +95,44 @@ Important detail:
 - BFF conversation detail sync uses thread history/state, not the public
   frontend identifier
 
-## Gateway Run Endpoints
+## Runs
 
 These routes are implemented by:
 
 - `backend/app/gateway/routers/thread_runs.py`
 - `backend/app/gateway/routers/runs.py`
-- `backend/app/gateway/routers/assistants_compat.py`
 
-### Thread-bound runs
+### Thread-based runs
 
 | Route | Purpose |
 | --- | --- |
 | `POST /api/threads/{thread_id}/runs` | create a background run |
-| `POST /api/threads/{thread_id}/runs/stream` | create a run and stream SSE |
-| `POST /api/threads/{thread_id}/runs/wait` | create a run and wait for final state |
+| `POST /api/threads/{thread_id}/runs/stream` | create a run and stream SSE events |
+| `POST /api/threads/{thread_id}/runs/wait` | create a run and return the final state |
 | `GET /api/threads/{thread_id}/runs` | list runs for a thread |
 | `GET /api/threads/{thread_id}/runs/{run_id}` | inspect one run |
 | `POST /api/threads/{thread_id}/runs/{run_id}/cancel` | cancel a run |
-| `GET /api/threads/{thread_id}/runs/{run_id}/join` | join an existing stream |
-| `GET|POST /api/threads/{thread_id}/runs/{run_id}/stream` | join or cancel-then-stream an existing run |
+| `GET /api/threads/{thread_id}/runs/{run_id}/join` | join an existing run stream |
+| `GET|POST /api/threads/{thread_id}/runs/{run_id}/stream` | join a run stream, or POST `action`+`wait` for cancel-then-join |
 
 ### Stateless runs
 
 | Route | Purpose |
 | --- | --- |
-| `POST /api/runs/stream` | stream a run without pre-creating a thread |
-| `POST /api/runs/wait` | run synchronously without pre-creating a thread |
+| `POST /api/runs/stream` | auto-resolve a thread and stream SSE events |
+| `POST /api/runs/wait` | auto-resolve a thread and return final state |
+
+These stateless runs provide a thread-optional entry path.
 
 If the request supplies `config.configurable.thread_id`, the stateless routes
-reuse it. Otherwise the gateway generates a temporary thread id.
+reuse it. Otherwise the gateway generates a new thread id.
 
-### Assistant compatibility
+Run-creation SSE endpoints (`POST /api/threads/{thread_id}/runs/stream` and
+`POST /api/runs/stream`) return `Content-Location` headers pointing at the
+canonical thread-based run resource. This lets LangGraph-compatible clients
+recover the created `run_id` from streaming creation calls.
+
+## Assistant compatibility
 
 | Route | Purpose |
 | --- | --- |
@@ -173,8 +179,10 @@ frames.
 
 Important behavior:
 
-- `Content-Location` points at the canonical run resource so SDK helpers can
-  recover `run_id`
+- run-creation SSE endpoints (`POST /api/threads/{thread_id}/runs/stream` and
+  `POST /api/runs/stream`) set `Content-Location` to the canonical run
+  resource so SDK helpers can recover `run_id`; existing-run join/stream
+  endpoints do not set this header
 - `X-Accel-Buffering: no` is set to avoid nginx buffering
 - `Last-Event-ID` replay is supported by the stream bridge
 - disconnect handling is controlled by `on_disconnect=cancel|continue`

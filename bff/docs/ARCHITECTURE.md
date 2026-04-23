@@ -124,9 +124,10 @@ What is true today:
 - the main chat route is BFF-backed
 - `/workspace/account` is BFF-backed
 - model discovery is BFF-backed
-- artifact, upload, and suggestion access for the main chat path is BFF-backed
-- MCP, skills, and agents still remain same-origin frontend bridges to gateway
-  APIs rather than BFF-owned APIs
-
-That means the architecture is BFF-first for the core user path, but not yet
-“everything browser-facing belongs to the BFF.”
+- readonly lead-agent memory is BFF-backed
+- browser-facing `/agents*` CRUD is BFF-backed
+- `POST /agents/{agent_name}/conversations` is BFF-backed
+- any conversation carrying `agent_name` must pass both conversation ownership
+  checks and agent-visibility checks anywhere that conversation is accessed
+  through ownership-checked conversation routes
+- MCP and skills still remain frontend bridge routes to Gateway-facing APIs

@@ -5,27 +5,21 @@ gateway/runtime. Its job is to expose stable, ownership-aware product APIs so
 the browser does not need to know about internal runtime thread identifiers or
 gateway route structure.
 
-## What It Owns
+## Current Product Boundary
 
-- authentication
-- current-user lookup
-- local self-registration
-- OIDC bearer-token validation for protected requests
-- browser-facing Agent CRUD management
+The BFF owns the browser-facing contract for:
+
+- auth and current-user resolution
 - `conversation_id -> deerflow_thread_id` mapping
-- ownership checks for conversation resources
-- model discovery for the product path
-- SSE proxying for the BFF-backed chat flow
-- authenticated DeerFlow Gateway calls through a single client boundary
+- conversation ownership checks
+- browser-facing chat streaming and resource proxying
+- read-only lead-agent memory reads
+- `/agents*` CRUD routes and user-scoped agent visibility
+- `POST /agents/{agent_name}/conversations` for BFF-owned agent chat bootstrap
 
-## What It Does Not Own
-
-- DeerFlow runtime internals
-- raw thread ids as a public contract
-- MCP or skills as first-class BFF APIs
-- DeerFlow-side agent file internals or runtime execution semantics
-- browser redirect/callback OIDC UX
-  - the frontend owns that experience
+The BFF does not own DeerFlow runtime internals, raw `thread_id` as a browser
+contract, or MCP/skills product APIs. It also does not own browser-side OIDC
+redirect/callback UX; the frontend owns that experience.
 
 ## Public Routes
 
@@ -35,7 +29,7 @@ gateway route structure.
 | `POST /auth/register` | local registration |
 | `GET /me` | current user |
 | `GET /models` | model list for the frontend |
-| `GET /memory` | readonly user-scoped Memory for the frontend |
+| `GET /memory` | read-only user-scoped Memory for the frontend |
 | `GET /agents` | list browser-facing agents through the BFF |
 | `GET /agents/check?name=...` | validate agent name availability |
 | `GET /agents/{agent_name}` | load agent detail |
@@ -131,7 +125,7 @@ Sensitive values stay in `bff/.env`, especially:
 `app/clients/deerflow.py` is the only place that should talk to DeerFlow
 Gateway directly from the BFF. When BFF code needs user-scoped Mem0 memory, it
 must call the client with `user_id=...`; the client is responsible for sending
-`X-User-Id` to Gateway. The readonly `GET /memory` route follows this rule and
+`X-User-Id` to Gateway. The read-only `GET /memory` route follows this rule and
 is now the browser-facing Memory contract. Keep that header logic centralized
 there instead of rebuilding it in routes or services.
 

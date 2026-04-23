@@ -61,6 +61,8 @@ DeerFlow интегрирован с инструментарием для ум�
       - [MCP-сервер](#mcp-сервер)
       - [Мессенджеры](#мессенджеры)
       - [Трассировка LangSmith](#трассировка-langsmith)
+  - [Текущая архитектура](#текущая-архитектура)
+  - [Навигация по документации](#навигация-по-документации)
   - [От Deep Research к Super Agent Harness](#от-deep-research-к-super-agent-harness)
   - [Core Features](#core-features)
     - [Skills & Tools](#skills--tools)
@@ -314,6 +316,32 @@ LANGSMITH_PROJECT=deer-flow
 `LANGSMITH_ENDPOINT` по умолчанию `https://api.smith.langchain.com` и может быть переопределён при необходимости. Устаревшие переменные `LANGCHAIN_*` (`LANGCHAIN_TRACING_V2`, `LANGCHAIN_API_KEY` и т.д.) также поддерживаются для обратной совместимости; `LANGSMITH_*` имеет приоритет, когда заданы обе.
 
 В Docker-развёртываниях трассировка отключена по умолчанию. Установите `LANGSMITH_TRACING=true` и `LANGSMITH_API_KEY` в `.env` для включения.
+
+## Текущая архитектура
+
+Сейчас DeerFlow 2.0 разворачивается как приложение из трех сервисов:
+
+- `frontend/` - продуктовый интерфейс на Next.js и сайт документации
+- `bff/` - FastAPI BFF, который владеет `conversation_id`, аутентификацией и браузерным API-контрактом
+- `backend/` - Gateway и переиспользуемый Harness runtime, где внутренним идентификатором выполнения по-прежнему остается `thread_id`
+
+Канонический локальный путь:
+
+```text
+Browser -> nginx :2026 -> frontend :3000 -> /api/bff/* -> BFF :9000 -> Gateway/Harness
+```
+
+Основные режимы запуска:
+
+- `make dev` - standard mode с отдельным LangGraph server
+- `make dev-pro` - gateway mode, где совместимую runtime-поверхность отдает сам Gateway
+
+## Навигация по документации
+
+- вход в репозиторий: `README.md`, `Install.md`
+- входы по сервисам: `backend/README.md`, `bff/README.md`, `frontend/README.md`
+- вход в docs-site фронтенда: `frontend/src/content/en/index.mdx`
+- ключевые architecture/API документы: `backend/docs/ARCHITECTURE.md`, `backend/docs/API.md`, `bff/docs/ARCHITECTURE.md`, `bff/docs/API.md`
 
 ## От Deep Research к Super Agent Harness
 

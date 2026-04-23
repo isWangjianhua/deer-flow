@@ -577,6 +577,27 @@ If a provider is explicitly enabled but missing required credentials, or if its 
 
 For Docker deployments, tracing is disabled by default. Set `LANGSMITH_TRACING=true` and `LANGSMITH_API_KEY` in your `.env` to enable it.
 
+## Current Architecture
+
+DeerFlow 2.0 currently centers on three core repo services, with `nginx` as the local browser entrypoint and a dedicated LangGraph server added in standard mode:
+
+- `frontend/` - the Next.js product UI and the docs site
+- `bff/` - the FastAPI backend-for-frontend that owns `conversation_id`, auth, and product-facing chat contracts
+- `backend/` - the FastAPI Gateway plus the reusable Harness runtime, which still reasons in `thread_id`
+
+Canonical local path:
+
+```text
+Browser -> nginx :2026 -> frontend :3000 -> /api/bff/* -> BFF :9000 -> Gateway/Harness
+```
+
+Some browser-visible `/api/*` routes are still proxied directly to Gateway today, so treat this as the primary path rather than a strict exhaustive contract.
+
+Two local launch modes matter today:
+
+- `make dev` - standard mode with the dedicated LangGraph server
+- `make dev-pro` - gateway mode where Gateway exposes the LangGraph-compatible runtime surface itself
+
 ## From Deep Research to Super Agent Harness
 
 DeerFlow started as a Deep Research framework — and the community ran with it. Since launch, developers have pushed it far beyond research: building data pipelines, generating slide decks, spinning up dashboards, automating content workflows. Things we never anticipated.
@@ -728,13 +749,17 @@ All dict-returning methods are validated against Gateway Pydantic response model
 
 ## Documentation
 
-- [Docs Site](frontend/src/content/en/index.mdx) - Nextra-backed product and runtime documentation, served locally at `/en/docs`
-- [Contributing Guide](CONTRIBUTING.md) - Development environment setup and workflow
-- [Fork Sync Workflow](docs/FORK_SYNC_WORKFLOW.md) - Long-lived fork branch model and upstream sync process
-- [Backend Architecture](backend/docs/ARCHITECTURE.md) - Harness/app split, runtime topology, and lead-agent flow
-- [Backend API](backend/docs/API.md) - Gateway REST routes and runtime compatibility surfaces
-- [Backend Configuration](backend/docs/CONFIGURATION.md) - `config.yaml` and `extensions_config.json`
-- [BFF Architecture](bff/docs/ARCHITECTURE.md) - Product-facing auth and conversation boundary
+Use the documentation in this order if you are orienting yourself in the current repository:
+
+- [Docs site overview](frontend/src/content/en/index.mdx)
+- [Backend service entry](backend/README.md)
+- [BFF service entry](bff/README.md)
+- [Frontend service entry](frontend/README.md)
+- [Backend architecture](backend/docs/ARCHITECTURE.md) and [Backend API](backend/docs/API.md)
+- [BFF architecture](bff/docs/ARCHITECTURE.md) and [BFF API](bff/docs/API.md)
+- Maintainer docs: [Fork sync workflow](docs/FORK_SYNC_WORKFLOW.md) and [Backend configuration](backend/docs/CONFIGURATION.md)
+
+The frontend docs site is the main product/harness guide, while the service READMEs and `docs/*` files remain the maintainer-facing source of truth for the code in this fork.
 
 ## ⚠️ Security Notice
 

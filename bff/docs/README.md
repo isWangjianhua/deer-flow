@@ -12,20 +12,24 @@ keep product-facing contracts stable while the runtime continues to evolve.
 4. `DEVELOPMENT.md`
 5. `ROADMAP.md`
 
+Treat `README.md`, `ARCHITECTURE.md`, and `API.md` as the
+current-source-of-truth trio for the BFF boundary. The roadmap remains useful
+historical context, but it should not outrank the implemented route/docs pair.
+
 ## What The BFF Owns
 
-- authentication and current-user lookup
-- local-user bootstrap and local self-registration
-- OIDC bearer-token validation for protected requests
+- auth and current-user resolution
 - `conversation_id -> deerflow_thread_id` mapping
 - ownership checks for conversation-scoped resources
-- SSE proxying and normalization for the BFF-backed chat path
-- model discovery for the frontend product path
+- browser-facing chat streaming and resource proxying
+- read-only lead-agent memory reads
+- `/agents*` CRUD routes and user-scoped agent visibility
+- `POST /agents/{agent_name}/conversations` bootstrap for agent chat
 
 ## What It Does Not Own
 
 - DeerFlow runtime internals
-- raw thread lifecycle as a public frontend contract
-- MCP, skills, and agents as first-class BFF APIs
+- raw `thread_id` as a public frontend contract
+- MCP and skills as first-class BFF APIs
 - browser-side OIDC redirect and callback UX
   - the frontend owns that experience

@@ -125,10 +125,18 @@ For local development without OIDC, use the BFF local auth provider instead:
   requests; the frontend no longer stores the raw BFF bearer token in
   `localStorage`
 
+## Documentation Shape
+
+Frontend documentation currently lives in two layers:
+
+- `frontend/README.md` for service onboarding and local-development boundaries
+- docs-site content in `frontend/src/content/en/*` (main content) and `frontend/src/content/zh/*` (a much smaller Chinese subset)
+
+If you are updating the user-facing docs narrative, change the docs-site pages. If you are onboarding a maintainer to the frontend service itself, start here.
+
 ### Current Runtime Boundary
 
-The frontend now has a clearer same-origin split between the BFF-backed chat/account flow and a
-smaller set of remaining Gateway-backed workspace surfaces.
+The current product path is BFF-first for main chat, account, memory, and browser-facing agent flows. In that browser-visible path, `conversation_id` is the main chat identifier, while `thread_id` remains a Gateway/Harness runtime identifier behind the BFF boundary.
 
 Current same-origin browser behavior:
 

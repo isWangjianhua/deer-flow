@@ -48,6 +48,8 @@ https://github.com/user-attachments/assets/a8bcadc4-e040-4cf2-8fda-dd768b999c18
       - [MCP Server](#mcp-server)
       - [IM 渠道](#im-渠道)
       - [LangSmith 链路追踪](#langsmith-链路追踪)
+  - [当前架构](#当前架构)
+  - [文档导航](#文档导航)
   - [从 Deep Research 到 Super Agent Harness](#从-deep-research-到-super-agent-harness)
   - [核心特性](#核心特性)
     - [Skills 与 Tools](#skills-与-tools)
@@ -387,6 +389,32 @@ LANGSMITH_PROJECT=xxx
 ```
 
 Docker 部署时，追踪默认关闭。在 `.env` 中设置 `LANGSMITH_TRACING=true` 和 `LANGSMITH_API_KEY` 即可启用。
+
+## 当前架构
+
+DeerFlow 2.0 当前主要由 3 个服务组成：
+
+- `frontend/`：Next.js 产品前端和文档站
+- `bff/`：面向浏览器的 FastAPI BFF，负责 `conversation_id`、认证和产品 API 合约
+- `backend/`：Gateway 与可复用 Harness runtime，内部仍以 `thread_id` 为运行时主标识
+
+本地 canonical 路径：
+
+```text
+Browser -> nginx :2026 -> frontend :3000 -> /api/bff/* -> BFF :9000 -> Gateway/Harness
+```
+
+推荐启动方式：
+
+- `make dev`：standard mode，保留独立 LangGraph server
+- `make dev-pro`：gateway mode，由 Gateway 暴露兼容运行面
+
+## 文档导航
+
+- 仓库入口：`README.md`、`Install.md`
+- 服务入口：`backend/README.md`、`bff/README.md`、`frontend/README.md`
+- 前端文档站入口：`frontend/src/content/en/index.mdx`
+- 核心架构/API：`backend/docs/ARCHITECTURE.md`、`backend/docs/API.md`、`bff/docs/ARCHITECTURE.md`、`bff/docs/API.md`
 
 ## 从 Deep Research 到 Super Agent Harness
 

@@ -25,28 +25,22 @@ docs/
 ### Frontend
 
 - `frontend/src/app/api/bff/`
-  - same-origin BFF bridge
+  - same-origin BFF bridge for browser-visible BFF routes
 - `frontend/src/core/bff-chat/`
-  - BFF chat protocol and state
-- `frontend/src/core/auth/`
-  - browser auth/session behavior
+  - BFF conversation state, stream events, and `conversation_id`-oriented chat flows
+- `frontend/src/core/threads/`
+  - remaining thread-oriented compatibility helpers for older Gateway-facing paths
 
 ### BFF
 
 - `bff/app/api/routes/`
-  - public BFF routes
+  - product-facing auth, agent, conversation, memory, and resource routes
 - `bff/app/services/`
-  - ownership and business rules
-- `bff/app/clients/deerflow.py`
-  - gateway integration
+  - ownership checks, conversation mapping, and downstream DeerFlow orchestration
 
 ### Backend
 
-- `backend/app/gateway/`
-  - gateway and compatibility routes
-- `backend/packages/harness/deerflow/agents/`
-  - lead agent and middleware
+- `backend/app/gateway/routers/`
+  - Gateway REST routes, including thread-based runs and stateless runs
 - `backend/packages/harness/deerflow/runtime/`
-  - embedded runtime execution and stream bridge
-- `backend/packages/harness/deerflow/sandbox/`
-  - sandbox providers and tools
+  - reusable runtime execution and stream plumbing

@@ -59,6 +59,8 @@ DeerFlow intègre désormais le toolkit de recherche et de crawling intelligent 
       - [Serveur MCP](#serveur-mcp)
       - [Canaux de messagerie](#canaux-de-messagerie)
       - [Traçage LangSmith](#traçage-langsmith)
+  - [Architecture actuelle](#architecture-actuelle)
+  - [Parcours documentation](#parcours-documentation)
   - [Du Deep Research au Super Agent Harness](#du-deep-research-au-super-agent-harness)
   - [Fonctionnalités principales](#fonctionnalités-principales)
     - [Skills et outils](#skills-et-outils)
@@ -408,6 +410,32 @@ LANGSMITH_PROJECT=xxx
 ```
 
 Pour les déploiements Docker, le traçage est désactivé par défaut. Définissez `LANGSMITH_TRACING=true` et `LANGSMITH_API_KEY` dans votre `.env` pour l'activer.
+
+## Architecture actuelle
+
+DeerFlow 2.0 fonctionne aujourd'hui comme une application à trois services :
+
+- `frontend/` - l'interface produit Next.js et le site de documentation
+- `bff/` - le BFF FastAPI qui possède `conversation_id`, l'authentification et les contrats API orientés produit
+- `backend/` - le Gateway FastAPI et le runtime Harness réutilisable, qui raisonne encore en `thread_id`
+
+Chemin local canonique :
+
+```text
+Browser -> nginx :2026 -> frontend :3000 -> /api/bff/* -> BFF :9000 -> Gateway/Harness
+```
+
+Modes de lancement utiles :
+
+- `make dev` - standard mode avec un serveur LangGraph dédié
+- `make dev-pro` - gateway mode où le Gateway expose directement la surface runtime compatible
+
+## Parcours documentation
+
+- entrée dépôt : `README.md`, `Install.md`
+- entrées service : `backend/README.md`, `bff/README.md`, `frontend/README.md`
+- entrée docs-site frontend : `frontend/src/content/en/index.mdx`
+- architecture/API principales : `backend/docs/ARCHITECTURE.md`, `backend/docs/API.md`, `bff/docs/ARCHITECTURE.md`, `bff/docs/API.md`
 
 ## Du Deep Research au Super Agent Harness
 

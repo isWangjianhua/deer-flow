@@ -22,13 +22,11 @@ environment.
 
 ## Current Product Boundary
 
-Today the main user path looks like this:
+Today the application path is BFF-first for the main chat, account, memory, and browser-facing agent flows. The browser should think in `conversation_id`, while the Gateway and Harness runtime still reason in `thread_id` behind the BFF boundary.
 
 - browser requests stay same-origin through the frontend
 - the frontend routes `/api/bff/*` to the FastAPI BFF
 - the BFF owns auth and `conversation_id`
 - the DeerFlow gateway and runtime stay behind that boundary
 
-That means the app is already BFF-first for the main chat and account flows,
-even though some older browser-visible APIs still remain frontend bridge routes
-to gateway-owned surfaces.
+Some older browser-visible APIs still remain frontend bridge routes to gateway-owned surfaces.

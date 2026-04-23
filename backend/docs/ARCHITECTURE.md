@@ -178,6 +178,32 @@ It owns:
 
 The gateway is also the runtime host in gateway mode.
 
+## Gateway Run Surfaces
+
+Gateway currently exposes two compatible run surfaces.
+This is the primary run-entry summary; see `API.md` for full run lifecycle
+routes (including cancel, join, and existing-run stream).
+
+### Thread-based runs
+
+- `POST /api/threads/{thread_id}/runs`
+- `POST /api/threads/{thread_id}/runs/stream`
+- `POST /api/threads/{thread_id}/runs/wait`
+- `GET /api/threads/{thread_id}/runs`
+- `GET /api/threads/{thread_id}/runs/{run_id}`
+
+### Stateless runs
+
+- `POST /api/runs/stream`
+- `POST /api/runs/wait`
+
+These stateless runs are client-facing convenience entry points.
+
+The stateless routes are "stateless" only from the browser/client point of
+view. Internally they still resolve a `thread_id`: they reuse
+`config.configurable.thread_id` when present, or generate a new thread
+automatically when it is absent.
+
 ## LangGraph-Compatible Surfaces
 
 The project now exposes two compatible runtime surfaces:

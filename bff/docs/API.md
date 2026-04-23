@@ -16,55 +16,41 @@ Not allowed in public APIs:
 - `deerflow_thread_id`
 - raw gateway route fragments
 
-## Implemented Routes
+## Public Routes
 
-### Auth
-
-| Route | Purpose |
-| --- | --- |
-| `POST /auth/login` | local username/password login |
-| `POST /auth/register` | local username/password self-registration |
-| `GET /me` | current authenticated user |
-
-Notes:
-
-- `POST /auth/login` is only the active login path in `local` mode
-- in `oidc` mode, protected requests accept bearer `id_token` credentials and
-  `/me` still returns the mapped local BFF user record
-
-### Conversations
+Most routes require authentication; `POST /auth/login` and
+`POST /auth/register` are the main unauthenticated exceptions.
 
 | Route | Purpose |
 | --- | --- |
-| `POST /conversations` | create a conversation and downstream thread mapping |
-| `GET /conversations` | list conversations for the current user |
-| `GET /conversations/{conversation_id}` | fetch conversation detail plus runtime-derived values |
-| `PATCH /conversations/{conversation_id}` | rename, pin, or unpin a conversation after ownership validation |
-| `DELETE /conversations/{conversation_id}` | hard-delete a conversation and its mapped DeerFlow thread |
-| `POST /conversations/{conversation_id}/messages/stream` | stream assistant output over SSE |
-
-Current conversation detail values include:
-
-- `title`
-- `messages`
-- `artifacts`
-- `todos`
-
-### Conversation resources
-
-| Route | Purpose |
-| --- | --- |
+| `POST /auth/login` | local login |
+| `POST /auth/register` | local registration |
+| `GET /me` | current user |
+| `GET /models` | model list for the frontend |
+| `GET /memory` | readonly lead-agent memory for the current user |
+| `GET /agents` | list browser-facing agents visible to the current user |
+| `GET /agents/check?name=...` | validate agent-name availability |
+| `GET /agents/{agent_name}` | load one visible agent |
+| `POST /agents` | create an agent through the BFF |
+| `PUT /agents/{agent_name}` | update a visible agent |
+| `DELETE /agents/{agent_name}` | delete a visible agent |
+| `POST /agents/{agent_name}/conversations` | create a BFF conversation scoped to that agent |
+| `POST /conversations` | create a main-chat conversation |
+| `GET /conversations` | list visible conversations |
+| `GET /conversations/{conversation_id}` | load conversation detail |
+| `PATCH /conversations/{conversation_id}` | rename, pin, or unpin a conversation |
+| `DELETE /conversations/{conversation_id}` | delete a conversation and its mapped DeerFlow thread |
+| `POST /conversations/{conversation_id}/messages/stream` | stream chat events for an owned conversation |
 | `POST /conversations/{conversation_id}/suggestions` | generate follow-up suggestions |
-| `GET /conversations/{conversation_id}/artifacts/{path}` | download or preview artifacts |
-| `POST /conversations/{conversation_id}/uploads` | upload files into the mapped runtime thread |
-| `GET /conversations/{conversation_id}/uploads` | list uploaded files |
-| `DELETE /conversations/{conversation_id}/uploads/{filename}` | delete one uploaded file |
+| `GET /conversations/{conversation_id}/artifacts/{path}` | download or preview an artifact |
+| `POST /conversations/{conversation_id}/uploads` | upload a file |
+| `GET /conversations/{conversation_id}/uploads` | list uploads |
+| `DELETE /conversations/{conversation_id}/uploads/{filename}` | delete an uploaded file |
 
-### Models
-
-| Route | Purpose |
-| --- | --- |
-| `GET /models` | list models visible to the product path |
+When a stored conversation carries `agent_name`, the BFF injects that value
+into DeerFlow runtime context during streaming and also enforces that the
+current user still has visibility to that agent across ownership-checked
+conversation routes.
 
 ## Request / Response Rules
 
@@ -74,7 +60,10 @@ Response fields:
 
 - `id`
 - `title`
+- `agent_name`
 - `status`
+- `is_pinned`
+- `pinned_at`
 - `created_at`
 
 ### Message streaming

@@ -7,6 +7,14 @@ description: Understand DeerFlow, build with the Harness, and deploy the App.
 
 DeerFlow is a framework for building and operating agent systems. It gives you a runtime harness for composing agents with memory, tools, skills, sandboxes, and subagents, and it also provides an application layer that turns those capabilities into a usable product experience.
 
+DeerFlow in this repository is best understood as three collaborating layers:
+
+- the `frontend/` Next.js application
+- the `bff/` FastAPI product boundary
+- the `backend/` Gateway plus Harness runtime
+
+The docs site explains the Harness and App concepts, while the service READMEs explain how those concepts map onto the code in this fork.
+
 This documentation is organized around those two parts:
 
 - **DeerFlow Harness**: the core SDK and runtime layer for building your own agent system.

@@ -12,14 +12,20 @@ layers:
 
 ## Start Here
 
-Read these files first if you are orienting yourself in the current backend:
+Use these files as the current source of truth:
 
-| Document | Purpose |
-| --- | --- |
-| `ARCHITECTURE.md` | Current runtime topology, harness/app split, lead-agent flow, thread model, and service boundaries |
-| `API.md` | Gateway REST APIs plus the LangGraph-compatible thread and run surfaces exposed by the gateway |
-| `CONFIGURATION.md` | `config.yaml`, `extensions_config.json`, and the most important runtime switches |
-| `SETUP.md` | Local and Docker setup paths, standard vs gateway mode, and verification commands |
+1. `../README.md`
+2. `ARCHITECTURE.md`
+3. `API.md`
+4. `CONFIGURATION.md`
+5. `SETUP.md`
+
+`API.md` covers both thread-based runs and stateless runs, including
+`/api/runs/stream` and `/api/runs/wait`.
+
+Historical RFCs and implementation notes in this directory are still useful
+context, but they should not override the five entry documents above when the
+repository code has moved on.
 
 ## Feature-Focused Docs
 
@@ -39,5 +45,5 @@ These documents stay useful when you need a subsystem-specific deep dive:
 
 Several files in this directory are RFCs, reviews, or one-off implementation
 records. They are still worth keeping, but they should not be treated as the
-primary source of truth for the current architecture. Prefer the four entry
+primary source of truth for the current architecture. Prefer the five entry
 documents above when updating code or onboarding a teammate.

@@ -8,6 +8,27 @@ agent/harness package, the FastAPI gateway, LangGraph-compatible HTTP routes,
 IM-channel integrations, and the filesystem/sandbox/memory subsystems that let
 the agent do real work.
 
+## What This Layer Owns
+
+- the reusable Harness runtime in `backend/packages/harness/deerflow/`
+- the FastAPI Gateway in `backend/app/gateway/`
+- IM channel integrations in `backend/app/channels/`
+- LangGraph-compatible runtime routes for threads and runs
+
+## Current Runtime Surfaces
+
+Gateway currently exposes two compatible run surfaces:
+
+- thread-based runs: `/api/threads/{thread_id}/runs*`
+- stateless runs: `/api/runs/{stream,wait}` (`/api/runs/stream` and `/api/runs/wait`)
+
+In nginx gateway mode, the compatible runtime path is commonly exposed at
+`/api/langgraph-compat/*`, which forwards into these same gateway surfaces.
+
+The stateless routes still resolve a `thread_id` internally. They reuse
+`config.configurable.thread_id` when present, or generate a fresh thread
+automatically otherwise.
+
 ## What Lives Here
 
 There are two layers inside `backend/`:
